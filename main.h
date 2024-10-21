@@ -32,6 +32,8 @@ int 	popcnt(BitBrd bbrd);
 
 #define PIECE_MAX 6
 
+#define PIECE_NONE -1
+
 // =============================
 //        Move definitions
 // =============================
@@ -42,28 +44,31 @@ typedef uint32_t Move;
 // | Flags | PromPiece | CaptPiece | MovPiece | DstSqr | SrcSqr |
 // | 11bit |   3bit    |   3bit    |   3bit   |  6bit  |  6bit  |
 
-#define MOVE_SRC_SQR_MASK 		0b00000000000000000000000000111111
-#define MOVE_DST_SQR_MASK 		0b00000000000000000000111111000000
-#define MOVE_MOV_PIECE_MASK 	0b00000000000000000111000000000000
-#define MOVE_CAPT_PIECE_MASK 	0b00000000000000111000000000000000
-#define MOVE_PROM_PIECE_MASK 	0b00000000000111000000000000000000
-#define MOVE_F_ISPROM			0b00000000001000000000000000000000
-#define MOVE_F_ISCAPT			0b00000000010000000000000000000000
-#define MOVE_F_ISEP				0b00000000100000000000000000000000
-#define MOVE_F_ISCASTLEQ		0b00000001000000000000000000000000
-#define MOVE_F_ISCASTLEK		0b00000010000000000000000000000000
+#define MOVE_SRC_SQR_MASK 		0b00000000000000000000000000111111U
+#define MOVE_DST_SQR_MASK 		0b00000000000000000000111111000000U
+#define MOVE_MOV_PIECE_MASK 	0b00000000000000000111000000000000U
+#define MOVE_CAPT_PIECE_MASK 	0b00000000000000111000000000000000U
+#define MOVE_PROM_PIECE_MASK 	0b00000000000111000000000000000000U
+#define MOVE_F_ISPROM			0b00000000001000000000000000000000U
+#define MOVE_F_ISCAPT			0b00000000010000000000000000000000U
+#define MOVE_F_ISEP				0b00000000100000000000000000000000U
+#define MOVE_F_ISCASTLEQ		0b00000001000000000000000000000000U
+#define MOVE_F_ISCASTLEK		0b00000010000000000000000000000000U
+#define MOVE_F_ISDOUBLEPUSH		0b00000100000000000000000000000000U
 
-#define GET_SRC_SQR(m) 		((m) & MOVE_SRC_SQR_MASK)
-#define GET_DST_SQR(m) 		(((m) & MOVE_SRC_SQR_MASK)>>6)
-#define GET_MOV_PIECE(m) 	(((m) & MOVE_PIECE_MASK)>>12)
-#define GET_CAPT_PIECE(m) 	(((m) & MOVE_CAPT_PIECE_MASK)>>15)
-#define GET_PROM_PIECE(m) 	(((m) & MOVE_PROM_PIECE_MASK)>>18)
+#define NULLMOVE 0
 
-#define SRC_SQR(s) 		(s)
-#define DST_SQR(s) 		((s)<<6)
-#define MOV_PIECE(p) 	((p)<<12)
-#define CAPT_PIECE(p) 	((p)<<15)
-#define PROM_PIECE(p) 	((p)<<18)
+#define GET_SRC_SQR(m) 		((int)((m) & MOVE_SRC_SQR_MASK))
+#define GET_DST_SQR(m) 		(((int)((m) & MOVE_DST_SQR_MASK)>>6))
+#define GET_MOV_PIECE(m) 	(((int)((m) & MOVE_MOV_PIECE_MASK)>>12))
+#define GET_CAPT_PIECE(m) 	(((int)((m) & MOVE_CAPT_PIECE_MASK)>>15))
+#define GET_PROM_PIECE(m) 	(((int)((m) & MOVE_PROM_PIECE_MASK)>>18))
+
+#define SRC_SQR(s) 		((Move)s)
+#define DST_SQR(s) 		(((Move)(s))<<6)
+#define MOV_PIECE(p) 	(((Move)(p))<<12)
+#define CAPT_PIECE(p) 	(((Move)(p))<<15)
+#define PROM_PIECE(p) 	(((Move)(p))<<18)
 
 #define IS_PROM(m) 		((m) & MOVE_F_ISPROM)
 #define IS_CAPT(m) 		((m) & MOVE_F_ISCAPT)
@@ -80,49 +85,87 @@ typedef uint32_t Move;
 
 typedef struct
 {
-	Move ply[MAX_PLY_PER_GAME];
-	int  plycnt;
+	Move move[MAX_PLY_PER_GAME];
+	int  cnt;
 } MoveList;
+
+void pushmove(MoveList* movelist, Move move);
+void pushprommove(MoveList* movelist, Move move);
 
 // =============================
 //        Game definitions
 // =============================
 
-#define WHITE 0
-#define BLACK 1
+#define WHITE 	0
+#define BLACK 	1
+#define ANY		2
 
 #define GAME_F_CANCASTLE_WK 1
 #define GAME_F_CANCASTLE_WQ 2
 #define GAME_F_CANCASTLE_BK 4
 #define GAME_F_CANCASTLE_BQ 8
-#define GAME_F_EPPOSSIBLE	16
 
 #define GAME_F_DEFAULT (GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ | GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ)
+
+#define CANCASTLE_WK(s) ((s)->flags & GAME_F_CANCASTLE_WK)
+#define CANCASTLE_WQ(s) ((s)->flags & GAME_F_CANCASTLE_WQ)
+#define CANCASTLE_BK(s) ((s)->flags & GAME_F_CANCASTLE_BK)
+#define CANCASTLE_BQ(s) ((s)->flags & GAME_F_CANCASTLE_BQ)
+
+#define GET_CURR_STATE(g) ((g)->brdstate + (g)->movelist.cnt)
 
 typedef struct
 {
 	int halfmove;
 	int fullmove;
 	uint8_t flags;
-	BitBrd epbrd;
-} BoardState;
+	BitBrd epbbrd;
+} GameState;
 
 typedef struct
 {
 	int who2move;
 
 	BitBrd pieces[2][PIECE_MAX];
-	BitBrd playerpieces[2];
-	BitBrd allpieces;
+	BitBrd piecesof[3];
 
 	MoveList movelist;
-	BoardState brdstate[MAX_PLY_PER_GAME];
+	GameState brdstate[MAX_PLY_PER_GAME];
 } Game;
 
+int getpieceat(const Game* game, int color, BitBrd bbrd);
 void update_bbrds(Game* game);
 void reset_game(Game* game);
 void parse_fen(Game* game, char* fen);
 void makemove(Game* game, Move move);
 void undomove(Game* game);
 
-#endif
+// =============================
+//   Move generator definitions
+// =============================
+
+void genmoves(const Game* game, int player, MoveList* movelist);
+
+// =============================
+//        Bitboard bits
+// =============================
+
+#define RANK_1 0xffULL
+#define RANK_2 0xff00ULL
+#define RANK_3 0xff0000ULL
+#define RANK_4 0xff000000ULL
+#define RANK_5 0xff00000000ULL
+#define RANK_6 0xff0000000000ULL
+#define RANK_7 0xff000000000000ULL
+#define RANK_8 0xff00000000000000ULL
+
+#define FILE_A 0x101010101010101ULL
+#define FILE_H 0x8080808080808080ULL
+
+// =============================
+//            Debug
+// =============================
+
+void fatalerr(const char* format, ...);
+
+#endif //ifdef MAIN_H

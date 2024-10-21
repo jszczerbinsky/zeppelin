@@ -6,16 +6,6 @@
 
 #define TOK_DELIMS " \n"
 
-#ifdef DEBUGON
-
-static inline void dbgerr(const char* err)
-{
-	printf("%s\n", err);
-	fflush(stdout);
-}
-
-#endif
-
 static inline int equals(const char* s1, const char* s2)
 {
 	return strcmp(s1, s2) == 0;
@@ -24,54 +14,38 @@ static inline int equals(const char* s1, const char* s2)
 static inline char* nexttok() { return strtok(NULL, TOK_DELIMS); }
 static inline char* nexttok_untilend() { return strtok(NULL, "\0"); }
 
-static Move parsemove(const char* str)
+static void respond2uci()
 {
-	int srcsqr = (str[0] - 'a') * 8 + (str[1] - '1');
-	int dstsqr = (str[2] - 'a') * 8 + (str[3] - '1');
-
-	// todo: detect piece, capture, ep, castle
-
-	Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr);
-
-	switch (str[4])
-	{
-		case 'q':
-			move |= PROM_PIECE(QUEEN) | MOVE_F_ISPROM;
-			break;
-		case 'b':
-			move |= PROM_PIECE(BISHOP) | MOVE_F_ISPROM;
-			break;
-		case 'r':
-			move |= PROM_PIECE(ROOK) | MOVE_F_ISPROM;
-			break;
-		case 'n':
-			move |= PROM_PIECE(KNIGHT) | MOVE_F_ISPROM;
-			break;
-		default:
-			break;
-	}
-
-	return move;
+	printf("id name testengine\n");
+	printf("id author Jakub Szczerbinski\n");
+	printf("uciok\n");
+	fflush(stdout);
 }
 
-static void printmove(char* buff, Move move)
+static void printmove(const Game* game, char* buff, Move move)
 {
 	if (IS_CASTLEK(move))
 	{
-		// todo: detect side to move
+		if (game->who2move == WHITE)
+			strcpy(buff, "e1g1");
+		else
+			strcpy(buff, "e8g8");
 	}
 	else if (IS_CASTLEQ(move))
 	{
-		// todo: detect side to move
+		if (game->who2move == WHITE)
+			strcpy(buff, "e1c1");
+		else
+			strcpy(buff, "e8c8");
 	}
 
 	int srcsqr = GET_SRC_SQR(move);
 	int dstsqr = GET_DST_SQR(move);
 
-	buff[0] = (srcsqr / 8) + 'a';
-	buff[1] = (srcsqr % 8) + '1';
-	buff[2] = (dstsqr / 8) + 'a';
-	buff[3] = (dstsqr % 8) + '1';
+	buff[0] = (srcsqr % 8) + 'a';
+	buff[1] = (srcsqr / 8) + '1';
+	buff[2] = (dstsqr % 8) + 'a';
+	buff[3] = (dstsqr / 8) + '1';
 
 	if (IS_PROM(move))
 	{
@@ -98,15 +72,62 @@ static void printmove(char* buff, Move move)
 		buff[4] = '\0';
 }
 
-static void respond2uci()
+static Move parsemove(const Game* game, const char* str)
 {
-	printf("id name testengine\n");
-	printf("id author Jakub Szczerbinski\n");
-	printf("uciok\n");
-#ifdef DEBUGON
-	printf("debug on\n");
-#endif
-	fflush(stdout);
+	int srcsqr = (str[0] - 'a') + (str[1] - '1') * 8;
+	int dstsqr = (str[2] - 'a') + (str[3] - '1') * 8;
+
+	BitBrd srcbbrd = sqr2bbrd(srcsqr);
+	BitBrd dstbbrd = sqr2bbrd(dstsqr);
+
+	const int	     enemy     = !game->who2move;
+	const GameState* gamestate = GET_CURR_STATE(game);
+	const int	     movpiece  = getpieceat(game, game->who2move, srcbbrd);
+
+	if (movpiece == KING)
+	{
+		if (dstsqr == 2 && game->who2move == WHITE && CANCASTLE_WQ(gamestate))
+			return SRC_SQR(4) | DST_SQR(2) | MOVE_F_ISCASTLEQ;
+		if (dstsqr == 6 && game->who2move == WHITE && CANCASTLE_WK(gamestate))
+			return SRC_SQR(4) | DST_SQR(6) | MOVE_F_ISCASTLEK;
+		if (dstsqr == 58 && game->who2move == WHITE && CANCASTLE_BQ(gamestate))
+			return SRC_SQR(60) | DST_SQR(58) | MOVE_F_ISCASTLEQ;
+		if (dstsqr == 62 && game->who2move == WHITE && CANCASTLE_BK(gamestate))
+			return SRC_SQR(60) | DST_SQR(62) | MOVE_F_ISCASTLEK;
+	}
+
+	Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(movpiece);
+	printf("%u\n", move);
+
+	if (game->piecesof[enemy] & dstbbrd)
+	{
+		int piece = getpieceat(game, enemy, dstbbrd);
+		move |= MOVE_F_ISCAPT | CAPT_PIECE(piece);
+	}
+	else if (movpiece == PAWN && gamestate->epbbrd & dstbbrd)
+	{
+		move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
+	}
+
+	switch (str[4])
+	{
+		case 'q':
+			move |= PROM_PIECE(QUEEN) | MOVE_F_ISPROM;
+			break;
+		case 'b':
+			move |= PROM_PIECE(BISHOP) | MOVE_F_ISPROM;
+			break;
+		case 'r':
+			move |= PROM_PIECE(ROOK) | MOVE_F_ISPROM;
+			break;
+		case 'n':
+			move |= PROM_PIECE(KNIGHT) | MOVE_F_ISPROM;
+			break;
+		default:
+			break;
+	}
+
+	return move;
 }
 
 static void respond2ucinewgame(Game* game) {}
@@ -122,6 +143,17 @@ static void respond2position(Game* game, char* token)
 	}
 	else
 		printf("%s\n", token);
+
+	MoveList movelist;
+	genmoves(game, game->who2move, &movelist);
+
+	printf("Moves count: %d\n", movelist.cnt);
+	for (int i = 0; i < movelist.cnt; i++)
+	{
+		char buff[6];
+		printmove(game, buff, movelist.move[i]);
+		printf("%s\n", buff);
+	}
 }
 
 static int next_cmd(Game* game, char* buff)
