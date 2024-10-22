@@ -5,12 +5,7 @@
 
 #define FEN_TOK_DELIMS " /\n"
 
-static inline char* fen_nexttok()
-{
-	char* token = strtok(NULL, FEN_TOK_DELIMS);
-	if (!token) fatalerr("Incomplete FEN");
-	return token;
-}
+static inline char* fen_nexttok() { return strtok(NULL, FEN_TOK_DELIMS); }
 
 void update_bbrds(Game* game)
 {
@@ -59,11 +54,17 @@ void reset_game(Game* game)
 
 void parse_fen(Game* game, char* fen)
 {
+	LOG("FEN: Starting parsing");
+
 	memset(game, 0, sizeof(Game));
 
 	char* token = strtok(fen, FEN_TOK_DELIMS);
 
-	if (!token) fatalerr("FEN is empty");
+	if (!token)
+	{
+		LOG("FEN: FEN is empty");
+		return;
+	}
 
 	int rank = 7;
 
@@ -72,6 +73,12 @@ void parse_fen(Game* game, char* fen)
 		int file = 0;
 		while (file < 8)
 		{
+			if (!token)
+			{
+				LOG("FEN: Couldn't parse piece information");
+				return;
+			}
+
 			int sqr = rank * 8 + file;
 			if (*token >= '1' && *token <= '8')
 			{
@@ -119,7 +126,7 @@ void parse_fen(Game* game, char* fen)
 						game->pieces[WHITE][QUEEN] |= sqr2bbrd(sqr);
 						break;
 					default:
-						fatalerr("FEN: Incorrect piece char '%c'", *token);
+						LOG("FEN: Incorrect piece char '%c'", *token);
 						break;
 				}
 				token++;
@@ -130,14 +137,25 @@ void parse_fen(Game* game, char* fen)
 		token = fen_nexttok();
 	}
 
+	if (!token)
+	{
+		LOG("FEN: side to move missing");
+		return;
+	}
+
 	if (token[0] == 'w')
 		game->who2move = WHITE;
 	else if (token[0] == 'b')
 		game->who2move = BLACK;
 	else
-		fatalerr("FEN: Incorrect side to move '%c'", token[0]);
+		LOG("FEN: Incorrect side to move '%c'", token[0]);
 
 	token = fen_nexttok();
+	if (!token)
+	{
+		LOG("FEN: castling flags missing");
+		return;
+	}
 
 	while (*token && *token != '-')
 	{
@@ -156,13 +174,18 @@ void parse_fen(Game* game, char* fen)
 				GET_CURR_STATE(game)->flags |= GAME_F_CANCASTLE_WQ;
 				break;
 			default:
-				fatalerr("FEN: Incorrect castle flag '%c'", *token);
+				LOG("FEN: Incorrect castle flag '%c'", *token);
 				break;
 		}
 		token++;
 	}
 
 	token = fen_nexttok();
+	if (!token)
+	{
+		LOG("FEN: EP square missing");
+		return;
+	}
 
 	if (*token != '-')
 	{
@@ -173,12 +196,17 @@ void parse_fen(Game* game, char* fen)
 	}
 
 	token = fen_nexttok();
+	if (!token)
+	{
+		LOG("FEN: halfmove clock missing");
+		return;
+	}
 
 	int halfmov = 0;
 	while (*token)
 	{
 		if (*token < '0' || *token > '9')
-			fatalerr("Excepted a number in halfmove counter");
+			LOG("FEN: Excepted a number in halfmove counter");
 		halfmov *= 10;
 		halfmov += *token - '0';
 		token++;
@@ -186,12 +214,17 @@ void parse_fen(Game* game, char* fen)
 	GET_CURR_STATE(game)->halfmove = halfmov;
 
 	token = fen_nexttok();
+	if (!token)
+	{
+		LOG("FEN: fullmove clock missing");
+		return;
+	}
 
 	int fullmov = 0;
 	while (*token)
 	{
 		if (*token < '0' || *token > '9')
-			fatalerr("Excepted a number in fullmove counter");
+			LOG("FEN: Excepted a number in fullmove counter");
 		fullmov *= 10;
 		fullmov += *token - '0';
 		token++;
@@ -199,6 +232,8 @@ void parse_fen(Game* game, char* fen)
 	GET_CURR_STATE(game)->fullmove = fullmov;
 
 	update_bbrds(game);
+
+	LOG("FEN: Finished parsing");
 }
 
 void makemove(Game* game, Move move) {}

@@ -6,6 +6,8 @@
 
 #define TOK_DELIMS " \n"
 
+int g_ucidebug = 0;
+
 static inline int equals(const char* s1, const char* s2)
 {
 	return strcmp(s1, s2) == 0;
@@ -97,7 +99,6 @@ static Move parsemove(const Game* game, const char* str)
 	}
 
 	Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(movpiece);
-	printf("%u\n", move);
 
 	if (game->piecesof[enemy] & dstbbrd)
 	{
@@ -156,8 +157,25 @@ static void respond2position(Game* game, char* token)
 	}
 }
 
-static int next_cmd(Game* game, char* buff)
+static void respond2debug(char* token)
 {
+	if (equals(token, "on"))
+		g_debug = 1;
+	else if (equals(token, "off"))
+		g_debug = 0;
+	else
+		LOG("Invalid uci command: 'debug %s'", token);
+}
+
+static void respond2isready()
+{
+	printf("readyok\n");
+	fflush(stdout);
+}
+
+static int next_cmd(Game* game, char* buff, int len)
+{
+	LOG("UCI: received command '%.*s'", len - 1, buff);
 	char* token = strtok(buff, " \n");
 
 	if (equals(token, "uci"))
@@ -166,13 +184,19 @@ static int next_cmd(Game* game, char* buff)
 		respond2ucinewgame(game);
 	else if (equals(token, "position"))
 		respond2position(game, nexttok());
-	else  // Unknown command
+	else if (equals(token, "debug"))
+		respond2debug(nexttok());
+	else if (equals(token, "isready"))
+		respond2isready();
+	else if (equals(token, "quit"))
 		return 1;
+	else  // Unknown command
+		LOG("Unsupported uci command: '%s'", token);
 
 	return 0;
 }
 
-int uci_start()
+void uci_start()
 {
 	Game game;
 
@@ -180,17 +204,15 @@ int uci_start()
 	size_t buffsize = 256;
 
 	int quit = 0;
-	int err  = 0;
+	int len  = 0;
 
 	while (!quit)
 	{
-		if (getline(&buff, &buffsize, stdin) == -1)
+		if ((len = getline(&buff, &buffsize, stdin)) == -1)
 			quit = 1;
 		else
-			quit = err = next_cmd(&game, buff);
+			quit = next_cmd(&game, buff, len);
 	}
 
 	free(buff);
-
-	return err;
 }

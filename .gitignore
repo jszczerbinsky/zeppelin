@@ -1,3 +1,4 @@
 *.out
+*.log
 tags
 types_c.taghl

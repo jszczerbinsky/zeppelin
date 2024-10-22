@@ -2,4 +2,9 @@
 
 #include <unistd.h>
 
-int main(int argc, char** argv) { return uci_start(); }
+int main(int argc, char** argv)
+{
+	LOG_INIT();
+	uci_start();
+	return 0;
+}

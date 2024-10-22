@@ -7,7 +7,8 @@
 //         Interface
 // =============================
 
-int uci_start();
+extern int g_ucidebug;
+void uci_start();
 
 // =============================
 //     Board representation
@@ -163,9 +164,17 @@ void genmoves(const Game* game, int player, MoveList* movelist);
 #define FILE_H 0x8080808080808080ULL
 
 // =============================
-//            Debug
+//            Logger
 // =============================
 
-void fatalerr(const char* format, ...);
+#ifdef LOG_ENABLE
+	void initlog();
+	void printlog(const char* format, ...);
+	#define LOG_INIT() initlog()
+	#define LOG(...) printlog(__VA_ARGS__)
+#else // #ifdef LOG_ENABLE
+	#define LOG_INIT()
+	#define LOG(...)
+#endif // #ifdef LOG_ENABLE
 
-#endif //ifdef MAIN_H
+#endif // #ifdef MAIN_H
