@@ -153,12 +153,13 @@ int parsefen(char* fen);
 void makemove(Move move);
 void undomove();
 void getfen(char* buff);
+void move2str(char* buff, Move move);
 
 // =============================
 //   Move generator definitions
 // =============================
 
-void genmoves(const Game* game, int player, MoveList* movelist);
+void genmoves(int player, MoveList* movelist);
 
 // =============================
 //        Bitboard bits

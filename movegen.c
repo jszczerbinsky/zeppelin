@@ -1,24 +1,45 @@
 #include "main.h"
 
-static void gen_pawncapt(const Game* game, int player, MoveList* movelist)
+static void gen_king(int player, MoveList* movelist)
 {
-	const BitBrd player_pawns = game->pieces[player][PAWN];
+	int kingsqr = bbrd2sqr(g_game.pieces[player][KING]);
+
+	BitBrd dstbbrd = g_precomp.kingmoves[kingsqr] & (~g_game.piecesof[!player]);
+
+	while (dstbbrd)
+	{
+		int dstsqr = bbrd2sqr(dstbbrd);
+
+		Move move = SRC_SQR(kingsqr) | DST_SQR(dstsqr) | MOV_PIECE(KING);
+
+		if (dstbbrd & g_game.piecesof[!player])
+			move |= MOVE_F_ISCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+
+		pushmove(movelist, move);
+
+		dstbbrd &= ~sqr2bbrd(dstsqr);
+	}
+}
+
+static void gen_pawncapt(int player, MoveList* movelist)
+{
+	const BitBrd player_pawns = g_game.pieces[player][PAWN];
 
 	BitBrd l_dstbbrd, r_dstbbrd;
 
 	if (player == WHITE)
 	{
 		l_dstbbrd = ((player_pawns & (~FILE_A)) << 7) &
-			(game->piecesof[!player] | g_gamestate->epbbrd);
+			(g_game.piecesof[!player] | g_gamestate->epbbrd);
 		r_dstbbrd = ((player_pawns & (~FILE_H)) << 9) &
-			(game->piecesof[!player] | g_gamestate->epbbrd);
+			(g_game.piecesof[!player] | g_gamestate->epbbrd);
 	}
 	else
 	{
 		l_dstbbrd = ((player_pawns & (~FILE_H)) >> 7) &
-			(game->piecesof[!player] | g_gamestate->epbbrd);
+			(g_game.piecesof[!player] | g_gamestate->epbbrd);
 		r_dstbbrd = ((player_pawns & (~FILE_A)) >> 9) &
-			(game->piecesof[!player] | g_gamestate->epbbrd);
+			(g_game.piecesof[!player] | g_gamestate->epbbrd);
 	}
 
 	while (l_dstbbrd)
@@ -82,16 +103,16 @@ static void gen_pawncapt(const Game* game, int player, MoveList* movelist)
 	}
 }
 
-static void gen_pushprom(const Game* game, int player, MoveList* movelist)
+static void gen_pushprom(int player, MoveList* movelist)
 {
-	const BitBrd player_pawns = game->pieces[player][PAWN];
+	const BitBrd player_pawns = g_game.pieces[player][PAWN];
 
 	BitBrd dstbbrd;
 
 	if (player == WHITE)
-		dstbbrd = (player_pawns << 8) & (~game->piecesof[ANY]) & RANK_8;
+		dstbbrd = (player_pawns << 8) & (~g_game.piecesof[ANY]) & RANK_8;
 	else
-		dstbbrd = (player_pawns >> 8) & (~game->piecesof[ANY]) & RANK_1;
+		dstbbrd = (player_pawns >> 8) & (~g_game.piecesof[ANY]) & RANK_1;
 
 	while (dstbbrd)
 	{
@@ -110,23 +131,23 @@ static void gen_pushprom(const Game* game, int player, MoveList* movelist)
 	}
 }
 
-static void gen_pawnsilent(const Game* game, int player, MoveList* movelist)
+static void gen_pawnsilent(int player, MoveList* movelist)
 {
 	BitBrd single_dstbbrd, double_dstbbrd;
 
 	if (player == WHITE)
 	{
-		single_dstbbrd = (game->pieces[player][PAWN] << 8) &
-			(~game->piecesof[ANY]) & (~RANK_8);
+		single_dstbbrd = (g_game.pieces[player][PAWN] << 8) &
+			(~g_game.piecesof[ANY]) & (~RANK_8);
 		double_dstbbrd =
-			((single_dstbbrd & RANK_3) << 8) & (~game->piecesof[ANY]);
+			((single_dstbbrd & RANK_3) << 8) & (~g_game.piecesof[ANY]);
 	}
 	else
 	{
-		single_dstbbrd = (game->pieces[player][PAWN] >> 8) &
-			(~game->piecesof[ANY]) & (~RANK_1);
+		single_dstbbrd = (g_game.pieces[player][PAWN] >> 8) &
+			(~g_game.piecesof[ANY]) & (~RANK_1);
 		double_dstbbrd =
-			((single_dstbbrd & RANK_6) >> 8) & (~game->piecesof[ANY]);
+			((single_dstbbrd & RANK_6) >> 8) & (~g_game.piecesof[ANY]);
 	}
 
 	while (single_dstbbrd)
@@ -163,9 +184,11 @@ static void gen_pawnsilent(const Game* game, int player, MoveList* movelist)
 	}
 }
 
-void genmoves(const Game* game, int player, MoveList* movelist)
+void genmoves(int player, MoveList* movelist)
 {
-	gen_pawnsilent(game, player, movelist);
-	gen_pushprom(game, player, movelist);
-	gen_pawncapt(game, player, movelist);
+	movelist->cnt = 0;
+	gen_pawnsilent(player, movelist);
+	gen_pushprom(player, movelist);
+	gen_pawncapt(player, movelist);
+	gen_king(player, movelist);
 }

@@ -256,6 +256,56 @@ int parsefen(char* fen)
 	return 1;
 }
 
+void move2str(char* buff, Move move)
+{
+	if (IS_CASTLEK(move))
+	{
+		if (g_game.who2move == WHITE)
+			strcpy(buff, "e1g1");
+		else
+			strcpy(buff, "e8g8");
+	}
+	else if (IS_CASTLEQ(move))
+	{
+		if (g_game.who2move == WHITE)
+			strcpy(buff, "e1c1");
+		else
+			strcpy(buff, "e8c8");
+	}
+
+	int srcsqr = GET_SRC_SQR(move);
+	int dstsqr = GET_DST_SQR(move);
+
+	buff[0] = (srcsqr % 8) + 'a';
+	buff[1] = (srcsqr / 8) + '1';
+	buff[2] = (dstsqr % 8) + 'a';
+	buff[3] = (dstsqr / 8) + '1';
+
+	if (IS_PROM(move))
+	{
+		switch (GET_PROM_PIECE(move))
+		{
+			case BISHOP:
+				buff[4] = 'b';
+				break;
+			case ROOK:
+				buff[4] = 'r';
+				break;
+			case KNIGHT:
+				buff[4] = 'n';
+				break;
+			case QUEEN:
+				buff[4] = 'q';
+				break;
+			default:
+				break;
+		}
+		buff[5] = '\0';
+	}
+	else
+		buff[4] = '\0';
+}
+
 void makemove(Move move) {}
 
 void undomove() {}

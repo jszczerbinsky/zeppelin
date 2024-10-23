@@ -180,6 +180,19 @@ static int next_cmd(char* buff, int len)
 		reset_game();
 		say("done");
 	}
+	else if (equals(token, "getmoves"))
+	{
+		MoveList movelist;
+		genmoves(g_game.who2move, &movelist);
+
+		printf("Moves count: %d\n", movelist.cnt);
+		for (int i = 0; i < movelist.cnt; i++)
+		{
+			char buff[6];
+			move2str(buff, movelist.move[i]);
+			printf("%s\n", buff);
+		}
+	}
 
 	return 0;
 }
