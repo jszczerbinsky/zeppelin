@@ -8,11 +8,6 @@
 
 int g_ucidebug = 0;
 
-static inline int equals(const char* s1, const char* s2)
-{
-	return strcmp(s1, s2) == 0;
-}
-
 static inline char* nexttok() { return strtok(NULL, TOK_DELIMS); }
 static inline char* nexttok_untilend() { return strtok(NULL, "\0"); }
 
@@ -24,18 +19,18 @@ static void respond2uci()
 	fflush(stdout);
 }
 
-static void printmove(const Game* game, char* buff, Move move)
+static void printmove(char* buff, Move move)
 {
 	if (IS_CASTLEK(move))
 	{
-		if (game->who2move == WHITE)
+		if (g_game.who2move == WHITE)
 			strcpy(buff, "e1g1");
 		else
 			strcpy(buff, "e8g8");
 	}
 	else if (IS_CASTLEQ(move))
 	{
-		if (game->who2move == WHITE)
+		if (g_game.who2move == WHITE)
 			strcpy(buff, "e1c1");
 		else
 			strcpy(buff, "e8c8");
@@ -82,19 +77,20 @@ static Move parsemove(const Game* game, const char* str)
 	BitBrd srcbbrd = sqr2bbrd(srcsqr);
 	BitBrd dstbbrd = sqr2bbrd(dstsqr);
 
-	const int	     enemy     = !game->who2move;
-	const GameState* gamestate = GET_CURR_STATE(game);
-	const int	     movpiece  = getpieceat(game, game->who2move, srcbbrd);
+	const int enemy    = !game->who2move;
+	const int movpiece = getpieceat(game->who2move, srcbbrd);
 
 	if (movpiece == KING)
 	{
-		if (dstsqr == 2 && game->who2move == WHITE && CANCASTLE_WQ(gamestate))
+		if (dstsqr == 2 && game->who2move == WHITE && CANCASTLE_WQ(g_gamestate))
 			return SRC_SQR(4) | DST_SQR(2) | MOVE_F_ISCASTLEQ;
-		if (dstsqr == 6 && game->who2move == WHITE && CANCASTLE_WK(gamestate))
+		if (dstsqr == 6 && game->who2move == WHITE && CANCASTLE_WK(g_gamestate))
 			return SRC_SQR(4) | DST_SQR(6) | MOVE_F_ISCASTLEK;
-		if (dstsqr == 58 && game->who2move == WHITE && CANCASTLE_BQ(gamestate))
+		if (dstsqr == 58 && game->who2move == WHITE &&
+				CANCASTLE_BQ(g_gamestate))
 			return SRC_SQR(60) | DST_SQR(58) | MOVE_F_ISCASTLEQ;
-		if (dstsqr == 62 && game->who2move == WHITE && CANCASTLE_BK(gamestate))
+		if (dstsqr == 62 && game->who2move == WHITE &&
+				CANCASTLE_BK(g_gamestate))
 			return SRC_SQR(60) | DST_SQR(62) | MOVE_F_ISCASTLEK;
 	}
 
@@ -102,10 +98,10 @@ static Move parsemove(const Game* game, const char* str)
 
 	if (game->piecesof[enemy] & dstbbrd)
 	{
-		int piece = getpieceat(game, enemy, dstbbrd);
+		int piece = getpieceat(enemy, dstbbrd);
 		move |= MOVE_F_ISCAPT | CAPT_PIECE(piece);
 	}
-	else if (movpiece == PAWN && gamestate->epbbrd & dstbbrd)
+	else if (movpiece == PAWN && g_gamestate->epbbrd & dstbbrd)
 	{
 		move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
 	}
@@ -140,7 +136,7 @@ static void respond2position(Game* game, char* token)
 	else if (equals(token, "fen"))
 	{
 		token = nexttok_untilend();
-		parse_fen(game, token);
+		parsefen(token);
 	}
 	else
 		printf("%s\n", token);
@@ -152,7 +148,7 @@ static void respond2position(Game* game, char* token)
 	for (int i = 0; i < movelist.cnt; i++)
 	{
 		char buff[6];
-		printmove(game, buff, movelist.move[i]);
+		printmove(buff, movelist.move[i]);
 		printf("%s\n", buff);
 	}
 }
@@ -160,9 +156,9 @@ static void respond2position(Game* game, char* token)
 static void respond2debug(char* token)
 {
 	if (equals(token, "on"))
-		g_debug = 1;
+		g_ucidebug = 1;
 	else if (equals(token, "off"))
-		g_debug = 0;
+		g_ucidebug = 0;
 	else
 		LOG("Invalid uci command: 'debug %s'", token);
 }
@@ -189,7 +185,10 @@ static int next_cmd(Game* game, char* buff, int len)
 	else if (equals(token, "isready"))
 		respond2isready();
 	else if (equals(token, "quit"))
+	{
+		LOG("Closing");
 		return 1;
+	}
 	else  // Unknown command
 		LOG("Unsupported uci command: '%s'", token);
 
@@ -198,10 +197,13 @@ static int next_cmd(Game* game, char* buff, int len)
 
 void uci_start()
 {
+	g_mode = MODE_UCI;
+	respond2uci();
+
 	Game game;
 
-	char*  buff;
 	size_t buffsize = 256;
+	char*  buff	    = malloc(buffsize * sizeof(char));
 
 	int quit = 0;
 	int len  = 0;

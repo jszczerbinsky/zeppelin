@@ -2,24 +2,23 @@
 
 static void gen_pawncapt(const Game* game, int player, MoveList* movelist)
 {
-	const BitBrd     player_pawns = game->pieces[player][PAWN];
-	const GameState* gamestate	  = GET_CURR_STATE(game);
+	const BitBrd player_pawns = game->pieces[player][PAWN];
 
 	BitBrd l_dstbbrd, r_dstbbrd;
 
 	if (player == WHITE)
 	{
 		l_dstbbrd = ((player_pawns & (~FILE_A)) << 7) &
-			(game->piecesof[!player] | gamestate->epbbrd);
+			(game->piecesof[!player] | g_gamestate->epbbrd);
 		r_dstbbrd = ((player_pawns & (~FILE_H)) << 9) &
-			(game->piecesof[!player] | gamestate->epbbrd);
+			(game->piecesof[!player] | g_gamestate->epbbrd);
 	}
 	else
 	{
 		l_dstbbrd = ((player_pawns & (~FILE_H)) >> 7) &
-			(game->piecesof[!player] | gamestate->epbbrd);
+			(game->piecesof[!player] | g_gamestate->epbbrd);
 		r_dstbbrd = ((player_pawns & (~FILE_A)) >> 9) &
-			(game->piecesof[!player] | gamestate->epbbrd);
+			(game->piecesof[!player] | g_gamestate->epbbrd);
 	}
 
 	while (l_dstbbrd)
@@ -36,10 +35,10 @@ static void gen_pawncapt(const Game* game, int player, MoveList* movelist)
 		Move move =
 			SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) | MOVE_F_ISCAPT;
 
-		if (dstbbrd & gamestate->epbbrd)
+		if (dstbbrd & g_gamestate->epbbrd)
 			move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
 		else
-			move |= CAPT_PIECE(getpieceat(game, !player, dstbbrd));
+			move |= CAPT_PIECE(getpieceat(!player, dstbbrd));
 
 		const int isprom = (player == WHITE && (dstbbrd & RANK_8)) ||
 			(player == BLACK && (dstbbrd & RANK_1));
@@ -66,10 +65,10 @@ static void gen_pawncapt(const Game* game, int player, MoveList* movelist)
 		Move move =
 			SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) | MOVE_F_ISCAPT;
 
-		if (dstbbrd & gamestate->epbbrd)
+		if (dstbbrd & g_gamestate->epbbrd)
 			move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
 		else
-			move |= CAPT_PIECE(getpieceat(game, !player, dstbbrd));
+			move |= CAPT_PIECE(getpieceat(!player, dstbbrd));
 
 		const int isprom = (player == WHITE && (dstbbrd & RANK_8)) ||
 			(player == BLACK && (dstbbrd & RANK_1));

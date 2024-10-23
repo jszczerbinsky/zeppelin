@@ -1,10 +1,10 @@
 #include "main.h"
 
-#include <unistd.h>
+int g_mode = MODE_CLI;
 
 int main(int argc, char** argv)
 {
 	LOG_INIT();
-	uci_start();
+	cli_start();
 	return 0;
 }

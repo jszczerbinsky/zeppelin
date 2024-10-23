@@ -7,6 +7,15 @@
 //         Interface
 // =============================
 
+#define MODE_CLI 0
+#define MODE_UCI 1
+
+extern int g_mode;
+
+int equals(const char* s1, const char* s2);
+
+void cli_start();
+
 extern int g_ucidebug;
 void uci_start();
 
@@ -113,7 +122,7 @@ void pushprommove(MoveList* movelist, Move move);
 #define CANCASTLE_BK(s) ((s)->flags & GAME_F_CANCASTLE_BK)
 #define CANCASTLE_BQ(s) ((s)->flags & GAME_F_CANCASTLE_BQ)
 
-#define GET_CURR_STATE(g) ((g)->brdstate + (g)->movelist.cnt)
+#define FEN_STR_MAX 59
 
 typedef struct
 {
@@ -127,19 +136,23 @@ typedef struct
 {
 	int who2move;
 
-	BitBrd pieces[2][PIECE_MAX];
+	BitBrd pieces[3][PIECE_MAX];
 	BitBrd piecesof[3];
 
 	MoveList movelist;
 	GameState brdstate[MAX_PLY_PER_GAME];
 } Game;
 
-int getpieceat(const Game* game, int color, BitBrd bbrd);
-void update_bbrds(Game* game);
-void reset_game(Game* game);
-void parse_fen(Game* game, char* fen);
-void makemove(Game* game, Move move);
-void undomove(Game* game);
+extern Game g_game;
+extern GameState* g_gamestate;
+
+int getpieceat(int color, BitBrd bbrd);
+void update_bbrds();
+void reset_game();
+int parsefen(char* fen);
+void makemove(Move move);
+void undomove();
+void getfen(char* buff);
 
 // =============================
 //   Move generator definitions
@@ -164,7 +177,21 @@ void genmoves(const Game* game, int player, MoveList* movelist);
 #define FILE_H 0x8080808080808080ULL
 
 // =============================
-//            Logger
+//            Precomp
+// =============================
+
+typedef struct
+{
+	BitBrd knightmoves[64];
+	BitBrd kingmoves[64];
+} PrecompTable;
+
+extern PrecompTable g_precomp;
+
+void precomp();
+
+// =============================
+//             Logs
 // =============================
 
 #ifdef LOG_ENABLE
