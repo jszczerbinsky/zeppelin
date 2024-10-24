@@ -1,10 +1,41 @@
 #include "main.h"
 
+static void gen_knight(int player, MoveList* movelist)
+{
+	BitBrd knightsbbrd = g_game.pieces[player][KNIGHT];
+
+	while (knightsbbrd)
+	{
+		int knightsqr = bbrd2sqr(knightsbbrd);
+
+		BitBrd dstbbrd =
+			g_precomp.knightmoves[knightsqr] & (~g_game.piecesof[player]);
+
+		while (dstbbrd)
+		{
+			int dstsqr = bbrd2sqr(dstbbrd);
+
+			Move move =
+				SRC_SQR(knightsqr) | DST_SQR(dstsqr) | MOV_PIECE(KNIGHT);
+
+			if (dstbbrd & g_game.piecesof[!player])
+				move |=
+					MOVE_F_ISCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+
+			pushmove(movelist, move);
+
+			dstbbrd &= ~sqr2bbrd(dstsqr);
+		}
+
+		knightsbbrd &= ~sqr2bbrd(knightsqr);
+	}
+}
+
 static void gen_king(int player, MoveList* movelist)
 {
 	int kingsqr = bbrd2sqr(g_game.pieces[player][KING]);
 
-	BitBrd dstbbrd = g_precomp.kingmoves[kingsqr] & (~g_game.piecesof[!player]);
+	BitBrd dstbbrd = g_precomp.kingmoves[kingsqr] & (~g_game.piecesof[player]);
 
 	while (dstbbrd)
 	{
@@ -191,4 +222,5 @@ void genmoves(int player, MoveList* movelist)
 	gen_pushprom(player, movelist);
 	gen_pawncapt(player, movelist);
 	gen_king(player, movelist);
+	gen_knight(player, movelist);
 }
