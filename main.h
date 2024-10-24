@@ -2,6 +2,7 @@
 #define MAIN_H
 
 #include <stdint.h>
+#include <string.h>
 
 // =============================
 //         Interface
@@ -11,8 +12,6 @@
 #define MODE_UCI 1
 
 extern int g_mode;
-
-int equals(const char* s1, const char* s2);
 
 void cli_start();
 
@@ -24,10 +23,6 @@ void uci_start();
 // =============================
 
 typedef uint64_t BitBrd;
-
-int 	bbrd2sqr(BitBrd bbrd);
-BitBrd 	sqr2bbrd(int sqr);
-int 	popcnt(BitBrd bbrd);
 
 // =============================
 //      Pieces definitions
@@ -99,8 +94,18 @@ typedef struct
 	int  cnt;
 } MoveList;
 
-void pushmove(MoveList* movelist, Move move);
-void pushprommove(MoveList* movelist, Move move);
+static inline void pushmove(MoveList* moves, Move m) {
+	moves->move[moves->cnt] = m;
+	moves->cnt++;
+}
+
+static inline void pushprommove(MoveList* moves, Move m) {
+	for (int prompiece = KNIGHT; prompiece <= QUEEN; prompiece++)
+	{
+		moves->move[moves->cnt] = m | PROM_PIECE(prompiece) | MOVE_F_ISPROM;
+		moves->cnt++;
+	}
+}
 
 // =============================
 //        Game definitions
@@ -162,6 +167,32 @@ void move2str(char* buff, Move move);
 void genmoves(int player, MoveList* movelist);
 
 // =============================
+//           Utils
+// =============================
+
+static inline int bbrd2sqr(BitBrd bbrd){
+	return __builtin_ffsll(bbrd)-1;
+}
+
+static inline BitBrd sqr2bbrd(int sqr) {
+	return (1ULL << (BitBrd)sqr);
+}
+
+static inline int sqr2diag(int sqr) {
+	return (sqr/8) - (sqr%8) + 7;
+}
+
+static inline int sqr2antidiag(int sqr) {
+	return (sqr/8) + (sqr%8);
+}
+
+static inline int equals(const char* s1, const char* s2) {
+	return strcmp(s1, s2) == 0;
+}
+
+static inline int popcnt(BitBrd bbrd) { return 0; }
+
+// =============================
 //        Bitboard bits
 // =============================
 
@@ -175,7 +206,47 @@ void genmoves(int player, MoveList* movelist);
 #define RANK_8 0xff00000000000000ULL
 
 #define FILE_A 0x101010101010101ULL
+#define FILE_B 0x202020202020202ULL
+#define FILE_C 0x404040404040404ULL
+#define FILE_D 0x808080808080808ULL
+#define FILE_E 0x1010101010101010ULL
+#define FILE_F 0x2020202020202020ULL
+#define FILE_G 0x4040404040404040ULL
 #define FILE_H 0x8080808080808080ULL
+
+// rank - file + 7
+#define DIAG_0  0x80ULL
+#define DIAG_1  0x8040ULL
+#define DIAG_2  0x804020ULL
+#define DIAG_3  0x80402010ULL
+#define DIAG_4  0x8040201008ULL
+#define DIAG_5  0x804020100804ULL
+#define DIAG_6  0x80402010080402ULL
+#define DIAG_7  0x8040201008040201ULL
+#define DIAG_8  0x4020100804020100ULL
+#define DIAG_9  0x2010080402010000ULL
+#define DIAG_10 0x1008040201000000ULL
+#define DIAG_11 0x804020100000000ULL
+#define DIAG_12 0x402010000000000ULL
+#define DIAG_13 0x201000000000000ULL
+#define DIAG_14 0x100000000000000ULL
+
+// rank + file
+#define ADIAG_0  0x1ULL
+#define ADIAG_1  0x102ULL
+#define ADIAG_2  0x10204ULL
+#define ADIAG_3  0x1020408ULL
+#define ADIAG_4  0x102040810ULL
+#define ADIAG_5  0x10204081020ULL
+#define ADIAG_6  0x1020408102040ULL
+#define ADIAG_7  0x102040810204080ULL
+#define ADIAG_8  0x204081020408000ULL
+#define ADIAG_9  0x408102040800000ULL
+#define ADIAG_10 0x810204080000000ULL
+#define ADIAG_11 0x1020408000000000ULL
+#define ADIAG_12 0x2040800000000000ULL
+#define ADIAG_13 0x4080000000000000ULL
+#define ADIAG_14 0x8000000000000000ULL
 
 // =============================
 //            Precomp
@@ -185,6 +256,9 @@ typedef struct
 {
 	BitBrd knightmoves[64];
 	BitBrd kingmoves[64];
+	BitBrd bishopmoves[64];
+	BitBrd rookmoves[64];
+	BitBrd queenmoves[64];
 } PrecompTable;
 
 extern PrecompTable g_precomp;

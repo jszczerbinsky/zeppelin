@@ -90,6 +90,13 @@ static void respond2print(char* token)
 			bbrd = g_precomp.kingmoves;
 		else if (equals(token, "knightmoves"))
 			bbrd = g_precomp.knightmoves;
+		else if (equals(token, "bishopmoves"))
+			bbrd = g_precomp.bishopmoves;
+		else if (equals(token, "rookmoves"))
+			bbrd = g_precomp.rookmoves;
+		else if (equals(token, "queenmoves"))
+			bbrd = g_precomp.queenmoves;
+
 		else
 		{
 			say("Unknown precomputed value");
