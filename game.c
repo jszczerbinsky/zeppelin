@@ -72,8 +72,6 @@ void getfen(char* buff) { strcpy(buff, "not supported yet"); }
 
 int parsefen(char* fen)
 {
-	LOG("FEN: Starting parsing");
-
 	memset(&g_game, 0, sizeof(Game));
 	update_gamestate();
 
@@ -81,7 +79,6 @@ int parsefen(char* fen)
 
 	if (!token)
 	{
-		LOG("FEN: FEN is empty");
 		return 0;
 	}
 
@@ -94,7 +91,6 @@ int parsefen(char* fen)
 		{
 			if (!token)
 			{
-				LOG("FEN: Couldn't parse piece information");
 				return 0;
 			}
 
@@ -145,7 +141,6 @@ int parsefen(char* fen)
 						g_game.pieces[WHITE][QUEEN] |= sqr2bbrd(sqr);
 						break;
 					default:
-						LOG("FEN: Incorrect piece char '%c'", *token);
 						break;
 				}
 				token++;
@@ -158,7 +153,6 @@ int parsefen(char* fen)
 
 	if (!token)
 	{
-		LOG("FEN: side to move missing");
 		return 0;
 	}
 
@@ -166,13 +160,10 @@ int parsefen(char* fen)
 		g_game.who2move = WHITE;
 	else if (token[0] == 'b')
 		g_game.who2move = BLACK;
-	else
-		LOG("FEN: Incorrect side to move '%c'", token[0]);
 
 	token = fen_nexttok();
 	if (!token)
 	{
-		LOG("FEN: castling flags missing");
 		return 0;
 	}
 
@@ -193,7 +184,6 @@ int parsefen(char* fen)
 				g_gamestate->flags |= GAME_F_CANCASTLE_WQ;
 				break;
 			default:
-				LOG("FEN: Incorrect castle flag '%c'", *token);
 				break;
 		}
 		token++;
@@ -202,7 +192,6 @@ int parsefen(char* fen)
 	token = fen_nexttok();
 	if (!token)
 	{
-		LOG("FEN: EP square missing");
 		return 0;
 	}
 
@@ -217,16 +206,13 @@ int parsefen(char* fen)
 	token = fen_nexttok();
 	if (!token)
 	{
-		LOG("FEN: halfmove clock missing");
 		return 0;
 	}
 
 	int halfmov = 0;
 	while (*token)
 	{
-		if (*token < '0' || *token > '9')
-			LOG("FEN: Excepted a number in halfmove counter");
-		halfmov *= 10;
+		if (*token < '0' || *token > '9') halfmov *= 10;
 		halfmov += *token - '0';
 		token++;
 	}
@@ -235,16 +221,13 @@ int parsefen(char* fen)
 	token = fen_nexttok();
 	if (!token)
 	{
-		LOG("FEN: fullmove clock missing");
 		return 0;
 	}
 
 	int fullmov = 0;
 	while (*token)
 	{
-		if (*token < '0' || *token > '9')
-			LOG("FEN: Excepted a number in fullmove counter");
-		fullmov *= 10;
+		if (*token < '0' || *token > '9') fullmov *= 10;
 		fullmov += *token - '0';
 		token++;
 	}
@@ -252,7 +235,6 @@ int parsefen(char* fen)
 
 	update_game();
 
-	LOG("FEN: Finished parsing");
 	return 1;
 }
 

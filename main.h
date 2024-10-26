@@ -8,12 +8,9 @@
 //         Interface
 // =============================
 
-#define MODE_CLI 0
-#define MODE_UCI 1
+#define MODE_UCI 0
 
 extern int g_mode;
-
-void cli_start();
 
 extern int g_ucidebug;
 void uci_start();
@@ -263,20 +260,13 @@ typedef struct
 
 extern PrecompTable g_precomp;
 
-void precomp();
+void genprecomp();
+int loadprecomp();
 
 // =============================
-//             Logs
+//             Dump
 // =============================
 
-#ifdef LOG_ENABLE
-	void initlog();
-	void printlog(const char* format, ...);
-	#define LOG_INIT() initlog()
-	#define LOG(...) printlog(__VA_ARGS__)
-#else // #ifdef LOG_ENABLE
-	#define LOG_INIT()
-	#define LOG(...)
-#endif // #ifdef LOG_ENABLE
+void dumpprecomp();
 
-#endif // #ifdef MAIN_H
+#endif

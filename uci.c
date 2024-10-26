@@ -111,8 +111,6 @@ static void respond2debug(char* token)
 		g_ucidebug = 1;
 	else if (equals(token, "off"))
 		g_ucidebug = 0;
-	else
-		LOG("Invalid uci command: 'debug %s'", token);
 }
 
 static void respond2isready()
@@ -123,7 +121,6 @@ static void respond2isready()
 
 static int next_cmd(char* buff, int len)
 {
-	LOG("UCI: received command '%.*s'", len - 1, buff);
 	char* token = strtok(buff, " \n");
 
 	if (equals(token, "uci"))
@@ -137,12 +134,7 @@ static int next_cmd(char* buff, int len)
 	else if (equals(token, "isready"))
 		respond2isready();
 	else if (equals(token, "quit"))
-	{
-		LOG("Closing");
 		return 1;
-	}
-	else  // Unknown command
-		LOG("Unsupported uci command: '%s'", token);
 
 	return 0;
 }

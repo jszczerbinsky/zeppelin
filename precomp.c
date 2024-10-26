@@ -124,7 +124,7 @@ static void gen_slidingmoves()
 	}
 }
 
-void precomp()
+void genprecomp()
 {
 	gen_kingmoves();
 	gen_knightmoves();
@@ -133,4 +133,15 @@ void precomp()
 	FILE* out = fopen("precomputed.bin", "wb");
 	fwrite(&g_precomp, sizeof(PrecompTable), 1, out);
 	fclose(out);
+}
+
+int loadprecomp()
+{
+	FILE* in = fopen("precomputed.bin", "rb");
+	if (!in) return 0;
+
+	fread(&g_precomp, sizeof(PrecompTable), 1, in);
+	fclose(in);
+
+	return 1;
 }
