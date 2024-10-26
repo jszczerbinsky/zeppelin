@@ -8,7 +8,8 @@
 //         Interface
 // =============================
 
-#define MODE_UCI 0
+#define MODE_CLIARG 0
+#define MODE_UCI 1
 
 extern int g_mode;
 
@@ -268,5 +269,6 @@ int loadprecomp();
 // =============================
 
 void dumpprecomp();
+void dumppos(char* fen);
 
 #endif
