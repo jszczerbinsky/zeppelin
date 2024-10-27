@@ -5,6 +5,8 @@
 
 PrecompTable g_precomp;
 
+static int file_loaded;
+
 static const BitBrd rankbbrd[] = {
 	RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8
 };
@@ -48,6 +50,25 @@ static const BitBrd antidiagbbrds[] = {
 	ADIAG_13,
 	ADIAG_14
 };
+
+static void savefile()
+{
+	FILE* out = fopen("precomputed.bin", "wb");
+	fwrite(&g_precomp, sizeof(PrecompTableSerialized), 1, out);
+
+	for (int i = 0; i < 64; i++)
+	{
+		int cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
+		fwrite(g_precomp.rookmagicmoves[i], sizeof(BitBrd), cnt, out);
+	}
+	for (int i = 0; i < 64; i++)
+	{
+		int cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
+		fwrite(g_precomp.bishopmagicmoves[i], sizeof(BitBrd), cnt, out);
+	}
+
+	fclose(out);
+}
 
 static void gen_kingmask()
 {
@@ -249,88 +270,144 @@ static BitBrd gen_magicmoves(int sqr, BitBrd occupation, int piece)
 	return result;
 }
 
-static void gen_magic_for(int piece, BitBrd premasklist[])
+int ismagic(int sqr, int piece, BitBrd num)
 {
-	for (int sqr = 0; sqr < 64; sqr++)
+	BitBrd premask = piece == ROOK ? g_precomp.rookpremask[sqr]
+		: g_precomp.bishoppremask[sqr];
+
+	int indexlen = popcnt(premask);
+	int used[1 << indexlen];
+	memset(used, 0, (1 << indexlen) * sizeof(int));
+
+	BitBrd subset = 0;
+	do
 	{
-		BitBrd premask = premasklist[sqr];
+		subset	     = nextsubset(subset, premask);
+		BitBrd index = ((subset * num) >> (64 - indexlen));
 
-		int    indexlen	 = popcnt(premask);
-		BitBrd indexmask = (1ULL << indexlen) - 1;
+		if (used[index]) return 0;
 
-		BitBrd num;
-		int    ismagic;
+		used[index]++;
 
-		BitBrd occupations[indexmask + 1];
+	} while (subset);
 
-		do
-		{
-			ismagic = 1;
-			num	    = rand() | (((BitBrd)rand()) << 32);
-			num &= rand() | (((BitBrd)rand()) << 32);
-
-			int used[indexmask + 1];
-			memset(used, 0, (indexmask + 1) * sizeof(int));
-
-			BitBrd subset = 0;
-			do
-			{
-				subset	     = nextsubset(subset, premask);
-				BitBrd index = ((subset * num) >> (64 - indexlen)) & indexmask;
-
-				if (used[index])
-				{
-					subset  = 0;
-					ismagic = 0;
-				}
-				else
-					occupations[index] = subset;
-
-				used[index]++;
-
-			} while (subset);
-
-		} while (!ismagic);
-
-		if (piece == ROOK)
-		{
-			g_precomp.rookmagicshift[sqr] = 64 - indexlen;
-			g_precomp.rookmagic[sqr]	  = num;
-			g_precomp.rookmagicmoves[sqr] =
-				malloc((indexmask + 1) * sizeof(BitBrd));
-
-			for (int i = 0; i < indexmask + 1; i++)
-				g_precomp.rookmagicmoves[sqr][i] =
-					gen_magicmoves(sqr, occupations[i], ROOK);
-		}
-		else
-		{
-			g_precomp.bishopmagicshift[sqr] = 64 - indexlen;
-			g_precomp.bishopmagic[sqr]	    = num;
-			g_precomp.bishopmagicmoves[sqr] =
-				malloc((indexmask + 1) * sizeof(BitBrd));
-
-			for (int i = 0; i < indexmask + 1; i++)
-				g_precomp.bishopmagicmoves[sqr][i] =
-					gen_magicmoves(sqr, occupations[i], BISHOP);
-		}
-
-		printf(
-				"Found %s magic number for square %d: 0x%lx (index len: "
-				"%d, array size: %d)\n",
-				piece == BISHOP ? "bishop" : "rook",
-				sqr,
-				num,
-				indexlen,
-				1 << indexlen
-			  );
+	int max = indexlen;
+	int i   = (1 << indexlen) - 1;
+	while (used[i] == 0)
+	{
+		max--;
+		i--;
 	}
+
+	return max;
+}
+
+static void gen_magicmoves_for(int piece, int sqr)
+{
+	int shift = piece == ROOK ? g_precomp.rookmagicshift[sqr]
+		: g_precomp.bishopmagicshift[sqr];
+
+	BitBrd premask = piece == ROOK ? g_precomp.rookpremask[sqr]
+		: g_precomp.bishoppremask[sqr];
+
+	int arrsize = 1 << (64 - shift);
+
+	if (piece == ROOK)
+		g_precomp.rookmagicmoves[sqr] = malloc(arrsize * sizeof(BitBrd));
+	else
+		g_precomp.bishopmagicmoves[sqr] = malloc(arrsize * sizeof(BitBrd));
+
+	BitBrd subset = 0;
+	int	   i	  = 0;
+	do
+	{
+		subset = nextsubset(subset, premask);
+		if (piece == ROOK)
+			g_precomp.rookmagicmoves[sqr][i] =
+				gen_magicmoves(sqr, subset, ROOK);
+		else
+			g_precomp.bishopmagicmoves[sqr][i] =
+				gen_magicmoves(sqr, subset, BISHOP);
+		i++;
+	} while (subset);
+}
+
+static void gen_magic_for(int piece, int sqr)
+{
+	BitBrd num;
+	int	   indexlen;
+	do
+	{
+		num = rand() | (((BitBrd)rand()) << 32);
+		num &= rand() | (((BitBrd)rand()) << 32);
+		indexlen = ismagic(sqr, piece, num);
+	} while (indexlen == 0);
+
+	if (piece == ROOK)
+	{
+		g_precomp.rookmagicshift[sqr] = 64 - indexlen;
+		g_precomp.rookmagic[sqr]      = num;
+	}
+	else
+	{
+		g_precomp.bishopmagicshift[sqr] = 64 - indexlen;
+		g_precomp.bishopmagic[sqr]	= num;
+	}
+
+	gen_magicmoves_for(piece, sqr);
+
+	printf(
+			"Found %s magic number for square %d: 0x%lx (index len: "
+			"%d, array size: %d)\n",
+			piece == BISHOP ? "bishop" : "rook",
+			sqr,
+			num,
+			indexlen,
+			1 << indexlen
+		  );
 }
 
 static void gen_magic()
 {
-	gen_magic_for(ROOK, g_precomp.rookpremask);
-	gen_magic_for(BISHOP, g_precomp.bishoppremask);
+	if (file_loaded)
+	{
+		printf(
+				"There are magic numbers in the precomp file, if they work, they "
+				"will NOT be overriden.\n"
+			  );
+
+		for (int i = 0; i < 64; i++)
+		{
+			if (ismagic(i, ROOK, g_precomp.rookmagic[i]) == 0)
+			{
+				printf(
+						"Rook magic number for square %d is incorrect, "
+						"regenerating\n",
+						i
+					  );
+				gen_magic_for(ROOK, i);
+			}
+			if (ismagic(i, BISHOP, g_precomp.bishopmagic[i]) == 0)
+			{
+				printf(
+						"Bishop magic number for square %d is incorrect, "
+						"regenerating\n",
+						i
+					  );
+				gen_magic_for(BISHOP, i);
+			}
+		}
+
+		printf("Magic numbers checking done\n");
+	}
+	else
+	{
+		for (int i = 0; i < 64; i++)
+		{
+			gen_magic_for(ROOK, i);
+			gen_magic_for(BISHOP, i);
+		}
+	}
 }
 
 int loadprecomp()
@@ -364,26 +441,14 @@ int loadprecomp()
 
 void genprecomp()
 {
+	file_loaded = loadprecomp();
+
 	gen_kingmask();
 	gen_knightmask();
 	gen_slidingmoves();
 	gen_magic();
 
-	FILE* out = fopen("precomputed.bin", "wb");
-	fwrite(&g_precomp, sizeof(PrecompTableSerialized), 1, out);
-
-	for (int i = 0; i < 64; i++)
-	{
-		int cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
-		fwrite(g_precomp.rookmagicmoves[i], sizeof(BitBrd), cnt, out);
-	}
-	for (int i = 0; i < 64; i++)
-	{
-		int cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
-		fwrite(g_precomp.bishopmagicmoves[i], sizeof(BitBrd), cnt, out);
-	}
-
-	fclose(out);
+	savefile();
 }
 
 void freeprecomp()
