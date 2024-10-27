@@ -278,8 +278,10 @@ int ismagic(int sqr, int piece, BitBrd num)
 	BitBrd premask = piece == ROOK ? g_precomp.rookpremask[sqr]
 		: g_precomp.bishoppremask[sqr];
 
-	int indexlen = popcnt(premask);
-	int used[1 << indexlen];
+	int	   indexlen = popcnt(premask);
+	BitBrd usedby[1 << indexlen];
+	int	   used[1 << indexlen];
+	memset(usedby, 0, (1 << indexlen) * sizeof(BitBrd));
 	memset(used, 0, (1 << indexlen) * sizeof(int));
 
 	BitBrd subset = 0;
@@ -288,9 +290,12 @@ int ismagic(int sqr, int piece, BitBrd num)
 		subset	     = nextsubset(subset, premask);
 		BitBrd index = ((subset * num) >> (64 - indexlen));
 
-		if (used[index]) return 0;
+		BitBrd magicmoves = gen_magicmoves(sqr, subset, piece);
 
-		used[index]++;
+		if (used[index] != 0 && usedby[index] != magicmoves) return 0;
+
+		usedby[index] = magicmoves;
+		used[index]   = 1;
 
 	} while (subset);
 
@@ -443,6 +448,82 @@ static void gen_magic()
 			gen_magic_for(BISHOP, i, GEN_NORMAL);
 		}
 	}
+}
+
+void usemagic(const char* numstr)
+{
+	BitBrd num = strtoll(numstr, NULL, 16);
+
+	if (num == 0)
+	{
+		fprintf(stderr, "Specified number format is incorrect\n");
+		return;
+	}
+
+	printf("Checking if specified number is magic for any square\n");
+
+	int foundany = 0;
+	for (int sqr = 0; sqr < 64; sqr++)
+	{
+		int rook_indexlen   = ismagic(sqr, ROOK, num);
+		int bishop_indexlen = ismagic(sqr, BISHOP, num);
+
+		if (rook_indexlen != 0)
+		{
+			printf(
+					"Specified number is magic for rook on square %d with index "
+					"size %d\n",
+					sqr,
+					rook_indexlen
+				  );
+			if (rook_indexlen >= (64 - g_precomp.rookmagicshift[sqr]))
+			{
+				printf(
+						"We already use a magic number with same/better index "
+						"size\n"
+					  );
+			}
+			else
+			{
+				g_precomp.rookmagic[sqr]      = num;
+				g_precomp.rookmagicshift[sqr] = 64 - rook_indexlen;
+				update_magicmoves_for(ROOK, sqr);
+				foundany = 1;
+			}
+		}
+
+		if (bishop_indexlen != 0)
+		{
+			printf(
+					"Specified number is magic for bishop on square %d with index "
+					"size %d\n",
+					sqr,
+					bishop_indexlen
+				  );
+			if (bishop_indexlen >= (64 - g_precomp.bishopmagicshift[sqr]))
+			{
+				printf(
+						"We already use a magic number with same/better index "
+						"size\n"
+					  );
+			}
+			else
+			{
+				g_precomp.bishopmagic[sqr]	= num;
+				g_precomp.bishopmagicshift[sqr] = 64 - rook_indexlen;
+				update_magicmoves_for(BISHOP, sqr);
+				foundany = 1;
+			}
+		}
+	}
+
+	if (foundany)
+	{
+		printf("Magic numbers updated\n");
+		savefile();
+	}
+	else
+		printf("No magic numbers have been updated\n");
 }
 
 void huntmagic()

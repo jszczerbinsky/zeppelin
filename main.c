@@ -11,7 +11,8 @@
 #define ARG_DUMP_PRECOMP 2
 #define ARG_GEN_PRECOMP	 3
 #define ARG_HUNT_MAGIC	 4
-#define ARG_DUMP_POS	 5
+#define ARG_USE_MAGIC	 5
+#define ARG_DUMP_POS	 6
 
 typedef struct
 {
@@ -58,6 +59,13 @@ static const ArgDef definedargs[] = {
 		"Try to find better magic numbers",
 		0,
 		ARG_HUNT_MAGIC,
+	},
+	{
+		"--use-magic",
+		"--use-magic <magic number HEX>",
+		"Use a specific magic number",
+		1,
+		ARG_USE_MAGIC,
 	},
 	{
 		"--dump-position",
@@ -155,6 +163,7 @@ int main(int argc, char** argv)
 	{
 		fprintf(stderr, "Missing argument after %s\n\n", argv[1]);
 		printhelp();
+		return 1;
 	}
 
 	if (!loadprecomp())
@@ -179,6 +188,9 @@ int main(int argc, char** argv)
 			break;
 		case ARG_HUNT_MAGIC:
 			huntmagic();
+			break;
+		case ARG_USE_MAGIC:
+			usemagic(argv[2]);
 			break;
 		default:
 			break;

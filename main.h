@@ -272,6 +272,7 @@ extern PrecompTable g_precomp;
 
 void genprecomp();
 void huntmagic();
+void usemagic(const char* numstr);
 int loadprecomp();
 void freeprecomp();
 
