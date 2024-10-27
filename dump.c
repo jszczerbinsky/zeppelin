@@ -177,6 +177,15 @@ void dumpprecomp()
 			g_precomp.rookpremask
 			);
 
+	printsection(f, "BISHOP MAGIC");
+	dumpprecomp_magic(
+			f,
+			g_precomp.bishopmagic,
+			g_precomp.bishopmagicshift,
+			g_precomp.bishopmagicmoves,
+			g_precomp.bishoppremask
+			);
+
 	fclose(f);
 }
 

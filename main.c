@@ -10,14 +10,15 @@
 #define ARG_VER		 1
 #define ARG_DUMP_PRECOMP 2
 #define ARG_GEN_PRECOMP	 3
-#define ARG_DUMP_POS	 4
+#define ARG_HUNT_MAGIC	 4
+#define ARG_DUMP_POS	 5
 
 typedef struct
 {
 	const char* str;
-	int		subargscnt;
 	const char* fullstr;
 	const char* desc;
+	int		subargscnt;
 	const int	argid;
 } ArgDef;
 
@@ -25,37 +26,44 @@ static const char*  usagestr	  = "engine [option1] [option2]";
 static const ArgDef definedargs[] = {
 	{
 		"--help",
-		0,
 		"--help",
 		"Display available options and usage",
+		0,
 		ARG_HELP,
 	},
 	{
 		"--version",
-		0,
 		"--version",
 		"Display program version information",
+		0,
 		ARG_VER,
 	},
 	{
 		"--gen-precomp",
-		0,
 		"--gen-precomp",
 		"Regenerate precomputed engine values",
+		0,
 		ARG_GEN_PRECOMP,
 	},
 	{
 		"--dump-precomp",
-		0,
 		"--dump-precomp",
 		"Dump precomputed engine values to a file",
+		0,
 		ARG_DUMP_PRECOMP,
 	},
 	{
+		"--hunt-magic",
+		"--hunt-magic",
+		"Try to find better magic numbers",
+		0,
+		ARG_HUNT_MAGIC,
+	},
+	{
 		"--dump-position",
-		1,
 		"--dump-position \"<FEN string>\"",
 		"Dump information about a specified FEN position",
+		1,
 		ARG_DUMP_POS,
 	},
 
@@ -168,6 +176,9 @@ int main(int argc, char** argv)
 			break;
 		case ARG_DUMP_POS:
 			dumppos(argv[2]);
+			break;
+		case ARG_HUNT_MAGIC:
+			huntmagic();
 			break;
 		default:
 			break;

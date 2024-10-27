@@ -3,6 +3,9 @@
 
 #include "main.h"
 
+#define GEN_NORMAL 0
+#define GEN_HUNT   1
+
 PrecompTable g_precomp;
 
 static int file_loaded;
@@ -302,7 +305,7 @@ int ismagic(int sqr, int piece, BitBrd num)
 	return max;
 }
 
-static void gen_magicmoves_for(int piece, int sqr)
+static void update_magicmoves_for(int piece, int sqr)
 {
 	int shift = piece == ROOK ? g_precomp.rookmagicshift[sqr]
 		: g_precomp.bishopmagicshift[sqr];
@@ -313,9 +316,15 @@ static void gen_magicmoves_for(int piece, int sqr)
 	int arrsize = 1 << (64 - shift);
 
 	if (piece == ROOK)
+	{
+		if (file_loaded) free(g_precomp.rookmagicmoves[sqr]);
 		g_precomp.rookmagicmoves[sqr] = malloc(arrsize * sizeof(BitBrd));
+	}
 	else
+	{
+		if (file_loaded) free(g_precomp.bishopmagicmoves[sqr]);
 		g_precomp.bishopmagicmoves[sqr] = malloc(arrsize * sizeof(BitBrd));
+	}
 
 	BitBrd subset = 0;
 	int	   i	  = 0;
@@ -332,16 +341,30 @@ static void gen_magicmoves_for(int piece, int sqr)
 	} while (subset);
 }
 
-static void gen_magic_for(int piece, int sqr)
+static void gen_magic_for(int piece, int sqr, int mode)
 {
 	BitBrd num;
 	int	   indexlen;
+
+	int tries	     = 100000000;
+	int previndexlen = 64 - (piece == ROOK ? g_precomp.rookmagicshift[sqr]
+			: g_precomp.bishopmagicshift[sqr]);
+
 	do
 	{
-		num = rand() | (((BitBrd)rand()) << 32);
-		num &= rand() | (((BitBrd)rand()) << 32);
-		indexlen = ismagic(sqr, piece, num);
-	} while (indexlen == 0);
+		do
+		{
+			num = rand() | (((BitBrd)rand()) << 32);
+			num &= rand() | (((BitBrd)rand()) << 32);
+
+			indexlen = ismagic(sqr, piece, num);
+
+			tries--;
+			if (mode == GEN_HUNT && tries <= 0) return;
+
+		} while (indexlen == 0);
+
+	} while (mode == GEN_HUNT && indexlen >= previndexlen);
 
 	if (piece == ROOK)
 	{
@@ -354,17 +377,29 @@ static void gen_magic_for(int piece, int sqr)
 		g_precomp.bishopmagic[sqr]	= num;
 	}
 
-	gen_magicmoves_for(piece, sqr);
+	update_magicmoves_for(piece, sqr);
 
-	printf(
-			"Found %s magic number for square %d: 0x%lx (index len: "
-			"%d, array size: %d)\n",
-			piece == BISHOP ? "bishop" : "rook",
-			sqr,
-			num,
-			indexlen,
-			1 << indexlen
-		  );
+	if (mode == GEN_NORMAL)
+		printf(
+				"Found %s magic number for square %d: 0x%lx (index len: "
+				"%d, array size: %d)\n",
+				piece == BISHOP ? "bishop" : "rook",
+				sqr,
+				num,
+				indexlen,
+				1 << indexlen
+			  );
+	else
+	{
+		printf("Hunted a better magic number!\n");
+		printf("Number: %lx\n", num);
+		printf("Index length: %d -> %d\n", previndexlen, indexlen);
+		printf(
+				"Decreased the size of precomp file by %d bytes\n\n",
+				(previndexlen - indexlen) * 4
+			  );
+		savefile();
+	}
 }
 
 static void gen_magic()
@@ -385,7 +420,7 @@ static void gen_magic()
 						"regenerating\n",
 						i
 					  );
-				gen_magic_for(ROOK, i);
+				gen_magic_for(ROOK, i, GEN_NORMAL);
 			}
 			if (ismagic(i, BISHOP, g_precomp.bishopmagic[i]) == 0)
 			{
@@ -394,7 +429,7 @@ static void gen_magic()
 						"regenerating\n",
 						i
 					  );
-				gen_magic_for(BISHOP, i);
+				gen_magic_for(BISHOP, i, GEN_NORMAL);
 			}
 		}
 
@@ -404,9 +439,25 @@ static void gen_magic()
 	{
 		for (int i = 0; i < 64; i++)
 		{
-			gen_magic_for(ROOK, i);
-			gen_magic_for(BISHOP, i);
+			gen_magic_for(ROOK, i, GEN_NORMAL);
+			gen_magic_for(BISHOP, i, GEN_NORMAL);
 		}
+	}
+}
+
+void huntmagic()
+{
+	while (1)
+	{
+		int piece = rand() % 2 ? ROOK : BISHOP;
+		int sqr	  = rand() % 64;
+		printf(
+				"Trying to hunt a better magic number for %s on square %d\n",
+				piece == ROOK ? "rook" : "bishop",
+				sqr
+			  );
+
+		gen_magic_for(piece, sqr, GEN_HUNT);
 	}
 }
 

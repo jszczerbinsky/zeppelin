@@ -271,6 +271,7 @@ typedef struct
 extern PrecompTable g_precomp;
 
 void genprecomp();
+void huntmagic();
 int loadprecomp();
 void freeprecomp();
 
