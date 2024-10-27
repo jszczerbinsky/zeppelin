@@ -165,32 +165,6 @@ void move2str(char* buff, Move move);
 void genmoves(int player, MoveList* movelist);
 
 // =============================
-//           Utils
-// =============================
-
-static inline int bbrd2sqr(BitBrd bbrd){
-	return __builtin_ffsll(bbrd)-1;
-}
-
-static inline BitBrd sqr2bbrd(int sqr) {
-	return (1ULL << (BitBrd)sqr);
-}
-
-static inline int sqr2diag(int sqr) {
-	return (sqr/8) - (sqr%8) + 7;
-}
-
-static inline int sqr2antidiag(int sqr) {
-	return (sqr/8) + (sqr%8);
-}
-
-static inline int equals(const char* s1, const char* s2) {
-	return strcmp(s1, s2) == 0;
-}
-
-static inline int popcnt(BitBrd bbrd) { return 0; }
-
-// =============================
 //        Bitboard bits
 // =============================
 
@@ -252,17 +226,53 @@ static inline int popcnt(BitBrd bbrd) { return 0; }
 
 typedef struct
 {
-	BitBrd knightmoves[64];
-	BitBrd kingmoves[64];
-	BitBrd bishopmoves[64];
-	BitBrd rookmoves[64];
-	BitBrd queenmoves[64];
+	BitBrd knightmask[64];
+	BitBrd kingmask[64];
+	BitBrd bishoppremask[64];
+	BitBrd bishoppostmask[64];
+	BitBrd rookpremask[64];
+	BitBrd rookpostmask[64];
+	BitBrd queenpremask[64];
+	BitBrd queenpostmask[64];
+
+	int rookmagicshift[64];
+	int bishopmagicshift[64];
+	BitBrd rookmagic[64];
+	BitBrd bishopmagic[64];
+
+	// Serialized dynamically - n is not constant
+	// BitBrd rookmagicmoves[64][n];
+	// BitBrd bishopmagicmoves[64][n];
+	
+} PrecompTableSerialized;
+
+typedef struct
+{
+	BitBrd knightmask[64];
+	BitBrd kingmask[64];
+	BitBrd bishoppremask[64];
+	BitBrd bishoppostmask[64];
+	BitBrd rookpremask[64];
+	BitBrd rookpostmask[64];
+	BitBrd queenpremask[64];
+	BitBrd queenpostmask[64];
+
+	int rookmagicshift[64];
+	int bishopmagicshift[64];
+	BitBrd rookmagic[64];
+	BitBrd bishopmagic[64];
+
+	BitBrd* rookmagicmoves[64];
+	BitBrd* bishopmagicmoves[64];
+
 } PrecompTable;
+
 
 extern PrecompTable g_precomp;
 
 void genprecomp();
 int loadprecomp();
+void freeprecomp();
 
 // =============================
 //             Dump
@@ -270,5 +280,56 @@ int loadprecomp();
 
 void dumpprecomp();
 void dumppos(char* fen);
+
+// =============================
+//           Utils
+// =============================
+
+static inline int bbrd2sqr(BitBrd bbrd){
+	return __builtin_ffsll(bbrd)-1;
+}
+
+static inline BitBrd sqr2bbrd(int sqr) {
+	return (1ULL << (BitBrd)sqr);
+}
+
+static inline int sqr2diag(int sqr) {
+	return (sqr/8) - (sqr%8) + 7;
+}
+
+static inline int sqr2antidiag(int sqr) {
+	return (sqr/8) + (sqr%8);
+}
+
+static inline int equals(const char* s1, const char* s2) {
+	return strcmp(s1, s2) == 0;
+}
+
+static inline int popcnt(BitBrd bbrd) { 
+	int cnt = 0;
+
+	while(bbrd)
+	{
+		cnt++;
+		bbrd &= ~sqr2bbrd(bbrd2sqr(bbrd));
+	}
+
+	return cnt;
+}
+
+static inline BitBrd file2rank(BitBrd bbrd)
+{
+	return (bbrd * DIAG_7) >> 56;
+}
+
+static inline BitBrd rank2file(BitBrd bbrd)
+{
+	return (bbrd * ADIAG_7) & FILE_A;
+}
+
+static inline BitBrd nextsubset(BitBrd subset, BitBrd set)
+{
+	return (subset - set) & set;
+}
 
 #endif

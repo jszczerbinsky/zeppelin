@@ -9,7 +9,7 @@ static void gen_knight(int player, MoveList* movelist)
 		int knightsqr = bbrd2sqr(knightsbbrd);
 
 		BitBrd dstbbrd =
-			g_precomp.knightmoves[knightsqr] & (~g_game.piecesof[player]);
+			g_precomp.knightmask[knightsqr] & (~g_game.piecesof[player]);
 
 		while (dstbbrd)
 		{
@@ -35,7 +35,7 @@ static void gen_king(int player, MoveList* movelist)
 {
 	int kingsqr = bbrd2sqr(g_game.pieces[player][KING]);
 
-	BitBrd dstbbrd = g_precomp.kingmoves[kingsqr] & (~g_game.piecesof[player]);
+	BitBrd dstbbrd = g_precomp.kingmask[kingsqr] & (~g_game.piecesof[player]);
 
 	while (dstbbrd)
 	{

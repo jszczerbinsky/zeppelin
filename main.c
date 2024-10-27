@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 
 #define ARG_NONE	 -1
@@ -112,6 +113,7 @@ static int getarg(const char* argv)
 
 int main(int argc, char** argv)
 {
+	srand(time(NULL));
 	if (argc == 1)
 	{
 		if (!loadprecomp())
@@ -121,6 +123,7 @@ int main(int argc, char** argv)
 		}
 
 		choose_protocol();
+		freeprecomp();
 		return 0;
 	}
 
@@ -131,10 +134,11 @@ int main(int argc, char** argv)
 		case ARG_NONE:
 			fprintf(stderr, "Unknown argument %s\n\n", argv[1]);
 			printhelp();
-			break;
+			return 1;
 		case ARG_GEN_PRECOMP:
 			genprecomp();
-			break;
+			freeprecomp();
+			return 0;
 		default:
 			break;
 	}
@@ -168,6 +172,8 @@ int main(int argc, char** argv)
 		default:
 			break;
 	}
+
+	freeprecomp();
 
 	return 0;
 }
