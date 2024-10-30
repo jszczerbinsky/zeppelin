@@ -57,7 +57,20 @@ static const BitBrd antidiagbbrds[] = {
 static void savefile()
 {
 	FILE* out = fopen("precomputed.bin", "wb");
-	fwrite(&g_precomp, sizeof(PrecompTableSerialized), 1, out);
+
+	fwrite(&g_precomp.knightmask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.kingmask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.bishoppremask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.bishoppostmask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.rookpremask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.rookpostmask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.queenpremask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.queenpostmask, sizeof(BitBrd), 64, out);
+
+	fwrite(&g_precomp.rookmagicshift, sizeof(int), 64, out);
+	fwrite(&g_precomp.bishopmagicshift, sizeof(int), 64, out);
+	fwrite(&g_precomp.rookmagic, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.bishopmagic, sizeof(BitBrd), 64, out);
 
 	for (int i = 0; i < 64; i++)
 	{
@@ -273,12 +286,11 @@ static BitBrd gen_magicmoves(int sqr, BitBrd occupation, int piece)
 	return result;
 }
 
-int ismagic(int sqr, int piece, BitBrd num)
+static int ismagic_checklen(int sqr, int indexlen, int piece, BitBrd num)
 {
 	BitBrd premask = piece == ROOK ? g_precomp.rookpremask[sqr]
 		: g_precomp.bishoppremask[sqr];
 
-	int	   indexlen = popcnt(premask);
 	BitBrd usedby[1 << indexlen];
 	int	   used[1 << indexlen];
 	memset(usedby, 0, (1 << indexlen) * sizeof(BitBrd));
@@ -299,15 +311,25 @@ int ismagic(int sqr, int piece, BitBrd num)
 
 	} while (subset);
 
-	int max = indexlen;
-	int i   = (1 << indexlen) - 1;
-	while (used[i] == 0)
+	return 1;
+}
+
+int ismagic(int sqr, int piece, BitBrd num)
+{
+	BitBrd premask = piece == ROOK ? g_precomp.rookpremask[sqr]
+		: g_precomp.bishoppremask[sqr];
+
+	int indexlen = popcnt(premask);
+
+	if (!ismagic_checklen(sqr, indexlen, piece, num)) return 0;
+
+	while (indexlen > 0)
 	{
-		max--;
-		i--;
+		if (!ismagic_checklen(sqr, indexlen - 1, piece, num)) return indexlen;
+		indexlen--;
 	}
 
-	return max;
+	return 0;
 }
 
 static void update_magicmoves_for(int piece, int sqr)
@@ -332,17 +354,25 @@ static void update_magicmoves_for(int piece, int sqr)
 	}
 
 	BitBrd subset = 0;
-	int	   i	  = 0;
 	do
 	{
 		subset = nextsubset(subset, premask);
+
 		if (piece == ROOK)
-			g_precomp.rookmagicmoves[sqr][i] =
+		{
+			BitBrd index = (subset * g_precomp.rookmagic[sqr]) >>
+				g_precomp.rookmagicshift[sqr];
+			g_precomp.rookmagicmoves[sqr][index] =
 				gen_magicmoves(sqr, subset, ROOK);
+		}
 		else
-			g_precomp.bishopmagicmoves[sqr][i] =
+		{
+			BitBrd index = (subset * g_precomp.bishopmagic[sqr]) >>
+				g_precomp.bishopmagicshift[sqr];
+
+			g_precomp.bishopmagicmoves[sqr][index] =
 				gen_magicmoves(sqr, subset, BISHOP);
-		i++;
+		}
 	} while (subset);
 }
 
@@ -397,7 +427,7 @@ static void gen_magic_for(int piece, int sqr, int mode)
 	else
 	{
 		printf("Hunted a better magic number!\n");
-		printf("Number: %lx\n", num);
+		printf("Number: 0x%lx\n", num);
 		printf("Index length: %d -> %d\n", previndexlen, indexlen);
 		printf(
 				"Decreased the size of precomp file by %d bytes\n\n",
@@ -452,6 +482,8 @@ static void gen_magic()
 
 void usemagic(const char* numstr)
 {
+	file_loaded = 1;
+
 	BitBrd num = strtoll(numstr, NULL, 16);
 
 	if (num == 0)
@@ -547,7 +579,19 @@ int loadprecomp()
 	FILE* in = fopen("precomputed.bin", "rb");
 	if (!in) return 0;
 
-	fread(&g_precomp, sizeof(PrecompTableSerialized), 1, in);
+	fread(&g_precomp.knightmask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.kingmask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.bishoppremask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.bishoppostmask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.rookpremask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.rookpostmask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.queenpremask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.queenpostmask, sizeof(BitBrd), 64, in);
+
+	fread(&g_precomp.rookmagicshift, sizeof(int), 64, in);
+	fread(&g_precomp.bishopmagicshift, sizeof(int), 64, in);
+	fread(&g_precomp.rookmagic, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.bishopmagic, sizeof(BitBrd), 64, in);
 
 	for (int i = 0; i < 64; i++)
 	{

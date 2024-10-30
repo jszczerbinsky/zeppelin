@@ -1,6 +1,6 @@
 *.out
 *.log
+*.bin
 dump-*
-precomputed.bin
 tags
 types_c.taghl
