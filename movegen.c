@@ -1,5 +1,51 @@
 #include "main.h"
 
+static void gen_sliding(int player, MoveList* movelist, int piece)
+{
+	BitBrd piecesbbrd = g_game.pieces[player][piece];
+
+	while (piecesbbrd)
+	{
+		int    piecesqr = bbrd2sqr(piecesbbrd);
+		BitBrd dstbbrd	= 0ULL;
+
+		if (piece == ROOK || piece == QUEEN)
+		{
+			BitBrd occ = g_game.piecesof[ANY] & g_precomp.rookpremask[piecesqr];
+			BitBrd index = (occ * g_precomp.rookmagic[piecesqr]) >>
+				g_precomp.rookmagicshift[piecesqr];
+			dstbbrd |= g_precomp.rookmagicmoves[piecesqr][index];
+		}
+		if (piece == BISHOP || piece == QUEEN)
+		{
+			BitBrd occ =
+				g_game.piecesof[ANY] & g_precomp.bishoppremask[piecesqr];
+			BitBrd index = (occ * g_precomp.bishopmagic[piecesqr]) >>
+				g_precomp.bishopmagicshift[piecesqr];
+			dstbbrd |= g_precomp.bishopmagicmoves[piecesqr][index];
+		}
+
+		dstbbrd &= ~g_game.piecesof[player];
+
+		while (dstbbrd)
+		{
+			int dstsqr = bbrd2sqr(dstbbrd);
+
+			Move move = SRC_SQR(piecesqr) | DST_SQR(dstsqr) | MOV_PIECE(piece);
+
+			if (dstbbrd & g_game.piecesof[!player])
+				move |=
+					MOVE_F_ISCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+
+			pushmove(movelist, move);
+
+			dstbbrd &= ~sqr2bbrd(dstsqr);
+		}
+
+		piecesbbrd &= ~sqr2bbrd(piecesqr);
+	}
+}
+
 static void gen_knight(int player, MoveList* movelist)
 {
 	BitBrd knightsbbrd = g_game.pieces[player][KNIGHT];
@@ -49,6 +95,20 @@ static void gen_king(int player, MoveList* movelist)
 		pushmove(movelist, move);
 
 		dstbbrd &= ~sqr2bbrd(dstsqr);
+	}
+}
+
+static void gen_castle(int player, MoveList* movelist)
+{
+	if (player == WHITE)
+	{
+		if (CANCASTLE_WK(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEWK);
+		if (CANCASTLE_WQ(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEWQ);
+	}
+	else
+	{
+		if (CANCASTLE_BK(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEBK);
+		if (CANCASTLE_BQ(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEBQ);
 	}
 }
 
@@ -222,5 +282,9 @@ void genmoves(int player, MoveList* movelist)
 	gen_pushprom(player, movelist);
 	gen_pawncapt(player, movelist);
 	gen_king(player, movelist);
+	gen_castle(player, movelist);
 	gen_knight(player, movelist);
+	gen_sliding(player, movelist, ROOK);
+	gen_sliding(player, movelist, BISHOP);
+	gen_sliding(player, movelist, QUEEN);
 }

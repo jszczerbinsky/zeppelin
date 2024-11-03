@@ -240,19 +240,23 @@ int parsefen(char* fen)
 
 void move2str(char* buff, Move move)
 {
-	if (IS_CASTLEK(move))
+	if (IS_CASTLE(move))
 	{
-		if (g_game.who2move == WHITE)
-			strcpy(buff, "e1g1");
-		else
-			strcpy(buff, "e8g8");
-	}
-	else if (IS_CASTLEQ(move))
-	{
-		if (g_game.who2move == WHITE)
-			strcpy(buff, "e1c1");
-		else
-			strcpy(buff, "e8c8");
+		switch (GET_CASLE_FLAGS(move))
+		{
+			case MOVE_F_ISCASTLEWK:
+				strcpy(buff, "e1g1");
+				return;
+			case MOVE_F_ISCASTLEBK:
+				strcpy(buff, "e8g8");
+				return;
+			case MOVE_F_ISCASTLEWQ:
+				strcpy(buff, "e1c1");
+				return;
+			case MOVE_F_ISCASTLEBQ:
+				strcpy(buff, "e8c8");
+				return;
+		}
 	}
 
 	int srcsqr = GET_SRC_SQR(move);

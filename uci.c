@@ -34,16 +34,16 @@ static Move parsemove(const char* str)
 	{
 		if (dstsqr == 2 && g_game.who2move == WHITE &&
 				CANCASTLE_WQ(g_gamestate))
-			return SRC_SQR(4) | DST_SQR(2) | MOVE_F_ISCASTLEQ;
+			return MOVE_F_ISCASTLEWQ;
 		if (dstsqr == 6 && g_game.who2move == WHITE &&
 				CANCASTLE_WK(g_gamestate))
-			return SRC_SQR(4) | DST_SQR(6) | MOVE_F_ISCASTLEK;
-		if (dstsqr == 58 && g_game.who2move == WHITE &&
+			return MOVE_F_ISCASTLEWK;
+		if (dstsqr == 58 && g_game.who2move == BLACK &&
 				CANCASTLE_BQ(g_gamestate))
-			return SRC_SQR(60) | DST_SQR(58) | MOVE_F_ISCASTLEQ;
-		if (dstsqr == 62 && g_game.who2move == WHITE &&
+			return MOVE_F_ISCASTLEBQ;
+		if (dstsqr == 62 && g_game.who2move == BLACK &&
 				CANCASTLE_BK(g_gamestate))
-			return SRC_SQR(60) | DST_SQR(62) | MOVE_F_ISCASTLEK;
+			return MOVE_F_ISCASTLEBK;
 	}
 
 	Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(movpiece);
