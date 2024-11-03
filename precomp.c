@@ -243,6 +243,7 @@ static BitBrd gen_magicmoves(int sqr, BitBrd occupation, int piece)
 		{
 			s += 9;
 			rank	= s / 8;
+			file	= s % 8;
 			BitBrd bbrd = sqr2bbrd(s);
 			result |= bbrd;
 			if (bbrd & occupation) break;
@@ -254,6 +255,7 @@ static BitBrd gen_magicmoves(int sqr, BitBrd occupation, int piece)
 		{
 			s -= 7;
 			rank	= s / 8;
+			file	= s % 8;
 			BitBrd bbrd = sqr2bbrd(s);
 			result |= bbrd;
 			if (bbrd & occupation) break;
@@ -264,6 +266,7 @@ static BitBrd gen_magicmoves(int sqr, BitBrd occupation, int piece)
 		while (rank > 0 && file > 0)
 		{
 			s -= 9;
+			rank	= s / 8;
 			file	= s % 8;
 			BitBrd bbrd = sqr2bbrd(s);
 			result |= bbrd;
@@ -276,6 +279,7 @@ static BitBrd gen_magicmoves(int sqr, BitBrd occupation, int piece)
 		while (rank < 7 && file > 0)
 		{
 			s += 7;
+			rank	= s / 8;
 			file	= s % 8;
 			BitBrd bbrd = sqr2bbrd(s);
 			result |= bbrd;
@@ -457,6 +461,9 @@ static void gen_magic()
 					  );
 				gen_magic_for(ROOK, i, GEN_NORMAL);
 			}
+			else
+				update_magicmoves_for(ROOK, i);
+
 			if (ismagic(i, BISHOP, g_precomp.bishopmagic[i]) == 0)
 			{
 				printf(
@@ -466,6 +473,8 @@ static void gen_magic()
 					  );
 				gen_magic_for(BISHOP, i, GEN_NORMAL);
 			}
+			else
+				update_magicmoves_for(BISHOP, i);
 		}
 
 		printf("Magic numbers checking done\n");
