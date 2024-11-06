@@ -1,5 +1,35 @@
 #include "main.h"
 
+int sqr_attackedby(int attacker, int sqr)
+{
+	BitBrd occ, index;
+
+	if (g_game.pieces[attacker][PAWN] &
+			g_precomp.pawnattackmask[!attacker][sqr])
+		return 1;
+
+	if (g_game.pieces[attacker][KNIGHT] & g_precomp.knightmask[sqr]) return 1;
+
+	if (g_game.pieces[attacker][KING] & g_precomp.kingmask[sqr]) return 1;
+
+	occ = g_game.piecesof[ANY] & g_precomp.bishoppremask[sqr];
+	index =
+		(occ * g_precomp.bishopmagic[sqr]) >> g_precomp.bishopmagicshift[sqr];
+
+	if ((g_game.pieces[attacker][BISHOP] | g_game.pieces[attacker][QUEEN]) &
+			g_precomp.bishopmagicmoves[sqr][index])
+		return 1;
+
+	occ	  = g_game.piecesof[ANY] & g_precomp.rookpremask[sqr];
+	index = (occ * g_precomp.rookmagic[sqr]) >> g_precomp.rookmagicshift[sqr];
+
+	if ((g_game.pieces[attacker][ROOK] | g_game.pieces[attacker][QUEEN]) &
+			g_precomp.rookmagicmoves[sqr][index])
+		return 1;
+
+	return 0;
+}
+
 static void gen_sliding(int player, MoveList* movelist, int piece)
 {
 	BitBrd piecesbbrd = g_game.pieces[player][piece];
@@ -100,15 +130,30 @@ static void gen_king(int player, MoveList* movelist)
 
 static void gen_castle(int player, MoveList* movelist)
 {
-	if (player == WHITE)
+	if (player == WHITE && !sqr_attackedby(BLACK, W_KINGSQR))
 	{
-		if (CANCASTLE_WK(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEWK);
-		if (CANCASTLE_WQ(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEWQ);
+		if (CANCASTLE_WK(g_gamestate) &&
+				(g_game.piecesof[ANY] & 0x60ULL) == 0 &&
+				!sqr_attackedby(BLACK, W_KINGSQR + 1) &&
+				!sqr_attackedby(BLACK, W_KINGSQR + 2))
+			pushmove(movelist, MOVE_F_ISCASTLEWK);
+		if (CANCASTLE_WQ(g_gamestate) && (g_game.piecesof[ANY] & 0xeULL) == 0 &&
+				!sqr_attackedby(BLACK, W_KINGSQR - 1) &&
+				!sqr_attackedby(BLACK, W_KINGSQR - 2))
+			pushmove(movelist, MOVE_F_ISCASTLEWQ);
 	}
-	else
+	else if (!sqr_attackedby(WHITE, B_KINGSQR))
 	{
-		if (CANCASTLE_BK(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEBK);
-		if (CANCASTLE_BQ(g_gamestate)) pushmove(movelist, MOVE_F_ISCASTLEBQ);
+		if (CANCASTLE_BK(g_gamestate) &&
+				(g_game.piecesof[ANY] & 0x6000000000000000ULL) == 0 &&
+				!sqr_attackedby(WHITE, B_KINGSQR + 1) &&
+				!sqr_attackedby(WHITE, B_KINGSQR + 2))
+			pushmove(movelist, MOVE_F_ISCASTLEBK);
+		if (CANCASTLE_BQ(g_gamestate) &&
+				(g_game.piecesof[ANY] & 0xe00000000000000ULL) == 0 &&
+				!sqr_attackedby(WHITE, B_KINGSQR - 1) &&
+				!sqr_attackedby(WHITE, B_KINGSQR - 2))
+			pushmove(movelist, MOVE_F_ISCASTLEBQ);
 	}
 }
 

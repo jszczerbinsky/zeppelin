@@ -186,6 +186,12 @@ void dumpprecomp()
 			g_precomp.bishoppremask
 			);
 
+	printsection(f, "WHITE PAWN ATTACKS");
+	dumpprecomp_moves(f, g_precomp.pawnattackmask[WHITE]);
+
+	printsection(f, "BLACK PAWN ATTACKS");
+	dumpprecomp_moves(f, g_precomp.pawnattackmask[BLACK]);
+
 	fclose(f);
 }
 

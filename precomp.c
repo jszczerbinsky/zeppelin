@@ -66,6 +66,8 @@ static void savefile()
 	fwrite(&g_precomp.rookpostmask, sizeof(BitBrd), 64, out);
 	fwrite(&g_precomp.queenpremask, sizeof(BitBrd), 64, out);
 	fwrite(&g_precomp.queenpostmask, sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.pawnattackmask[WHITE], sizeof(BitBrd), 64, out);
+	fwrite(&g_precomp.pawnattackmask[BLACK], sizeof(BitBrd), 64, out);
 
 	fwrite(&g_precomp.rookmagicshift, sizeof(int), 64, out);
 	fwrite(&g_precomp.bishopmagicshift, sizeof(int), 64, out);
@@ -84,6 +86,33 @@ static void savefile()
 	}
 
 	fclose(out);
+}
+
+static void gen_pawnattackmask()
+{
+	for (int sqr = 0; sqr < 64; sqr++)
+	{
+		g_precomp.pawnattackmask[WHITE][sqr] = 0;
+		g_precomp.pawnattackmask[BLACK][sqr] = 0;
+
+		int file = sqr % 8;
+		int rank = sqr / 8;
+
+		if (file > 0)
+		{
+			if (rank < 7)
+				g_precomp.pawnattackmask[WHITE][sqr] |= sqr2bbrd(sqr + 7);
+			if (rank > 0)
+				g_precomp.pawnattackmask[BLACK][sqr] |= sqr2bbrd(sqr - 9);
+		}
+		if (file < 7)
+		{
+			if (rank < 7)
+				g_precomp.pawnattackmask[WHITE][sqr] |= sqr2bbrd(sqr + 9);
+			if (rank > 0)
+				g_precomp.pawnattackmask[BLACK][sqr] |= sqr2bbrd(sqr - 7);
+		}
+	}
 }
 
 static void gen_kingmask()
@@ -596,6 +625,8 @@ int loadprecomp()
 	fread(&g_precomp.rookpostmask, sizeof(BitBrd), 64, in);
 	fread(&g_precomp.queenpremask, sizeof(BitBrd), 64, in);
 	fread(&g_precomp.queenpostmask, sizeof(BitBrd), 64, in);
+	fread(&g_precomp.pawnattackmask[WHITE], sizeof(BitBrd), 64, in);
+	fread(&g_precomp.pawnattackmask[BLACK], sizeof(BitBrd), 64, in);
 
 	fread(&g_precomp.rookmagicshift, sizeof(int), 64, in);
 	fread(&g_precomp.bishopmagicshift, sizeof(int), 64, in);
@@ -632,6 +663,7 @@ void genprecomp()
 	gen_knightmask();
 	gen_slidingmoves();
 	gen_magic();
+	gen_pawnattackmask();
 
 	savefile();
 }

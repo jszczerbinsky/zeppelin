@@ -166,6 +166,7 @@ void move2str(char* buff, Move move);
 // =============================
 
 void genmoves(int player, MoveList* movelist);
+int sqr_attackedby(int attacker, int sqr);
 
 // =============================
 //        Bitboard bits
@@ -226,6 +227,9 @@ void genmoves(int player, MoveList* movelist);
 #define ADIAG_13 0x4080000000000000ULL
 #define ADIAG_14 0x8000000000000000ULL
 
+#define W_KINGSQR 4
+#define B_KINGSQR 60
+
 #define CASTLE_WK_KINGSQR 6
 #define CASTLE_WK_ROOKSQR 5
 #define CASTLE_BK_KINGSQR 62
@@ -234,11 +238,6 @@ void genmoves(int player, MoveList* movelist);
 #define CASTLE_WQ_ROOKSQR 3
 #define CASTLE_BQ_KINGSQR 58
 #define CASTLE_BQ_ROOKSQR 59
-
-#define CASTLE_WK_ATTACKMASK 0x70ULL
-#define CASTLE_BK_ATTACKMASK 0x7000000000000000ULL
-#define CASTLE_WQ_ATTACKMASK 0x1cULL
-#define CASTLE_BQ_ATTACKMASK 0x1c00000000000000ULL
 
 // =============================
 //            Precomp
@@ -254,6 +253,7 @@ typedef struct
 	BitBrd rookpostmask[64];
 	BitBrd queenpremask[64];
 	BitBrd queenpostmask[64];
+	BitBrd pawnattackmask[2][64];
 
 	int rookmagicshift[64];
 	int bishopmagicshift[64];
@@ -276,6 +276,7 @@ typedef struct
 	BitBrd rookpostmask[64];
 	BitBrd queenpremask[64];
 	BitBrd queenpostmask[64];
+	BitBrd pawnattackmask[2][64];
 
 	int rookmagicshift[64];
 	int bishopmagicshift[64];
