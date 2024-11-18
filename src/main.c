@@ -184,7 +184,8 @@ int main(int argc, char** argv)
 			dumpprecomp();
 			break;
 		case ARG_DUMP_POS:
-			dumppos(argv[2]);
+			parsefen(argv[2]);
+			dumppos();
 			break;
 		case ARG_HUNT_MAGIC:
 			huntmagic();

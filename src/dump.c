@@ -195,41 +195,32 @@ void dumpprecomp()
 	fclose(f);
 }
 
-void dumppos(char* fen)
+void dumppos()
 {
-	if (parsefen(fen))
+	FILE* f = init_dumpfile("dump-position.txt");
+
+	fprintf(f, "%s on move\n\n", g_game.who2move == WHITE ? "White" : "Black");
+
+	char str[64][2];
+	for (int i = 0; i < 64; i++)
 	{
-		FILE* f = init_dumpfile("dump-position.txt");
-
-		fprintf(
-				f, "%s on move\n\n", g_game.who2move == WHITE ? "White" : "Black"
-			   );
-
-		char str[64][2];
-		for (int i = 0; i < 64; i++)
-		{
-			int piece = getpieceat(ANY, sqr2bbrd(i));
-			int color = (sqr2bbrd(i) & g_game.piecesof[WHITE]) ? WHITE : BLACK;
-			str[i][0] = piece2char(color, piece);
-			str[i][1] = color == BLACK ? ' ' : '.';
-		}
-		printbrd(f, str);
-
-		MoveList movelist;
-		genmoves(g_game.who2move, &movelist);
-
-		fprintf(f, "\nAvailable moves:\n");
-		for (int i = 0; i < movelist.cnt; i++)
-		{
-			char buff[6];
-			move2str(buff, movelist.move[i]);
-			fprintf(f, "%s\n", buff);
-		}
-
-		fclose(f);
+		int piece = getpieceat(ANY, sqr2bbrd(i));
+		int color = (sqr2bbrd(i) & g_game.piecesof[WHITE]) ? WHITE : BLACK;
+		str[i][0] = piece2char(color, piece);
+		str[i][1] = color == BLACK ? ' ' : '.';
 	}
-	else
+	printbrd(f, str);
+
+	MoveList movelist;
+	genmoves(g_game.who2move, &movelist);
+
+	fprintf(f, "\nAvailable moves:\n");
+	for (int i = 0; i < movelist.cnt; i++)
 	{
-		fprintf(stderr, "Couldn't parse FEN position: '%s'\n", fen);
+		char buff[6];
+		move2str(buff, movelist.move[i]);
+		fprintf(f, "%s\n", buff);
 	}
+
+	fclose(f);
 }

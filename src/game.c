@@ -70,7 +70,7 @@ void reset_game()
 
 void getfen(char* buff) { strcpy(buff, "not supported yet"); }
 
-int parsefen(char* fen)
+char* parsefen(char* fen)
 {
 	memset(&g_game, 0, sizeof(Game));
 	update_gamestate();
@@ -198,9 +198,9 @@ int parsefen(char* fen)
 	if (*token != '-')
 	{
 		int file = token[0] - 'a';
-		int rank = token[1] - '0';
+		int rank = token[1] - '1';
 
-		g_gamestate->epbbrd = file + rank * 8;
+		g_gamestate->epbbrd = sqr2bbrd(file + rank * 8);
 	}
 
 	token = fen_nexttok();
@@ -235,7 +235,7 @@ int parsefen(char* fen)
 
 	update_game();
 
-	return 1;
+	return fen_nexttok();
 }
 
 void move2str(char* buff, Move move)
@@ -292,6 +292,212 @@ void move2str(char* buff, Move move)
 		buff[4] = '\0';
 }
 
-void makemove(Move move) {}
+void makemove(Move move)
+{
+	GameState* newgamestate = g_gamestate + 1;
+	memcpy(newgamestate, g_gamestate, sizeof(GameState));
 
-void undomove() {}
+	const int	 player	 = g_game.who2move;
+	const BitBrd srcbbrd = sqr2bbrd(GET_SRC_SQR(move));
+	const BitBrd dstbbrd = sqr2bbrd(GET_DST_SQR(move));
+
+	newgamestate->epbbrd = 0;
+
+	if (GET_MOV_PIECE(move) == ROOK)
+	{
+		switch (GET_SRC_SQR(move))
+		{
+			case WK_ROOKSQR:
+				newgamestate->flags &= ~GAME_F_CANCASTLE_WK;
+				break;
+			case BK_ROOKSQR:
+				newgamestate->flags &= ~GAME_F_CANCASTLE_BK;
+				break;
+			case WQ_ROOKSQR:
+				newgamestate->flags &= ~GAME_F_CANCASTLE_WQ;
+				break;
+			case BQ_ROOKSQR:
+				newgamestate->flags &= ~GAME_F_CANCASTLE_BQ;
+				break;
+			default:
+				break;
+		}
+	}
+
+	switch (GET_FLAGS(move))
+	{
+		case MOVE_F_ISCASTLEWQ:
+			g_game.pieces[WHITE][KING] = sqr2bbrd(CASTLE_WQ_KINGSQR);
+			g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(WQ_ROOKSQR);
+			g_game.pieces[WHITE][ROOK] |= CASTLE_WQ_ROOKSQR;
+			newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
+			break;
+		case MOVE_F_ISCASTLEBQ:
+			g_game.pieces[BLACK][KING] = sqr2bbrd(CASTLE_BQ_KINGSQR);
+			g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(BQ_ROOKSQR);
+			g_game.pieces[BLACK][ROOK] |= CASTLE_BQ_ROOKSQR;
+			newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
+			break;
+		case MOVE_F_ISCASTLEWK:
+			g_game.pieces[WHITE][KING] = sqr2bbrd(CASTLE_WK_KINGSQR);
+			g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(WK_ROOKSQR);
+			g_game.pieces[WHITE][ROOK] |= CASTLE_WK_ROOKSQR;
+			newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
+			break;
+		case MOVE_F_ISCASTLEBK:
+			g_game.pieces[BLACK][KING] = sqr2bbrd(CASTLE_BK_KINGSQR);
+			g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(BK_ROOKSQR);
+			g_game.pieces[BLACK][ROOK] |= CASTLE_BK_ROOKSQR;
+			newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
+			break;
+		case MOVE_F_ISPROM:
+			g_game.pieces[player][PAWN] &= ~srcbbrd;
+			g_game.pieces[player][GET_PROM_PIECE(move)] |= dstbbrd;
+			break;
+		case MOVE_F_ISCAPT:
+			g_game.pieces[!player][GET_CAPT_PIECE(move)] &= ~dstbbrd;
+			g_game.pieces[player][GET_MOV_PIECE(move)] &= ~srcbbrd;
+			g_game.pieces[player][GET_MOV_PIECE(move)] |= dstbbrd;
+			if (GET_CAPT_PIECE(move) == ROOK)
+			{
+				switch (GET_DST_SQR(move))
+				{
+					case WK_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_WK;
+						break;
+					case BK_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_BK;
+						break;
+					case WQ_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_WQ;
+						break;
+					case BQ_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_BQ;
+						break;
+					default:
+						break;
+				}
+			}
+			break;
+		case MOVE_F_ISPROM | MOVE_F_ISCAPT:
+			g_game.pieces[player][PAWN] &= ~srcbbrd;
+			g_game.pieces[player][GET_PROM_PIECE(move)] |= dstbbrd;
+			g_game.pieces[!player][GET_CAPT_PIECE(move)] &= ~dstbbrd;
+			if (GET_CAPT_PIECE(move) == ROOK)
+			{
+				switch (GET_DST_SQR(move))
+				{
+					case WK_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_WK;
+						break;
+					case BK_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_BK;
+						break;
+					case WQ_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_WQ;
+						break;
+					case BQ_ROOKSQR:
+						newgamestate->flags &= ~GAME_F_CANCASTLE_BQ;
+						break;
+					default:
+						break;
+				}
+			}
+			break;
+		case MOVE_F_ISEP:
+			if (player == WHITE)
+				g_game.pieces[!player][PAWN] &= ~(g_gamestate->epbbrd >> 8);
+			else
+				g_game.pieces[!player][PAWN] &= ~(g_gamestate->epbbrd << 8);
+			g_game.pieces[player][PAWN] &= ~srcbbrd;
+			g_game.pieces[player][PAWN] |= dstbbrd;
+			break;
+		case MOVE_F_ISDOUBLEPUSH:
+			g_game.pieces[player][PAWN] &= ~srcbbrd;
+			g_game.pieces[player][PAWN] |= dstbbrd;
+			if (player == WHITE)
+				newgamestate->epbbrd = srcbbrd << 8;
+			else
+				newgamestate->epbbrd = srcbbrd >> 8;
+			break;
+		default:
+			g_game.pieces[player][GET_MOV_PIECE(move)] &= ~srcbbrd;
+			g_game.pieces[player][GET_MOV_PIECE(move)] |= dstbbrd;
+			break;
+	}
+
+	g_game.movelist.move[g_game.movelist.cnt] = move;
+	g_game.movelist.cnt++;
+	g_game.who2move = !g_game.who2move;
+
+	update_game();
+}
+
+void unmakemove()
+{
+	g_game.who2move = !g_game.who2move;
+	g_game.movelist.cnt--;
+
+	Move move = g_game.movelist.move[g_game.movelist.cnt];
+
+	const int	     player	   = g_game.who2move;
+	const BitBrd     srcbbrd	   = sqr2bbrd(GET_SRC_SQR(move));
+	const BitBrd     dstbbrd	   = sqr2bbrd(GET_DST_SQR(move));
+	const GameState* prevgamestate = g_gamestate - 1;
+
+	switch (GET_FLAGS(move))
+	{
+		case MOVE_F_ISCASTLEWQ:
+			g_game.pieces[WHITE][KING] = sqr2bbrd(W_KINGSQR);
+			g_game.pieces[WHITE][ROOK] |= sqr2bbrd(WQ_ROOKSQR);
+			g_game.pieces[WHITE][ROOK] &= ~CASTLE_WQ_ROOKSQR;
+			break;
+		case MOVE_F_ISCASTLEBQ:
+			g_game.pieces[BLACK][KING] = sqr2bbrd(B_KINGSQR);
+			g_game.pieces[BLACK][ROOK] |= sqr2bbrd(BQ_ROOKSQR);
+			g_game.pieces[BLACK][ROOK] &= ~CASTLE_BQ_ROOKSQR;
+			break;
+		case MOVE_F_ISCASTLEWK:
+			g_game.pieces[WHITE][KING] = sqr2bbrd(W_KINGSQR);
+			g_game.pieces[WHITE][ROOK] |= sqr2bbrd(WK_ROOKSQR);
+			g_game.pieces[WHITE][ROOK] &= ~CASTLE_WK_ROOKSQR;
+			break;
+		case MOVE_F_ISCASTLEBK:
+			g_game.pieces[BLACK][KING] = sqr2bbrd(B_KINGSQR);
+			g_game.pieces[BLACK][ROOK] |= sqr2bbrd(BK_ROOKSQR);
+			g_game.pieces[BLACK][ROOK] &= ~CASTLE_BK_ROOKSQR;
+			break;
+		case MOVE_F_ISPROM:
+			g_game.pieces[player][PAWN] |= srcbbrd;
+			g_game.pieces[player][GET_PROM_PIECE(move)] &= ~dstbbrd;
+			break;
+		case MOVE_F_ISCAPT:
+			g_game.pieces[!player][GET_CAPT_PIECE(move)] |= dstbbrd;
+			g_game.pieces[player][GET_MOV_PIECE(move)] |= srcbbrd;
+			g_game.pieces[player][GET_MOV_PIECE(move)] &= ~dstbbrd;
+			break;
+		case MOVE_F_ISPROM | MOVE_F_ISCAPT:
+			g_game.pieces[player][PAWN] |= srcbbrd;
+			g_game.pieces[player][GET_PROM_PIECE(move)] &= ~dstbbrd;
+			g_game.pieces[!player][GET_CAPT_PIECE(move)] |= dstbbrd;
+			break;
+		case MOVE_F_ISEP:
+			if (player == WHITE)
+				g_game.pieces[!player][PAWN] |= prevgamestate->epbbrd >> 8;
+			else
+				g_game.pieces[!player][PAWN] |= prevgamestate->epbbrd << 8;
+			g_game.pieces[player][PAWN] |= srcbbrd;
+			g_game.pieces[player][PAWN] &= ~dstbbrd;
+			break;
+		case MOVE_F_ISDOUBLEPUSH:
+			g_game.pieces[player][PAWN] |= srcbbrd;
+			g_game.pieces[player][PAWN] &= ~dstbbrd;
+			break;
+		default:
+			g_game.pieces[player][GET_MOV_PIECE(move)] |= srcbbrd;
+			g_game.pieces[player][GET_MOV_PIECE(move)] &= ~dstbbrd;
+			break;
+	}
+
+	update_game();
+}

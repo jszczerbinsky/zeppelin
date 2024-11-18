@@ -9,7 +9,7 @@
 int g_ucidebug = 0;
 
 static inline char* nexttok() { return strtok(NULL, TOK_DELIMS); }
-static inline char* nexttok_untilend() { return strtok(NULL, "\0"); }
+static inline char* nexttok_untilend() { return strtok(NULL, "\n"); }
 
 static void respond2uci()
 {
@@ -53,7 +53,7 @@ static Move parsemove(const char* str)
 		int piece = getpieceat(enemy, dstbbrd);
 		move |= MOVE_F_ISCAPT | CAPT_PIECE(piece);
 	}
-	else if (movpiece == PAWN && g_gamestate->epbbrd & dstbbrd)
+	else if (movpiece == PAWN && (g_gamestate->epbbrd & dstbbrd))
 	{
 		move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
 	}
@@ -84,24 +84,25 @@ static void respond2ucinewgame() {}
 static void respond2position(char* token)
 {
 	if (equals(token, "startpos"))
+	{
+		token = nexttok();
 		reset_game();
+	}
 	else if (equals(token, "fen"))
 	{
 		token = nexttok_untilend();
-		parsefen(token);
+		token = parsefen(token);
 	}
-	else
-		printf("%s\n", token);
 
-	MoveList movelist;
-	genmoves(g_game.who2move, &movelist);
-
-	printf("Moves count: %d\n", movelist.cnt);
-	for (int i = 0; i < movelist.cnt; i++)
+	if (token && equals(token, "moves"))
 	{
-		char buff[6];
-		move2str(buff, movelist.move[i]);
-		printf("%s\n", buff);
+		token = nexttok();
+		while (token)
+		{
+			fflush(stdout);
+			makemove(parsemove(token));
+			token = nexttok();
+		}
 	}
 }
 
@@ -119,14 +120,26 @@ static void respond2isready()
 	fflush(stdout);
 }
 
+static void respond2go(char* token)
+{
+	if (equals(token, "perft"))
+	{
+		token = nexttok();
+		if (token) perft(atoi(token));
+	}
+}
+
 static int next_cmd(char* buff, int len)
 {
 	char* token = strtok(buff, " \n");
+	if (!token) return 0;
 
 	if (equals(token, "uci"))
 		respond2uci();
 	else if (equals(token, "ucinewgame"))
 		respond2ucinewgame();
+	else if (equals(token, "go"))
+		respond2go(nexttok());
 	else if (equals(token, "position"))
 		respond2position(nexttok());
 	else if (equals(token, "debug"))
