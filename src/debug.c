@@ -4,10 +4,8 @@
 
 #include "main.h"
 
-static void respond2fencheck(char* fen)
+static void sendboard()
 {
-	parsefen(fen);
-
 	printf("{\n");
 
 	printf("\"wpawn\": %lu,\n", g_game.pieces[WHITE][PAWN]);
@@ -36,8 +34,59 @@ static void respond2fencheck(char* fen)
 	printf("\"fullmove\": %u\n", g_gamestate->fullmove);
 
 	printf("}\n");
+}
+
+static void finishsending()
+{
 	printf("END\n");
 	fflush(stdout);
+}
+
+static void respond2fencheck(char* fen)
+{
+	parsefen(fen);
+	sendboard();
+	finishsending();
+}
+
+static void respond2unmakemovecheck(char* fenbak)
+{
+	char fen[1024];
+	strcpy(fen, fenbak);
+
+	parsefen(fen);
+	strcpy(fen, fenbak);
+
+	MoveList movelist;
+	genmoves(g_game.who2move, &movelist);
+
+	printf("{ \"moves\": [\n");
+	for (int i = 0; i < movelist.cnt; i++)
+	{
+		parsefen(fen);
+		strcpy(fen, fenbak);
+
+		char buff[6];
+		move2str(buff, movelist.move[i]);
+
+		printf("{\n");
+		printf("\"move\": \"%s\",\n", buff);
+		printf("\"before\": ");
+		sendboard();
+
+		makemove(movelist.move[i]);
+		unmakemove();
+
+		printf(",\n \"after\": ");
+		sendboard();
+
+		if (i == movelist.cnt - 1)
+			printf("}\n");
+		else
+			printf("},\n");
+	}
+	printf("]}\n");
+	finishsending();
 }
 
 static int next_cmd(char* buff, int len)
@@ -47,6 +96,8 @@ static int next_cmd(char* buff, int len)
 
 	if (equals(token, "fencheck"))
 		respond2fencheck(nexttok_untilend());
+	else if (equals(token, "unmakemovecheck"))
+		respond2unmakemovecheck(nexttok_untilend());
 	else if (equals(token, "quit"))
 		return 1;
 
