@@ -68,8 +68,6 @@ void reset_game()
 	update_game();
 }
 
-void getfen(char* buff) { strcpy(buff, "not supported yet"); }
-
 char* parsefen(char* fen)
 {
 	memset(&g_game, 0, sizeof(Game));

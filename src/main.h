@@ -10,11 +10,13 @@
 
 #define MODE_CLIARG 0
 #define MODE_UCI    1
+#define MODE_DEBUG  2
 
 extern int g_mode;
 
 extern int g_ucidebug;
 void	   uci_start();
+void	   debug_start();
 
 // =============================
 //     Board representation
@@ -162,7 +164,6 @@ void  reset_game();
 char* parsefen(char* fen);
 void  makemove(Move move);
 void  unmakemove();
-void  getfen(char* buff);
 void  move2str(char* buff, Move move);
 
 // =============================
@@ -359,5 +360,8 @@ static inline BitBrd nextsubset(BitBrd subset, BitBrd set)
 {
 	return (subset - set) & set;
 }
+
+static inline char* nexttok() { return strtok(NULL, " \n"); }
+static inline char* nexttok_untilend() { return strtok(NULL, "\n"); }
 
 #endif

@@ -3,4 +3,5 @@
 *.bin
 dump-*
 tags
-types_c.taghl
+*.taghl
+__pycache__

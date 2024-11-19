@@ -106,6 +106,12 @@ static void choose_protocol()
 			uci_start();
 			quit = 1;
 		}
+		else if (equals(buff, "debug\n"))
+		{
+			free(buff);
+			debug_start();
+			quit = 1;
+		}
 	}
 }
 

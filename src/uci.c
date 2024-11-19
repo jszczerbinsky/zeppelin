@@ -8,9 +8,6 @@
 
 int g_ucidebug = 0;
 
-static inline char* nexttok() { return strtok(NULL, TOK_DELIMS); }
-static inline char* nexttok_untilend() { return strtok(NULL, "\n"); }
-
 static void respond2uci()
 {
 	printf("id name testengine\n");
