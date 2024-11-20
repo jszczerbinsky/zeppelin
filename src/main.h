@@ -16,7 +16,10 @@ extern int g_mode;
 
 extern int g_ucidebug;
 void	   uci_start();
-void	   debug_start();
+
+#ifdef DEBUG_INTERFACE
+void debug_start();
+#endif
 
 // =============================
 //     Board representation
