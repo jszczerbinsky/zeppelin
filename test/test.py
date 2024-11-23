@@ -4,6 +4,7 @@ from engine import Engine
 
 import fenchecks
 import unmakemovechecks
+import makemovechecks
 
 engine = Engine(sys.argv[1])
 
@@ -13,6 +14,7 @@ print()
 print('____________________________________________________________ RUNNING TESTS ____________________________________________________________')
 result &= fenchecks.run(engine);
 result &= unmakemovechecks.run(engine);
+result &= makemovechecks.run(engine);
 print('_______________________________________________________________________________________________________________________________________')
 print()
 

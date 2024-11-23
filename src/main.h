@@ -168,6 +168,7 @@ char* parsefen(char* fen);
 void  makemove(Move move);
 void  unmakemove();
 void  move2str(char* buff, Move move);
+Move  parsemove(const char* str);
 
 // =============================
 //   Move generator definitions

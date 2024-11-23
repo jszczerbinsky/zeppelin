@@ -16,66 +16,6 @@ static void respond2uci()
 	fflush(stdout);
 }
 
-static Move parsemove(const char* str)
-{
-	int srcsqr = (str[0] - 'a') + (str[1] - '1') * 8;
-	int dstsqr = (str[2] - 'a') + (str[3] - '1') * 8;
-
-	BitBrd srcbbrd = sqr2bbrd(srcsqr);
-	BitBrd dstbbrd = sqr2bbrd(dstsqr);
-
-	const int enemy    = !g_game.who2move;
-	const int movpiece = getpieceat(g_game.who2move, srcbbrd);
-
-	if (movpiece == KING)
-	{
-		if (dstsqr == 2 && g_game.who2move == WHITE &&
-				CANCASTLE_WQ(g_gamestate))
-			return MOVE_F_ISCASTLEWQ;
-		if (dstsqr == 6 && g_game.who2move == WHITE &&
-				CANCASTLE_WK(g_gamestate))
-			return MOVE_F_ISCASTLEWK;
-		if (dstsqr == 58 && g_game.who2move == BLACK &&
-				CANCASTLE_BQ(g_gamestate))
-			return MOVE_F_ISCASTLEBQ;
-		if (dstsqr == 62 && g_game.who2move == BLACK &&
-				CANCASTLE_BK(g_gamestate))
-			return MOVE_F_ISCASTLEBK;
-	}
-
-	Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(movpiece);
-
-	if (g_game.piecesof[enemy] & dstbbrd)
-	{
-		int piece = getpieceat(enemy, dstbbrd);
-		move |= MOVE_F_ISCAPT | CAPT_PIECE(piece);
-	}
-	else if (movpiece == PAWN && (g_gamestate->epbbrd & dstbbrd))
-	{
-		move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
-	}
-
-	switch (str[4])
-	{
-		case 'q':
-			move |= PROM_PIECE(QUEEN) | MOVE_F_ISPROM;
-			break;
-		case 'b':
-			move |= PROM_PIECE(BISHOP) | MOVE_F_ISPROM;
-			break;
-		case 'r':
-			move |= PROM_PIECE(ROOK) | MOVE_F_ISPROM;
-			break;
-		case 'n':
-			move |= PROM_PIECE(KNIGHT) | MOVE_F_ISPROM;
-			break;
-		default:
-			break;
-	}
-
-	return move;
-}
-
 static void respond2ucinewgame() {}
 
 static void respond2position(char* token)

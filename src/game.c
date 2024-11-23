@@ -240,6 +240,74 @@ char* parsefen(char* fen)
 	return fen_nexttok();
 }
 
+Move parsemove(const char* str)
+{
+	int srcsqr = (str[0] - 'a') + (str[1] - '1') * 8;
+	int dstsqr = (str[2] - 'a') + (str[3] - '1') * 8;
+
+	BitBrd srcbbrd = sqr2bbrd(srcsqr);
+	BitBrd dstbbrd = sqr2bbrd(dstsqr);
+
+	const int enemy    = !g_game.who2move;
+	const int movpiece = getpieceat(g_game.who2move, srcbbrd);
+
+	if (movpiece == KING)
+	{
+		if (dstsqr == 2 && g_game.who2move == WHITE &&
+				CANCASTLE_WQ(g_gamestate))
+			return MOVE_F_ISCASTLEWQ;
+		if (dstsqr == 6 && g_game.who2move == WHITE &&
+				CANCASTLE_WK(g_gamestate))
+			return MOVE_F_ISCASTLEWK;
+		if (dstsqr == 58 && g_game.who2move == BLACK &&
+				CANCASTLE_BQ(g_gamestate))
+			return MOVE_F_ISCASTLEBQ;
+		if (dstsqr == 62 && g_game.who2move == BLACK &&
+				CANCASTLE_BK(g_gamestate))
+			return MOVE_F_ISCASTLEBK;
+	}
+
+	Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(movpiece);
+
+	if (g_game.piecesof[enemy] & dstbbrd)
+	{
+		int piece = getpieceat(enemy, dstbbrd);
+		move |= MOVE_F_ISCAPT | CAPT_PIECE(piece);
+	}
+	else if (movpiece == PAWN)
+	{
+		if (g_gamestate->epbbrd & dstbbrd)
+		{
+			move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
+		}
+		else if ((sqr2bbrd(srcsqr) & (RANK_2 | RANK_6)) &&
+				(sqr2bbrd(dstsqr) & (RANK_4 | RANK_5)))
+		{
+			move |= MOVE_F_ISDOUBLEPUSH;
+		}
+	}
+
+	switch (str[4])
+	{
+		case 'q':
+			move |= PROM_PIECE(QUEEN) | MOVE_F_ISPROM;
+			break;
+		case 'b':
+			move |= PROM_PIECE(BISHOP) | MOVE_F_ISPROM;
+			break;
+		case 'r':
+			move |= PROM_PIECE(ROOK) | MOVE_F_ISPROM;
+			break;
+		case 'n':
+			move |= PROM_PIECE(KNIGHT) | MOVE_F_ISPROM;
+			break;
+		default:
+			break;
+	}
+
+	return move;
+}
+
 void move2str(char* buff, Move move)
 {
 	if (IS_CASTLE(move))
@@ -304,6 +372,9 @@ void makemove(Move move)
 	const BitBrd dstbbrd = sqr2bbrd(GET_DST_SQR(move));
 
 	newgamestate->epbbrd = 0;
+	newgamestate->halfmove++;
+
+	if (player == BLACK) newgamestate->fullmove++;
 
 	if (GET_MOV_PIECE(move) == ROOK)
 	{
@@ -324,6 +395,13 @@ void makemove(Move move)
 			default:
 				break;
 		}
+	}
+	else if (GET_MOV_PIECE(move) == KING)
+	{
+		if (player == WHITE)
+			newgamestate->flags &= ~(GAME_F_CANCASTLE_WQ | GAME_F_CANCASTLE_WK);
+		else
+			newgamestate->flags &= ~(GAME_F_CANCASTLE_BQ | GAME_F_CANCASTLE_BK);
 	}
 
 	switch (GET_FLAGS(move))
@@ -355,6 +433,7 @@ void makemove(Move move)
 		case MOVE_F_ISPROM:
 			g_game.pieces[player][PAWN] &= ~srcbbrd;
 			g_game.pieces[player][GET_PROM_PIECE(move)] |= dstbbrd;
+			newgamestate->halfmove = 0;
 			break;
 		case MOVE_F_ISCAPT:
 			g_game.pieces[!player][GET_CAPT_PIECE(move)] &= ~dstbbrd;
@@ -380,6 +459,7 @@ void makemove(Move move)
 						break;
 				}
 			}
+			newgamestate->halfmove = 0;
 			break;
 		case MOVE_F_ISPROM | MOVE_F_ISCAPT:
 			g_game.pieces[player][PAWN] &= ~srcbbrd;
@@ -405,6 +485,7 @@ void makemove(Move move)
 						break;
 				}
 			}
+			newgamestate->halfmove = 0;
 			break;
 		case MOVE_F_ISEP:
 			if (player == WHITE)
@@ -413,6 +494,7 @@ void makemove(Move move)
 				g_game.pieces[!player][PAWN] &= ~(g_gamestate->epbbrd << 8);
 			g_game.pieces[player][PAWN] &= ~srcbbrd;
 			g_game.pieces[player][PAWN] |= dstbbrd;
+			newgamestate->halfmove = 0;
 			break;
 		case MOVE_F_ISDOUBLEPUSH:
 			g_game.pieces[player][PAWN] &= ~srcbbrd;
@@ -421,10 +503,12 @@ void makemove(Move move)
 				newgamestate->epbbrd = srcbbrd << 8;
 			else
 				newgamestate->epbbrd = srcbbrd >> 8;
+			newgamestate->halfmove = 0;
 			break;
 		default:
 			g_game.pieces[player][GET_MOV_PIECE(move)] &= ~srcbbrd;
 			g_game.pieces[player][GET_MOV_PIECE(move)] |= dstbbrd;
+			if (GET_MOV_PIECE(move) == PAWN) newgamestate->halfmove = 0;
 			break;
 	}
 

@@ -1,13 +1,19 @@
 def checkunmake(engine, fen):
-    res = engine.send('unmakemovecheck ' + fen)
+    res = engine.loadfen(fen)
+    moves = engine.getmoves()
 
-    for move in res['moves']:
-        for key in move['before'].keys():
-            if move['before'][key] != move['after'][key]:
-                if isinstance(move['before'][key], (int)):
-                    print('UNMAKEMOVECHECK ERROR - ['+fen+'] move '+move['move']+' param "'+key+'" before: ['+hex(move['before'][key])+'], after: ['+hex(move['after'][key])+']')
+    for move in moves:
+        before = engine.getboard()
+        engine.makemove(move)
+        engine.unmakemove()
+        after = engine.getboard()
+
+        for key in before.keys():
+            if before[key] != after[key]:
+                if isinstance(before[key], (int)):
+                    print('UNMAKEMOVECHECK ERROR - ['+fen+'] move '+move+' param "'+key+'" before: ['+hex(before[key])+'], after: ['+hex(after[key])+']')
                 else:
-                    print('UNMAKEMOVECHECK ERROR - ['+fen+'] move '+move['move']+' param "'+key+'" before: ['+str(move['before'][key])+'], after: ['+str(move['after'][key])+']')
+                    print('UNMAKEMOVECHECK ERROR - ['+fen+'] move '+move+' param "'+key+'" before: ['+str(before[key])+'], after: ['+str(after[key])+']')
                 return False
 
     print('UNMAKEMOVECHECK OK - ['+fen+']')

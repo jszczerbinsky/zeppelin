@@ -4,6 +4,12 @@
 
 #include "main.h"
 
+static void finishsending()
+{
+	printf("END\n");
+	fflush(stdout);
+}
+
 static void sendboard()
 {
 	printf("{\n");
@@ -36,56 +42,49 @@ static void sendboard()
 	printf("}\n");
 }
 
-static void finishsending()
+static void respond2getmoves()
 {
-	printf("END\n");
-	fflush(stdout);
-}
-
-static void respond2fencheck(char* fen)
-{
-	parsefen(fen);
-	sendboard();
-	finishsending();
-}
-
-static void respond2unmakemovecheck(char* fenbak)
-{
-	char fen[1024];
-	strcpy(fen, fenbak);
-
-	parsefen(fen);
-	strcpy(fen, fenbak);
-
 	MoveList movelist;
 	genmoves(g_game.who2move, &movelist);
 
-	printf("{ \"moves\": [\n");
+	printf("[\n");
+
+	MoveList legallist;
+	legallist.cnt = 0;
+
 	for (int i = 0; i < movelist.cnt; i++)
 	{
-		parsefen(fen);
-		strcpy(fen, fenbak);
-
-		char buff[6];
-		move2str(buff, movelist.move[i]);
-
-		printf("{\n");
-		printf("\"move\": \"%s\",\n", buff);
-		printf("\"before\": ");
-		sendboard();
-
 		makemove(movelist.move[i]);
+		int is_legal = !sqr_attackedby(
+				g_game.who2move, bbrd2sqr(g_game.pieces[!g_game.who2move][KING])
+				);
 		unmakemove();
 
-		printf(",\n \"after\": ");
-		sendboard();
-
-		if (i == movelist.cnt - 1)
-			printf("}\n");
-		else
-			printf("},\n");
+		if (is_legal)
+		{
+			pushmove(&legallist, movelist.move[i]);
+		}
 	}
-	printf("]}\n");
+
+	for (int i = 0; i < legallist.cnt; i++)
+	{
+		char buff[8];
+		move2str(buff, legallist.move[i]);
+
+		printf("\"%s\"", buff);
+
+		if (i != legallist.cnt - 1) printf(",\n");
+		printf(" ");
+	}
+
+	printf("]\n");
+
+	finishsending();
+}
+
+static void respond2getboard()
+{
+	sendboard();
 	finishsending();
 }
 
@@ -94,10 +93,16 @@ static int next_cmd(char* buff, int len)
 	char* token = strtok(buff, " \n");
 	if (!token) return 0;
 
-	if (equals(token, "fencheck"))
-		respond2fencheck(nexttok_untilend());
-	else if (equals(token, "unmakemovecheck"))
-		respond2unmakemovecheck(nexttok_untilend());
+	if (equals(token, "loadfen"))
+		parsefen(nexttok_untilend());
+	else if (equals(token, "makemove"))
+		makemove(parsemove(nexttok()));
+	else if (equals(token, "unmakemove"))
+		unmakemove();
+	else if (equals(token, "getboard"))
+		respond2getboard();
+	else if (equals(token, "getmoves"))
+		respond2getmoves();
 	else if (equals(token, "quit"))
 		return 1;
 

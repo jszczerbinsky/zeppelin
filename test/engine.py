@@ -22,3 +22,18 @@ class Engine:
                 res += line
         return json.loads(res)
 
+    def loadfen(self, fen):
+        self.send_nores('loadfen ' + fen)
+
+    def makemove(self, move):
+        self.send_nores('makemove ' + move)
+
+    def unmakemove(self):
+        self.send_nores('unmakemove')
+
+    def getmoves(self):
+        return self.send('getmoves')
+
+    def getboard(self):
+        return self.send('getboard')
+

@@ -1,5 +1,7 @@
 def checkfen(engine, fen, param_vals):
-    res = engine.send('fencheck ' + fen)
+    engine.loadfen(fen)
+    res = engine.getboard()
+
     for param_val in param_vals:
         if res[param_val[0]] != param_val[1]:
             if isinstance(param_val[1], (int)):
