@@ -30,6 +30,9 @@ class Engine:
 
     def unmakemove(self):
         self.send_nores('unmakemove')
+    
+    def perft(self, depth):
+        return self.send('perft '+str(depth))
 
     def getmoves(self):
         return self.send('getmoves')

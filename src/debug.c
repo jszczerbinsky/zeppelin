@@ -55,9 +55,7 @@ static void respond2getmoves()
 	for (int i = 0; i < movelist.cnt; i++)
 	{
 		makemove(movelist.move[i]);
-		int is_legal = !sqr_attackedby(
-				g_game.who2move, bbrd2sqr(g_game.pieces[!g_game.who2move][KING])
-				);
+		int is_legal = lastmovelegal();
 		unmakemove();
 
 		if (is_legal)
@@ -88,6 +86,18 @@ static void respond2getboard()
 	finishsending();
 }
 
+static void respond2perft(char* depthstr)
+{
+	int depth	  = atoi(depthstr);
+	int nodes	  = 0;
+	int leafnodes = 0;
+
+	perft(depth, &nodes, &leafnodes);
+
+	printf("{\"nodes\":%d}\n", nodes);
+	finishsending();
+}
+
 static int next_cmd(char* buff, int len)
 {
 	char* token = strtok(buff, " \n");
@@ -103,6 +113,8 @@ static int next_cmd(char* buff, int len)
 		respond2getboard();
 	else if (equals(token, "getmoves"))
 		respond2getmoves();
+	else if (equals(token, "perft"))
+		respond2perft(nexttok());
 	else if (equals(token, "quit"))
 		return 1;
 

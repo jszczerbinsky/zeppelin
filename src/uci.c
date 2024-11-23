@@ -62,7 +62,40 @@ static void respond2go(char* token)
 	if (equals(token, "perft"))
 	{
 		token = nexttok();
-		if (token) perft(atoi(token));
+		if (!token)
+		{
+			return;
+		}
+
+		int depth = atoi(token);
+
+		MoveList movelist;
+		genmoves(g_game.who2move, &movelist);
+
+		int nodes = 0;
+
+		for (int i = 0; i < movelist.cnt; i++)
+		{
+			Game backup;
+			memcpy(&backup, &g_game, sizeof(Game));
+
+			int leafnodes = 0;
+			makemove(movelist.move[i]);
+			char buff[6];
+			if (!sqr_attackedby(
+						g_game.who2move,
+						bbrd2sqr(g_game.pieces[!g_game.who2move][KING])
+						))
+			{
+				perft(depth - 1, &nodes, &leafnodes);
+				move2str(buff, movelist.move[i]);
+				printf("%s: %d\n", buff, leafnodes);
+			}
+
+			unmakemove();
+		}
+		printf("\nTotal: %d\n", nodes);
+		fflush(stdout);
 	}
 }
 

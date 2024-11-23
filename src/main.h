@@ -321,7 +321,7 @@ void dumppos();
 //           Perft
 // =============================
 
-void perft(int depth);
+void perft(int depth, int* nodes, int* leafnodes);
 
 // =============================
 //           Utils
@@ -367,5 +367,12 @@ static inline BitBrd nextsubset(BitBrd subset, BitBrd set)
 
 static inline char* nexttok() { return strtok(NULL, " \n"); }
 static inline char* nexttok_untilend() { return strtok(NULL, "\n"); }
+
+static inline int lastmovelegal()
+{
+	return !sqr_attackedby(
+			g_game.who2move, bbrd2sqr(g_game.pieces[!g_game.who2move][KING])
+			);
+}
 
 #endif

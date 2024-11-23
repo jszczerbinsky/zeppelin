@@ -41,6 +41,8 @@ def run(engine):
         Move('h7h8q', '8/7P/6p1/4k3/6K1/8/2p5/8 w - - 0 50', '7Q/8/6p1/4k3/6K1/8/2p5/8 b - - 0 50'),
         Move('b3d3', '8/8/6p1/8/8/1Q2K3/2p5/3k4 w - - 21 61', '8/8/6p1/8/8/3QK3/2p5/3k4 b - - 22 61'),
         Move('e1e2', 'r1bqk2r/ppp1ppbp/2n2np1/8/2BP1B2/4PN2/PP3PPP/RN1QK2R w KQkq - 1 7', 'r1bqk2r/ppp1ppbp/2n2np1/8/2BP1B2/4PN2/PP2KPPP/RN1Q3R b kq - 2 7'),
+        Move('b2a1q', 'r2qk2r/p1p1bppp/2np1B2/4N2b/P1B1P1n1/3P3P/1pP2P2/R2Q1RK1 b kq - 1 13', 'r2qk2r/p1p1bppp/2np1B2/4N2b/P1B1P1n1/3P3P/2P2P2/q2Q1RK1 w kq - 0 14'),
+        Move('b2a1n', 'r2qk2r/p1p1bppp/2np1B2/4N2b/P1B1P1n1/3P3P/1pP2P2/R2Q1RK1 b kq - 1 13', 'r2qk2r/p1p1bppp/2np1B2/4N2b/P1B1P1n1/3P3P/2P2P2/n2Q1RK1 w kq - 0 14'),
     ]
 
     result = True
