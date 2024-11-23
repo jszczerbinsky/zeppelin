@@ -278,9 +278,9 @@ Move parsemove(const char* str)
 	{
 		if (g_gamestate->epbbrd & dstbbrd)
 		{
-			move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
+			move |= MOVE_F_ISCAPT | MOVE_F_ISEP | CAPT_PIECE(PAWN);
 		}
-		else if ((sqr2bbrd(srcsqr) & (RANK_2 | RANK_6)) &&
+		else if ((sqr2bbrd(srcsqr) & (RANK_2 | RANK_7)) &&
 				(sqr2bbrd(dstsqr) & (RANK_4 | RANK_5)))
 		{
 			move |= MOVE_F_ISDOUBLEPUSH;
@@ -487,7 +487,7 @@ void makemove(Move move)
 			}
 			newgamestate->halfmove = 0;
 			break;
-		case MOVE_F_ISEP:
+		case MOVE_F_ISCAPT | MOVE_F_ISEP:
 			if (player == WHITE)
 				g_game.pieces[!player][PAWN] &= ~(g_gamestate->epbbrd >> 8);
 			else
@@ -505,10 +505,15 @@ void makemove(Move move)
 				newgamestate->epbbrd = srcbbrd >> 8;
 			newgamestate->halfmove = 0;
 			break;
-		default:
+		case 0:
 			g_game.pieces[player][GET_MOV_PIECE(move)] &= ~srcbbrd;
 			g_game.pieces[player][GET_MOV_PIECE(move)] |= dstbbrd;
 			if (GET_MOV_PIECE(move) == PAWN) newgamestate->halfmove = 0;
+			break;
+		default:
+#ifdef DEBUG_INTERFACE
+			printf("INFO ERROR Incorrect move type: 0x%lx\n", GET_FLAGS(move));
+#endif
 			break;
 	}
 
@@ -567,7 +572,7 @@ void unmakemove()
 			g_game.pieces[player][GET_PROM_PIECE(move)] &= ~dstbbrd;
 			g_game.pieces[!player][GET_CAPT_PIECE(move)] |= dstbbrd;
 			break;
-		case MOVE_F_ISEP:
+		case MOVE_F_ISCAPT | MOVE_F_ISEP:
 			if (player == WHITE)
 				g_game.pieces[!player][PAWN] |= prevgamestate->epbbrd >> 8;
 			else

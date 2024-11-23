@@ -82,10 +82,7 @@ static void respond2go(char* token)
 			int leafnodes = 0;
 			makemove(movelist.move[i]);
 			char buff[6];
-			if (!sqr_attackedby(
-						g_game.who2move,
-						bbrd2sqr(g_game.pieces[!g_game.who2move][KING])
-						))
+			if (lastmovelegal())
 			{
 				perft(depth - 1, &nodes, &leafnodes);
 				move2str(buff, movelist.move[i]);

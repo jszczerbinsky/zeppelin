@@ -16,7 +16,9 @@ class Engine:
         res = ""
         while True:
             line = self.subproc.stdout.readline()
-            if line == 'END\n':
+            if line.startswith('INFO'):
+                print('  [engine]:  '+line[4:])
+            elif line == 'END\n':
                 break
             else:
                 res += line

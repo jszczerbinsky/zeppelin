@@ -57,6 +57,9 @@ def run(engine):
         '4NB2/3p3B/Npk1p1P1/b1P1P1PP/3nP1P1/p1p5/K1Q1brRR/n3q3 w - - 0 1',
         '1r6/k4p1B/1p2Np2/PPR1pPpp/1P2r1P1/QP2PNb1/3B1pp1/2K4n w - - 0 1',
         'r2qk2r/p1p1bppp/2np1B2/4N2b/P1B1P1n1/3P3P/1pP2P2/R2Q1RK1 b kq - 1 13',
+        '8/8/8/2k5/2pP4/8/B7/4K3 b - d3 0 3',
+        'r3k2r/1b4bq/8/8/8/8/7B/R2K3R b kq - 1 1',
+        'r3k2r/1b5q/8/8/8/2b5/7B/R2K3R w kq - 2 2',
     ]
 
     result = True

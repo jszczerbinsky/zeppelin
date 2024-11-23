@@ -148,7 +148,7 @@ static void gen_castle(int player, MoveList* movelist)
 				!sqr_attackedby(BLACK, W_KINGSQR - 2))
 			pushmove(movelist, MOVE_F_ISCASTLEWQ);
 	}
-	else if (!sqr_attackedby(WHITE, B_KINGSQR))
+	else if (player == BLACK && !sqr_attackedby(WHITE, B_KINGSQR))
 	{
 		if (CANCASTLE_BK(g_gamestate) &&
 				(g_game.piecesof[ANY] & 0x6000000000000000ULL) == 0 &&
@@ -183,7 +183,6 @@ static void gen_pawncapt(int player, MoveList* movelist)
 		poss_r_dstbbrd = ((player_pawns & (~FILE_A)) >> 9) &
 			(g_game.piecesof[!player] | g_gamestate->epbbrd);
 	}
-	// TODO: EP NOT DETECTED
 
 	while (poss_l_dstbbrd)
 	{

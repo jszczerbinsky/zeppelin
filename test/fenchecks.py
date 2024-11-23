@@ -112,6 +112,24 @@ def run(engine):
             ['fullmove', 108],
         ])
 
+    result &= checkfen(engine, '8/8/8/2k5/2pP4/8/B7/4K3 b - d3 0 3', [
+            ['wpawn', 0x8000000],
+            ['wking', 0x10],
+            ['wknight', 0],
+            ['wbishop', 0x100],
+            ['wrook', 0],
+            ['wqueen', 0],
+            ['bpawn', 0x4000000],
+            ['bking', 0x400000000],
+            ['bknight', 0],
+            ['bbishop', 0],
+            ['brook', 0],
+            ['bqueen', 0],
+            ['player', 'b'],
+            ['ep', 0x80000],
+            ['halfmove', 0],
+            ['fullmove', 3],
+        ])
 
 
     return result

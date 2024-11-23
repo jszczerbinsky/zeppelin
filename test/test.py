@@ -21,7 +21,7 @@ print('_________________________________________________________________________
 print()
 
 if result:
-    print('All tests succeded')
+    print('All tests passed')
     print()
 else:
     print('Some tests failed')
