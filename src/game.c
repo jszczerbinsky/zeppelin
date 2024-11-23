@@ -210,7 +210,9 @@ char* parsefen(char* fen)
 	int halfmov = 0;
 	while (*token)
 	{
-		if (*token < '0' || *token > '9') halfmov *= 10;
+		if (*token < '0' || *token > '9') break;
+
+		halfmov *= 10;
 		halfmov += *token - '0';
 		token++;
 	}
@@ -225,7 +227,9 @@ char* parsefen(char* fen)
 	int fullmov = 0;
 	while (*token)
 	{
-		if (*token < '0' || *token > '9') fullmov *= 10;
+		if (*token < '0' || *token > '9') break;
+
+		fullmov *= 10;
 		fullmov += *token - '0';
 		token++;
 	}
@@ -327,25 +331,25 @@ void makemove(Move move)
 		case MOVE_F_ISCASTLEWQ:
 			g_game.pieces[WHITE][KING] = sqr2bbrd(CASTLE_WQ_KINGSQR);
 			g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(WQ_ROOKSQR);
-			g_game.pieces[WHITE][ROOK] |= CASTLE_WQ_ROOKSQR;
+			g_game.pieces[WHITE][ROOK] |= sqr2bbrd(CASTLE_WQ_ROOKSQR);
 			newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
 			break;
 		case MOVE_F_ISCASTLEBQ:
 			g_game.pieces[BLACK][KING] = sqr2bbrd(CASTLE_BQ_KINGSQR);
 			g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(BQ_ROOKSQR);
-			g_game.pieces[BLACK][ROOK] |= CASTLE_BQ_ROOKSQR;
+			g_game.pieces[BLACK][ROOK] |= sqr2bbrd(CASTLE_BQ_ROOKSQR);
 			newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
 			break;
 		case MOVE_F_ISCASTLEWK:
 			g_game.pieces[WHITE][KING] = sqr2bbrd(CASTLE_WK_KINGSQR);
 			g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(WK_ROOKSQR);
-			g_game.pieces[WHITE][ROOK] |= CASTLE_WK_ROOKSQR;
+			g_game.pieces[WHITE][ROOK] |= sqr2bbrd(CASTLE_WK_ROOKSQR);
 			newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
 			break;
 		case MOVE_F_ISCASTLEBK:
 			g_game.pieces[BLACK][KING] = sqr2bbrd(CASTLE_BK_KINGSQR);
 			g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(BK_ROOKSQR);
-			g_game.pieces[BLACK][ROOK] |= CASTLE_BK_ROOKSQR;
+			g_game.pieces[BLACK][ROOK] |= sqr2bbrd(CASTLE_BK_ROOKSQR);
 			newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
 			break;
 		case MOVE_F_ISPROM:
@@ -448,22 +452,22 @@ void unmakemove()
 		case MOVE_F_ISCASTLEWQ:
 			g_game.pieces[WHITE][KING] = sqr2bbrd(W_KINGSQR);
 			g_game.pieces[WHITE][ROOK] |= sqr2bbrd(WQ_ROOKSQR);
-			g_game.pieces[WHITE][ROOK] &= ~CASTLE_WQ_ROOKSQR;
+			g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(CASTLE_WQ_ROOKSQR);
 			break;
 		case MOVE_F_ISCASTLEBQ:
 			g_game.pieces[BLACK][KING] = sqr2bbrd(B_KINGSQR);
 			g_game.pieces[BLACK][ROOK] |= sqr2bbrd(BQ_ROOKSQR);
-			g_game.pieces[BLACK][ROOK] &= ~CASTLE_BQ_ROOKSQR;
+			g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(CASTLE_BQ_ROOKSQR);
 			break;
 		case MOVE_F_ISCASTLEWK:
 			g_game.pieces[WHITE][KING] = sqr2bbrd(W_KINGSQR);
 			g_game.pieces[WHITE][ROOK] |= sqr2bbrd(WK_ROOKSQR);
-			g_game.pieces[WHITE][ROOK] &= ~CASTLE_WK_ROOKSQR;
+			g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(CASTLE_WK_ROOKSQR);
 			break;
 		case MOVE_F_ISCASTLEBK:
 			g_game.pieces[BLACK][KING] = sqr2bbrd(B_KINGSQR);
 			g_game.pieces[BLACK][ROOK] |= sqr2bbrd(BK_ROOKSQR);
-			g_game.pieces[BLACK][ROOK] &= ~CASTLE_BK_ROOKSQR;
+			g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(CASTLE_BK_ROOKSQR);
 			break;
 		case MOVE_F_ISPROM:
 			g_game.pieces[player][PAWN] |= srcbbrd;
