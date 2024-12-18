@@ -11,6 +11,9 @@ set(SOURCE_FILES
 	src/game.c
 	src/movegen.c
 	src/dump.c
+	src/search.c
+	src/zobrist.c
+	src/eval.c
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")

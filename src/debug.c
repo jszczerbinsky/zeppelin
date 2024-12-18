@@ -4,140 +4,139 @@
 
 #include "main.h"
 
-static void finishsending()
-{
-	printf("END\n");
-	fflush(stdout);
+static void finishsending() {
+  printf("END\n");
+  fflush(stdout);
 }
 
-static void sendboard()
-{
-	printf("{\n");
+static void sendboard() {
+  printf("{\n");
 
-	printf("\"wpawn\": %lu,\n", g_game.pieces[WHITE][PAWN]);
-	printf("\"wking\": %lu,\n", g_game.pieces[WHITE][KING]);
-	printf("\"wknight\": %lu,\n", g_game.pieces[WHITE][KNIGHT]);
-	printf("\"wbishop\": %lu,\n", g_game.pieces[WHITE][BISHOP]);
-	printf("\"wrook\": %lu,\n", g_game.pieces[WHITE][ROOK]);
-	printf("\"wqueen\": %lu,\n", g_game.pieces[WHITE][QUEEN]);
-	printf("\"bpawn\": %lu,\n", g_game.pieces[BLACK][PAWN]);
-	printf("\"bking\": %lu,\n", g_game.pieces[BLACK][KING]);
-	printf("\"bknight\": %lu,\n", g_game.pieces[BLACK][KNIGHT]);
-	printf("\"bbishop\": %lu,\n", g_game.pieces[BLACK][BISHOP]);
-	printf("\"brook\": %lu,\n", g_game.pieces[BLACK][ROOK]);
-	printf("\"bqueen\": %lu,\n", g_game.pieces[BLACK][QUEEN]);
+  printf("\"wpawn\": %lu,\n", g_game.pieces[WHITE][PAWN]);
+  printf("\"wking\": %lu,\n", g_game.pieces[WHITE][KING]);
+  printf("\"wknight\": %lu,\n", g_game.pieces[WHITE][KNIGHT]);
+  printf("\"wbishop\": %lu,\n", g_game.pieces[WHITE][BISHOP]);
+  printf("\"wrook\": %lu,\n", g_game.pieces[WHITE][ROOK]);
+  printf("\"wqueen\": %lu,\n", g_game.pieces[WHITE][QUEEN]);
+  printf("\"bpawn\": %lu,\n", g_game.pieces[BLACK][PAWN]);
+  printf("\"bking\": %lu,\n", g_game.pieces[BLACK][KING]);
+  printf("\"bknight\": %lu,\n", g_game.pieces[BLACK][KNIGHT]);
+  printf("\"bbishop\": %lu,\n", g_game.pieces[BLACK][BISHOP]);
+  printf("\"brook\": %lu,\n", g_game.pieces[BLACK][ROOK]);
+  printf("\"bqueen\": %lu,\n", g_game.pieces[BLACK][QUEEN]);
 
-	printf("\"player\": \"%s\",\n", g_game.who2move == WHITE ? "w" : "b");
+  printf("\"player\": \"%s\",\n", g_game.who2move == WHITE ? "w" : "b");
 
-	printf("\"wk\": %s,\n", CANCASTLE_WK(g_gamestate) ? "true" : "false");
-	printf("\"wq\": %s,\n", CANCASTLE_WQ(g_gamestate) ? "true" : "false");
-	printf("\"bk\": %s,\n", CANCASTLE_BK(g_gamestate) ? "true" : "false");
-	printf("\"bq\": %s,\n", CANCASTLE_BQ(g_gamestate) ? "true" : "false");
+  printf("\"wk\": %s,\n", CANCASTLE_WK(g_gamestate) ? "true" : "false");
+  printf("\"wq\": %s,\n", CANCASTLE_WQ(g_gamestate) ? "true" : "false");
+  printf("\"bk\": %s,\n", CANCASTLE_BK(g_gamestate) ? "true" : "false");
+  printf("\"bq\": %s,\n", CANCASTLE_BQ(g_gamestate) ? "true" : "false");
 
-	printf("\"ep\": %lu,\n", g_gamestate->epbbrd);
+  printf("\"ep\": %lu,\n", g_gamestate->epbbrd);
 
-	printf("\"halfmove\": %u,\n", g_gamestate->halfmove);
-	printf("\"fullmove\": %u\n", g_gamestate->fullmove);
+  printf("\"halfmove\": %u,\n", g_gamestate->halfmove);
+  printf("\"fullmove\": %u\n", g_gamestate->fullmove);
 
-	printf("}\n");
+  printf("}\n");
 }
 
-static void respond2getmoves()
-{
-	MoveList movelist;
-	genmoves(g_game.who2move, &movelist);
+static void respond2getmoves() {
+  MoveList movelist;
+  genmoves(g_game.who2move, &movelist);
 
-	printf("[\n");
+  printf("[\n");
 
-	MoveList legallist;
-	legallist.cnt = 0;
+  MoveList legallist;
+  legallist.cnt = 0;
 
-	for (int i = 0; i < movelist.cnt; i++)
-	{
-		makemove(movelist.move[i]);
-		int is_legal = lastmovelegal();
-		unmakemove();
+  for (int i = 0; i < movelist.cnt; i++) {
+    makemove(movelist.move[i]);
+    int is_legal = lastmovelegal();
+    unmakemove();
 
-		if (is_legal)
-		{
-			pushmove(&legallist, movelist.move[i]);
-		}
-	}
+    if (is_legal) {
+      pushmove(&legallist, movelist.move[i]);
+    }
+  }
 
-	for (int i = 0; i < legallist.cnt; i++)
-	{
-		char buff[8];
-		move2str(buff, legallist.move[i]);
+  for (int i = 0; i < legallist.cnt; i++) {
+    char buff[8];
+    move2str(buff, legallist.move[i]);
 
-		printf("\"%s\"", buff);
+    printf("\"%s\"", buff);
 
-		if (i != legallist.cnt - 1) printf(",\n");
-		printf(" ");
-	}
+    if (i != legallist.cnt - 1)
+      printf(",\n");
+    printf(" ");
+  }
 
-	printf("]\n");
+  printf("]\n");
 
-	finishsending();
+  finishsending();
 }
 
-static void respond2getboard()
-{
-	sendboard();
-	finishsending();
+static void respond2getboard() {
+  sendboard();
+  finishsending();
 }
 
-static void respond2perft(char* depthstr)
-{
-	int depth	  = atoi(depthstr);
-	int nodes	  = 0;
-	int leafnodes = 0;
-
-	perft(depth, &nodes, &leafnodes);
-
-	printf("{\"nodes\":%d}\n", nodes);
-	finishsending();
+static void respond2eval() {
+  int score = evaluate(0);
+  printf("{\"score\": %d}\n", score);
+  finishsending();
 }
 
-static int next_cmd(char* buff, int len)
-{
-	char* token = strtok(buff, " \n");
-	if (!token) return 0;
+static void respond2perft(char *depthstr) {
+  int depth = atoi(depthstr);
+  int nodes = 0;
+  int leafnodes = 0;
 
-	if (equals(token, "loadfen"))
-		parsefen(nexttok_untilend());
-	else if (equals(token, "makemove"))
-		makemove(parsemove(nexttok()));
-	else if (equals(token, "unmakemove"))
-		unmakemove();
-	else if (equals(token, "getboard"))
-		respond2getboard();
-	else if (equals(token, "getmoves"))
-		respond2getmoves();
-	else if (equals(token, "perft"))
-		respond2perft(nexttok());
-	else if (equals(token, "quit"))
-		return 1;
+  perft(depth, &nodes, &leafnodes);
 
-	return 0;
+  printf("{\"nodes\":%d}\n", nodes);
+  finishsending();
 }
 
-void debug_start()
-{
-	g_mode = MODE_DEBUG;
+static int next_cmd(char *buff, int len) {
+  char *token = strtok(buff, " \n");
+  if (!token)
+    return 0;
 
-	size_t buffsize = 256;
-	char*  buff	    = malloc(buffsize * sizeof(char));
+  if (equals(token, "loadfen"))
+    parsefen(nexttok_untilend());
+  else if (equals(token, "makemove"))
+    makemove(parsemove(nexttok()));
+  else if (equals(token, "unmakemove"))
+    unmakemove();
+  else if (equals(token, "getboard"))
+    respond2getboard();
+  else if (equals(token, "getmoves"))
+    respond2getmoves();
+  else if (equals(token, "perft"))
+    respond2perft(nexttok());
+  else if (equals(token, "eval"))
+    respond2eval();
+  else if (equals(token, "quit"))
+    return 1;
 
-	int quit = 0;
-	int len  = 0;
+  return 0;
+}
 
-	while (!quit)
-	{
-		if ((len = getline(&buff, &buffsize, stdin)) == -1)
-			quit = 1;
-		else
-			quit = next_cmd(buff, len);
-	}
+void debug_start() {
+  g_mode = MODE_DEBUG;
 
-	free(buff);
+  size_t buffsize = 256;
+  char *buff = malloc(buffsize * sizeof(char));
+
+  int quit = 0;
+  int len = 0;
+
+  while (!quit) {
+    if ((len = getline(&buff, &buffsize, stdin)) == -1)
+      quit = 1;
+    else
+      quit = next_cmd(buff, len);
+  }
+
+  free(buff);
 }

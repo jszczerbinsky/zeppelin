@@ -422,8 +422,8 @@ static void gen_magic_for(int piece, int sqr, int mode)
 	{
 		do
 		{
-			num = rand() | (((BitBrd)rand()) << 32);
-			num &= rand() | (((BitBrd)rand()) << 32);
+			num = rand64();
+			num &= rand64();
 
 			indexlen = ismagic(sqr, piece, num);
 

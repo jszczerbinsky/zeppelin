@@ -42,3 +42,6 @@ class Engine:
     def getboard(self):
         return self.send('getboard')
 
+    def eval(self):
+        return self.send('eval')
+

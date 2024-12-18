@@ -6,6 +6,7 @@ import fenchecks
 import unmakemovechecks
 import makemovechecks
 import perftchecks
+import evalchecks 
 
 engine = Engine(sys.argv[1])
 
@@ -16,6 +17,7 @@ print('____________________________________________________________ RUNNING TEST
 result &= fenchecks.run(engine);
 result &= unmakemovechecks.run(engine);
 result &= makemovechecks.run(engine);
+result &= evalchecks.run(engine);
 result &= perftchecks.run(engine);
 print('_______________________________________________________________________________________________________________________________________')
 print()

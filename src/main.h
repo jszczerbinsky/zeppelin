@@ -2,6 +2,7 @@
 #define MAIN_H
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 // =============================
@@ -9,13 +10,13 @@
 // =============================
 
 #define MODE_CLIARG 0
-#define MODE_UCI    1
-#define MODE_DEBUG  2
+#define MODE_UCI 1
+#define MODE_DEBUG 2
 
 extern int g_mode;
 
 extern int g_ucidebug;
-void	   uci_start();
+void uci_start();
 
 #ifdef DEBUG_INTERFACE
 void debug_start();
@@ -31,12 +32,12 @@ typedef uint64_t BitBrd;
 //      Pieces definitions
 // =============================
 
-#define PAWN   0
-#define KING   1
+#define PAWN 0
+#define KING 1
 #define KNIGHT 2
 #define BISHOP 3
-#define ROOK   4
-#define QUEEN  5
+#define ROOK 4
+#define QUEEN 5
 
 #define PIECE_MAX 6
 
@@ -52,41 +53,41 @@ typedef uint32_t Move;
 // | Flags | PromPiece | CaptPiece | MovPiece | DstSqr | SrcSqr |
 // | 11bit |   3bit    |   3bit    |   3bit   |  6bit  |  6bit  |
 
-#define MOVE_SRC_SQR_MASK      0b00000000000000000000000000111111UL
-#define MOVE_DST_SQR_MASK      0b00000000000000000000111111000000UL
-#define MOVE_MOV_PIECE_MASK    0b00000000000000000111000000000000UL
-#define MOVE_CAPT_PIECE_MASK   0b00000000000000111000000000000000UL
-#define MOVE_PROM_PIECE_MASK   0b00000000000111000000000000000000UL
-#define MOVE_FLAGS_MASK	       0b00011111111000000000000000000000UL
+#define MOVE_SRC_SQR_MASK 0b00000000000000000000000000111111UL
+#define MOVE_DST_SQR_MASK 0b00000000000000000000111111000000UL
+#define MOVE_MOV_PIECE_MASK 0b00000000000000000111000000000000UL
+#define MOVE_CAPT_PIECE_MASK 0b00000000000000111000000000000000UL
+#define MOVE_PROM_PIECE_MASK 0b00000000000111000000000000000000UL
+#define MOVE_FLAGS_MASK 0b00011111111000000000000000000000UL
 #define MOVE_CASTLE_FLAGS_MASK 0b00011111000000000000000000000000UL
-#define MOVE_F_ISPROM	       0b00000000001000000000000000000000UL
-#define MOVE_F_ISCAPT	       0b00000000010000000000000000000000UL
-#define MOVE_F_ISEP	       0b00000000100000000000000000000000UL
-#define MOVE_F_ISCASTLEWQ      0b00000001000000000000000000000000UL
-#define MOVE_F_ISCASTLEBQ      0b00000010000000000000000000000000UL
-#define MOVE_F_ISCASTLEWK      0b00000100000000000000000000000000UL
-#define MOVE_F_ISCASTLEBK      0b00001000000000000000000000000000UL
-#define MOVE_F_ISDOUBLEPUSH    0b00010000000000000000000000000000UL
+#define MOVE_F_ISPROM 0b00000000001000000000000000000000UL
+#define MOVE_F_ISCAPT 0b00000000010000000000000000000000UL
+#define MOVE_F_ISEP 0b00000000100000000000000000000000UL
+#define MOVE_F_ISCASTLEWQ 0b00000001000000000000000000000000UL
+#define MOVE_F_ISCASTLEBQ 0b00000010000000000000000000000000UL
+#define MOVE_F_ISCASTLEWK 0b00000100000000000000000000000000UL
+#define MOVE_F_ISCASTLEBK 0b00001000000000000000000000000000UL
+#define MOVE_F_ISDOUBLEPUSH 0b00010000000000000000000000000000UL
 
 #define NULLMOVE 0
 
-#define GET_SRC_SQR(m)	   ((int)((m) & MOVE_SRC_SQR_MASK))
-#define GET_DST_SQR(m)	   (((int)((m) & MOVE_DST_SQR_MASK) >> 6))
-#define GET_MOV_PIECE(m)   (((int)((m) & MOVE_MOV_PIECE_MASK) >> 12))
-#define GET_CAPT_PIECE(m)  (((int)((m) & MOVE_CAPT_PIECE_MASK) >> 15))
-#define GET_PROM_PIECE(m)  (((int)((m) & MOVE_PROM_PIECE_MASK) >> 18))
-#define GET_FLAGS(m)	   ((m) & MOVE_FLAGS_MASK)
+#define GET_SRC_SQR(m) ((int)((m) & MOVE_SRC_SQR_MASK))
+#define GET_DST_SQR(m) (((int)((m) & MOVE_DST_SQR_MASK) >> 6))
+#define GET_MOV_PIECE(m) (((int)((m) & MOVE_MOV_PIECE_MASK) >> 12))
+#define GET_CAPT_PIECE(m) (((int)((m) & MOVE_CAPT_PIECE_MASK) >> 15))
+#define GET_PROM_PIECE(m) (((int)((m) & MOVE_PROM_PIECE_MASK) >> 18))
+#define GET_FLAGS(m) ((m) & MOVE_FLAGS_MASK)
 #define GET_CASLE_FLAGS(m) ((m) & MOVE_CASTLE_FLAGS_MASK)
 
-#define SRC_SQR(s)    ((Move)s)
-#define DST_SQR(s)    (((Move)(s)) << 6)
-#define MOV_PIECE(p)  (((Move)(p)) << 12)
+#define SRC_SQR(s) ((Move)s)
+#define DST_SQR(s) (((Move)(s)) << 6)
+#define MOV_PIECE(p) (((Move)(p)) << 12)
 #define CAPT_PIECE(p) (((Move)(p)) << 15)
 #define PROM_PIECE(p) (((Move)(p)) << 18)
 
-#define IS_PROM(m)   ((m) & MOVE_F_ISPROM)
-#define IS_CAPT(m)   ((m) & MOVE_F_ISCAPT)
-#define IS_EP(m)     ((m) & MOVE_F_ISEP)
+#define IS_PROM(m) ((m) & MOVE_F_ISPROM)
+#define IS_CAPT(m) ((m) & MOVE_F_ISCAPT)
+#define IS_EP(m) ((m) & MOVE_F_ISEP)
 #define IS_CASTLE(m) (((m) & MOVE_CASTLE_FLAGS_MASK) != 0)
 
 // =============================
@@ -95,25 +96,23 @@ typedef uint32_t Move;
 
 #define MAX_PLY_PER_GAME 512
 
-typedef struct
-{
-	Move move[MAX_PLY_PER_GAME];
-	int	 cnt;
+typedef struct {
+  Move move[MAX_PLY_PER_GAME];
+  int cnt;
 } MoveList;
 
-static inline void pushmove(MoveList* moves, Move m)
-{
-	moves->move[moves->cnt] = m;
-	moves->cnt++;
+static inline void popmove(MoveList *moves) { moves->cnt--; }
+
+static inline void pushmove(MoveList *moves, Move m) {
+  moves->move[moves->cnt] = m;
+  moves->cnt++;
 }
 
-static inline void pushprommove(MoveList* moves, Move m)
-{
-	for (int prompiece = KNIGHT; prompiece <= QUEEN; prompiece++)
-	{
-		moves->move[moves->cnt] = m | PROM_PIECE(prompiece) | MOVE_F_ISPROM;
-		moves->cnt++;
-	}
+static inline void pushprommove(MoveList *moves, Move m) {
+  for (int prompiece = KNIGHT; prompiece <= QUEEN; prompiece++) {
+    moves->move[moves->cnt] = m | PROM_PIECE(prompiece) | MOVE_F_ISPROM;
+    moves->cnt++;
+  }
 }
 
 // =============================
@@ -122,16 +121,16 @@ static inline void pushprommove(MoveList* moves, Move m)
 
 #define WHITE 0
 #define BLACK 1
-#define ANY   2
+#define ANY 2
 
 #define GAME_F_CANCASTLE_WK 1
 #define GAME_F_CANCASTLE_WQ 2
 #define GAME_F_CANCASTLE_BK 4
 #define GAME_F_CANCASTLE_BQ 8
 
-#define GAME_F_DEFAULT                                                 \
-	(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ | GAME_F_CANCASTLE_BK | \
-	 GAME_F_CANCASTLE_BQ)
+#define GAME_F_DEFAULT                                                         \
+  (GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ | GAME_F_CANCASTLE_BK |           \
+   GAME_F_CANCASTLE_BQ)
 
 #define CANCASTLE_WK(s) ((s)->flags & GAME_F_CANCASTLE_WK)
 #define CANCASTLE_WQ(s) ((s)->flags & GAME_F_CANCASTLE_WQ)
@@ -140,42 +139,42 @@ static inline void pushprommove(MoveList* moves, Move m)
 
 #define FEN_STR_MAX 59
 
-typedef struct
-{
-	int	    halfmove;
-	int	    fullmove;
-	uint8_t flags;
-	BitBrd  epbbrd;
+typedef struct {
+  int halfmove;
+  int fullmove;
+  uint8_t flags;
+  BitBrd epbbrd;
+  BitBrd hash;
 } GameState;
 
-typedef struct
-{
-	int who2move;
+typedef struct {
+  int who2move;
 
-	BitBrd pieces[3][PIECE_MAX];
-	BitBrd piecesof[3];
+  BitBrd pieces[3][PIECE_MAX];
+  BitBrd piecesof[3];
 
-	MoveList  movelist;
-	GameState brdstate[MAX_PLY_PER_GAME];
+  MoveList movelist;
+  GameState brdstate[MAX_PLY_PER_GAME];
 } Game;
 
-extern Game	  g_game;
-extern GameState* g_gamestate;
+extern Game g_game;
+extern GameState *g_gamestate;
 
-int   getpieceat(int color, BitBrd bbrd);
-void  reset_game();
-char* parsefen(char* fen);
-void  makemove(Move move);
-void  unmakemove();
-void  move2str(char* buff, Move move);
-Move  parsemove(const char* str);
+int getpieceat(int color, BitBrd bbrd);
+void reset_game();
+char *parsefen(char *fen);
+void makemove(Move move);
+void unmakemove();
+void move2str(char *buff, Move move);
+Move parsemove(const char *str);
+int isrepetition();
 
 // =============================
 //   Move generator definitions
 // =============================
 
-void genmoves(int player, MoveList* movelist);
-int  sqr_attackedby(int attacker, int sqr);
+void genmoves(int player, MoveList *movelist);
+int sqr_attackedby(int attacker, int sqr);
 
 // =============================
 //        Bitboard bits
@@ -203,16 +202,16 @@ int  sqr_attackedby(int attacker, int sqr);
 #define FILE_H 0x8080808080808080ULL
 
 // rank - file + 7
-#define DIAG_0	0x80ULL
-#define DIAG_1	0x8040ULL
-#define DIAG_2	0x804020ULL
-#define DIAG_3	0x80402010ULL
-#define DIAG_4	0x8040201008ULL
-#define DIAG_5	0x804020100804ULL
-#define DIAG_6	0x80402010080402ULL
-#define DIAG_7	0x8040201008040201ULL
-#define DIAG_8	0x4020100804020100ULL
-#define DIAG_9	0x2010080402010000ULL
+#define DIAG_0 0x80ULL
+#define DIAG_1 0x8040ULL
+#define DIAG_2 0x804020ULL
+#define DIAG_3 0x80402010ULL
+#define DIAG_4 0x8040201008ULL
+#define DIAG_5 0x804020100804ULL
+#define DIAG_6 0x80402010080402ULL
+#define DIAG_7 0x8040201008040201ULL
+#define DIAG_8 0x4020100804020100ULL
+#define DIAG_9 0x2010080402010000ULL
 #define DIAG_10 0x1008040201000000ULL
 #define DIAG_11 0x804020100000000ULL
 #define DIAG_12 0x402010000000000ULL
@@ -220,16 +219,16 @@ int  sqr_attackedby(int attacker, int sqr);
 #define DIAG_14 0x100000000000000ULL
 
 // rank + file
-#define ADIAG_0	 0x1ULL
-#define ADIAG_1	 0x102ULL
-#define ADIAG_2	 0x10204ULL
-#define ADIAG_3	 0x1020408ULL
-#define ADIAG_4	 0x102040810ULL
-#define ADIAG_5	 0x10204081020ULL
-#define ADIAG_6	 0x1020408102040ULL
-#define ADIAG_7	 0x102040810204080ULL
-#define ADIAG_8	 0x204081020408000ULL
-#define ADIAG_9	 0x408102040800000ULL
+#define ADIAG_0 0x1ULL
+#define ADIAG_1 0x102ULL
+#define ADIAG_2 0x10204ULL
+#define ADIAG_3 0x1020408ULL
+#define ADIAG_4 0x102040810ULL
+#define ADIAG_5 0x10204081020ULL
+#define ADIAG_6 0x1020408102040ULL
+#define ADIAG_7 0x102040810204080ULL
+#define ADIAG_8 0x204081020408000ULL
+#define ADIAG_9 0x408102040800000ULL
 #define ADIAG_10 0x810204080000000ULL
 #define ADIAG_11 0x1020408000000000ULL
 #define ADIAG_12 0x2040800000000000ULL
@@ -257,48 +256,46 @@ int  sqr_attackedby(int attacker, int sqr);
 //            Precomp
 // =============================
 
-typedef struct
-{
-	BitBrd knightmask[64];
-	BitBrd kingmask[64];
-	BitBrd bishoppremask[64];
-	BitBrd bishoppostmask[64];
-	BitBrd rookpremask[64];
-	BitBrd rookpostmask[64];
-	BitBrd queenpremask[64];
-	BitBrd queenpostmask[64];
-	BitBrd pawnattackmask[2][64];
+typedef struct {
+  BitBrd knightmask[64];
+  BitBrd kingmask[64];
+  BitBrd bishoppremask[64];
+  BitBrd bishoppostmask[64];
+  BitBrd rookpremask[64];
+  BitBrd rookpostmask[64];
+  BitBrd queenpremask[64];
+  BitBrd queenpostmask[64];
+  BitBrd pawnattackmask[2][64];
 
-	int	   rookmagicshift[64];
-	int	   bishopmagicshift[64];
-	BitBrd rookmagic[64];
-	BitBrd bishopmagic[64];
+  int rookmagicshift[64];
+  int bishopmagicshift[64];
+  BitBrd rookmagic[64];
+  BitBrd bishopmagic[64];
 
-	// Serialized dynamically - n is not constant
-	// BitBrd rookmagicmoves[64][n];
-	// BitBrd bishopmagicmoves[64][n];
+  // Serialized dynamically - n is not constant
+  // BitBrd rookmagicmoves[64][n];
+  // BitBrd bishopmagicmoves[64][n];
 
 } PrecompTableSerialized;
 
-typedef struct
-{
-	BitBrd knightmask[64];
-	BitBrd kingmask[64];
-	BitBrd bishoppremask[64];
-	BitBrd bishoppostmask[64];
-	BitBrd rookpremask[64];
-	BitBrd rookpostmask[64];
-	BitBrd queenpremask[64];
-	BitBrd queenpostmask[64];
-	BitBrd pawnattackmask[2][64];
+typedef struct {
+  BitBrd knightmask[64];
+  BitBrd kingmask[64];
+  BitBrd bishoppremask[64];
+  BitBrd bishoppostmask[64];
+  BitBrd rookpremask[64];
+  BitBrd rookpostmask[64];
+  BitBrd queenpremask[64];
+  BitBrd queenpostmask[64];
+  BitBrd pawnattackmask[2][64];
 
-	int	   rookmagicshift[64];
-	int	   bishopmagicshift[64];
-	BitBrd rookmagic[64];
-	BitBrd bishopmagic[64];
+  int rookmagicshift[64];
+  int bishopmagicshift[64];
+  BitBrd rookmagic[64];
+  BitBrd bishopmagic[64];
 
-	BitBrd* rookmagicmoves[64];
-	BitBrd* bishopmagicmoves[64];
+  BitBrd *rookmagicmoves[64];
+  BitBrd *bishopmagicmoves[64];
 
 } PrecompTable;
 
@@ -306,9 +303,34 @@ extern PrecompTable g_precomp;
 
 void genprecomp();
 void huntmagic();
-void usemagic(const char* numstr);
-int  loadprecomp();
+void usemagic(const char *numstr);
+int loadprecomp();
 void freeprecomp();
+
+// =============================
+//          Zobrist hash
+// =============================
+
+void inithash();
+BitBrd gethash();
+
+// =============================
+//          Evaluation
+// =============================
+
+#define SCORE_ILLEGAL -99999999
+#define SCORE_CHECKMATED -1000000
+
+int evaluate(int pliescnt);
+
+// =============================
+//             Search
+// =============================
+
+#define DEPTH_INF -1
+
+void reset_hashtables();
+void search(int requesteddepth);
 
 // =============================
 //             Dump
@@ -321,7 +343,7 @@ void dumppos();
 //           Perft
 // =============================
 
-void perft(int depth, int* nodes, int* leafnodes);
+void perft(int depth, int *nodes, int *leafnodes);
 
 // =============================
 //           Utils
@@ -335,44 +357,38 @@ static inline int sqr2diag(int sqr) { return (sqr / 8) - (sqr % 8) + 7; }
 
 static inline int sqr2antidiag(int sqr) { return (sqr / 8) + (sqr % 8); }
 
-static inline int equals(const char* s1, const char* s2)
-{
-	return strcmp(s1, s2) == 0;
+static inline int equals(const char *s1, const char *s2) {
+  return strcmp(s1, s2) == 0;
 }
 
-static inline int popcnt(BitBrd bbrd)
-{
-	int cnt = 0;
+static inline int popcnt(BitBrd bbrd) {
+  int cnt = 0;
 
-	while (bbrd)
-	{
-		cnt++;
-		bbrd &= ~sqr2bbrd(bbrd2sqr(bbrd));
-	}
+  while (bbrd) {
+    cnt++;
+    bbrd &= ~sqr2bbrd(bbrd2sqr(bbrd));
+  }
 
-	return cnt;
+  return cnt;
 }
 
 static inline BitBrd file2rank(BitBrd bbrd) { return (bbrd * DIAG_7) >> 56; }
 
-static inline BitBrd rank2file(BitBrd bbrd)
-{
-	return (bbrd * ADIAG_7) & FILE_A;
+static inline BitBrd rank2file(BitBrd bbrd) {
+  return (bbrd * ADIAG_7) & FILE_A;
 }
 
-static inline BitBrd nextsubset(BitBrd subset, BitBrd set)
-{
-	return (subset - set) & set;
+static inline BitBrd nextsubset(BitBrd subset, BitBrd set) {
+  return (subset - set) & set;
 }
 
-static inline char* nexttok() { return strtok(NULL, " \n"); }
-static inline char* nexttok_untilend() { return strtok(NULL, "\n"); }
+static inline char *nexttok() { return strtok(NULL, " \n"); }
+static inline char *nexttok_untilend() { return strtok(NULL, "\n"); }
 
-static inline int lastmovelegal()
-{
-	return !sqr_attackedby(
-			g_game.who2move, bbrd2sqr(g_game.pieces[!g_game.who2move][KING])
-			);
+static inline int lastmovelegal() {
+  return !sqr_attackedby(g_game.who2move,
+                         bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
+static inline BitBrd rand64() { return rand() | (((BitBrd)rand()) << 32); }
 #endif

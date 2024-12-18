@@ -12,7 +12,8 @@ static inline char* fen_nexttok() { return strtok(NULL, FEN_TOK_DELIMS); }
 
 static inline void update_gamestate()
 {
-	g_gamestate = g_game.brdstate + g_game.movelist.cnt;
+	g_gamestate	      = g_game.brdstate + g_game.movelist.cnt;
+	g_gamestate->hash = gethash();
 }
 
 void update_game()
@@ -360,6 +361,23 @@ void move2str(char* buff, Move move)
 	}
 	else
 		buff[4] = '\0';
+}
+
+int isrepetition()
+{
+	int count = 0;
+	for (int i = 0; i < g_gamestate->halfmove && g_game.movelist.cnt - i >= 0;
+			i++)
+	{
+		/*printf(
+		  "info string prevpos %lx\n",
+		  g_game.brdstate[g_game.movelist.cnt - i - 1].hash
+		  );*/
+		if (g_gamestate->hash ==
+				g_game.brdstate[g_game.movelist.cnt - i - 1].hash)
+			count++;
+	}
+	return count == 3;
 }
 
 void makemove(Move move)

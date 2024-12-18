@@ -28,6 +28,7 @@ def checkperft(engine, perft):
 def run(engine):
 
     perftlist = [
+        Perft('4k3/8/8/8/8/8/5PPP/2r3K1 w - - 0 1', [0]),
         Perft('r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2', [8]),
         Perft('8/8/8/2k5/2pP4/8/B7/4K3 b - d3 0 3', [8]),
         Perft('r1bqkbnr/pppppppp/n7/8/8/P7/1PPPPPPP/RNBQKBNR w KQkq - 2 2', [19]),
