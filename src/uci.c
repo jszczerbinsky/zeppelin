@@ -48,6 +48,8 @@ static void respond2isready() {
   fflush(stdout);
 }
 
+static void respond2stop() { stop(); }
+
 static void respond2go(char *token) {
   if (equals(token, "perft")) {
     token = nexttok();
@@ -82,7 +84,7 @@ static void respond2go(char *token) {
   } else {
     while (token)
       token = nexttok();
-    search(3);
+    search(999);
   }
 }
 
@@ -97,6 +99,8 @@ static int next_cmd(char *buff, int len) {
     respond2ucinewgame();
   else if (equals(token, "go"))
     respond2go(nexttok());
+  else if (equals(token, "stop"))
+    respond2stop(nexttok());
   else if (equals(token, "position"))
     respond2position(nexttok());
   else if (equals(token, "debug"))

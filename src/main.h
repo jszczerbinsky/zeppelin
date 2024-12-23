@@ -318,8 +318,15 @@ BitBrd gethash();
 //          Evaluation
 // =============================
 
-#define SCORE_ILLEGAL -99999999
-#define SCORE_CHECKMATED -1000000
+#define SCORE_CHECKMATE 99999999
+#define SCORE_CHECKMATE_BOUND (SCORE_CHECKMATE - 256)
+
+#define SCORE_CHECKMATED (-SCORE_CHECKMATE)
+#define SCORE_ILLEGAL (SCORE_CHECKMATED - 1)
+
+#define IS_CHECKMATE(score)                                                    \
+  (((score) >= SCORE_CHECKMATE_BOUND && (score) <= SCORE_CHECKMATE) ||         \
+   ((score) <= -SCORE_CHECKMATE_BOUND && (score) >= -SCORE_CHECKMATE))
 
 int evaluate(int pliescnt);
 
@@ -331,6 +338,7 @@ int evaluate(int pliescnt);
 
 void reset_hashtables();
 void search(int requesteddepth);
+void stop();
 
 // =============================
 //             Dump

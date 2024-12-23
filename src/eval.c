@@ -27,7 +27,13 @@ int evaluate(int pliescnt) {
     // printf("info string %s can be checkmated in %d moves\n",
     //        names[g_game.who2move], pliescnt);
 
-    return SCORE_CHECKMATED + pliescnt;
+    if (sqr_attackedby(!g_game.who2move,
+                       bbrd2sqr(g_game.pieces[g_game.who2move][KING]))) {
+
+      return SCORE_CHECKMATED + pliescnt;
+    } else {
+      return 0;
+    }
   }
 
   int material_diff = 0;
