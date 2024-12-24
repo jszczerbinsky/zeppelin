@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "main.h"
 
@@ -16,7 +17,16 @@ typedef struct {
 } SearchInfo;
 
 static SearchInfo si;
-static pthread_t thread;
+static pthread_t search_thread;
+static pthread_t time_thread;
+
+static int stopping = 0;
+
+int max(int a, int b) {
+  if (a > b)
+    return a;
+  return b;
+}
 
 static void printline(const MoveList *line) {
   for (int i = 0; i < line->cnt; i++) {
@@ -36,7 +46,7 @@ static void printline_rev(const MoveList *line) {
 
 static void printscore(int score) {
   printf("score ");
-  if (IS_CHECKMATE(score)) {
+  if (IS_CHECKMATE(score) || IS_CHECKMATE(-score)) {
     int mul = 1;
 
     if (score < 0) {
@@ -51,12 +61,16 @@ static void printscore(int score) {
   }
 }
 
-static void printinfo(int score) {
+static void printinfo(int score, MoveList *pv) {
   printf("info depth %d nodes %d currmovenumber %d currmove %s ",
          si.currline.cnt, si.nodes, si.movenum, si.movestr);
   printscore(score);
   printf(" currline");
   printline(&si.currline);
+  if (pv) {
+    printf(" pv");
+    printline(pv);
+  }
   printf("\n");
 }
 
@@ -122,10 +136,8 @@ static void order(MoveList *movelist, int curr) {
 }
 
 int negamax(int alpha, int beta, int depthleft, MoveList *parent_pv) {
-  int playermul = si.currline.cnt % 2 == 0 ? 1 : -1;
-
   if (depthleft == 0) {
-    return playermul * evaluate(si.currline.cnt);
+    return evaluate(si.currline.cnt);
   }
 
   si.nodes++;
@@ -136,7 +148,8 @@ int negamax(int alpha, int beta, int depthleft, MoveList *parent_pv) {
 
   int legalcnt = 0;
 
-  int bestscore = SCORE_ILLEGAL;
+  int score = SCORE_ILLEGAL;
+
   for (int i = 0; i < movelist.cnt; i++) {
     order(&movelist, i);
     makemove(movelist.move[i]);
@@ -147,25 +160,23 @@ int negamax(int alpha, int beta, int depthleft, MoveList *parent_pv) {
       MoveList pv = {0};
 
       pushmove(&si.currline, movelist.move[i]);
-      int score = -negamax(-beta, -alpha, depthleft - 1, &pv);
-      printinfo(score * playermul);
+      score = max(score, -negamax(-beta, -alpha, depthleft - 1, &pv));
+      printinfo(score, NULL);
       popmove(&si.currline);
 
-      if (score > bestscore) {
-        bestscore = score;
-        if (score > alpha) {
-          alpha = score;
-
-          parent_pv->move[0] = movelist.move[i];
-          for (int j = 0; j < pv.cnt; j++) {
-            parent_pv->move[j + 1] = pv.move[j];
-          }
-          parent_pv->cnt = pv.cnt + 1;
-        }
-      }
       if (score >= beta) {
         unmakemove();
-        return bestscore;
+        return score;
+      }
+
+      if (score > alpha) {
+        alpha = score;
+
+        parent_pv->move[0] = movelist.move[i];
+        for (int j = 0; j < pv.cnt; j++) {
+          parent_pv->move[j + 1] = pv.move[j];
+        }
+        parent_pv->cnt = pv.cnt + 1;
       }
     }
 
@@ -173,7 +184,7 @@ int negamax(int alpha, int beta, int depthleft, MoveList *parent_pv) {
   }
 
   if (legalcnt == 0) {
-    int e = playermul * evaluate(si.currline.cnt);
+    int e = evaluate(si.currline.cnt);
 
     /*printf("info string found game ending - ");
     if (e == 0) {
@@ -189,17 +200,19 @@ int negamax(int alpha, int beta, int depthleft, MoveList *parent_pv) {
     printline(&si.currline);
     printf("\n");
 
-    printinfo(e);
-    return playermul * e;
+    printinfo(e, NULL);
+    return e;
   }
 
-  return bestscore;
+  return alpha;
 }
 
 void negamax_root(int depthleft) {
   MoveList pv = {0};
 
-  int bestscore = SCORE_ILLEGAL;
+  int alpha = SCORE_ILLEGAL;
+  int beta = -SCORE_ILLEGAL;
+
   int bestmove = 0;
 
   MoveList movelist;
@@ -224,38 +237,23 @@ void negamax_root(int depthleft) {
       }
 
       MoveList child_pv = {0};
-      int score = -negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depthleft, &child_pv);
+      int score = -negamax(-beta, -alpha, depthleft, &child_pv);
 
-      printinfo(score);
-
-      if (score > bestscore) {
+      if (score > alpha) {
+        alpha = score;
         pv.move[0] = movelist.move[i];
         for (int j = 0; j < child_pv.cnt; j++) {
           pv.move[j + 1] = child_pv.move[j];
         }
         pv.cnt = child_pv.cnt + 1;
 
-        char buff[6];
-        move2str(buff, movelist.move[i]);
-
-        /*if (bestscore == SCORE_ILLEGAL)
-          printf("info string initializing first move as best one - %s\n",
-                 buff);
-        else
-          printf("info string new best move - %s\n", buff);*/
-
-        bestscore = score;
         bestmove = i;
-
-        printf("info pv ");
-        printline(&pv);
-        printscore(score);
-        printf("\n");
       }
 
       popmove(&si.currline);
       legal_i++;
     }
+    printinfo(alpha, NULL);
     unmakemove();
   }
 
@@ -263,11 +261,25 @@ void negamax_root(int depthleft) {
   for (int i = 0; i < pv.cnt; i++) {
     si.prev_pv.move[i] = pv.move[i];
   }
+  printinfo(alpha, &si.prev_pv);
 
-  if (bestscore == SCORE_ILLEGAL) {
+  if (alpha == SCORE_ILLEGAL) {
     si.bestmove = NULLMOVE;
   } else {
     si.bestmove = movelist.move[bestmove];
+  }
+}
+
+static void search_finish() {
+  if (si.bestmove) {
+    char buff[6];
+    move2str(buff, si.bestmove);
+    // todo lock for printing
+    printf("\nbestmove %s\n", buff);
+    fflush(stdout);
+  } else {
+    printf("info string no legal move detected\n");
+    fflush(stdout);
   }
 }
 
@@ -276,6 +288,19 @@ static void *search_subthread(void *arg) {
     negamax_root(depth);
   }
 
+  search_finish();
+  return 0;
+}
+
+static void *time_subthread(void *arg) {
+  time_t start_time = time(NULL);
+  while (1) {
+    if (difftime(time(NULL), start_time) >= 99999) {
+      stop(STOP_TIME);
+      break;
+    }
+    usleep(10);
+  }
   return 0;
 }
 
@@ -284,20 +309,27 @@ void search(int requesteddepth) {
 
   si.requesteddepth = requesteddepth;
 
-  pthread_create(&thread, NULL, search_subthread, NULL);
+  pthread_create(&time_thread, NULL, time_subthread, NULL);
+  pthread_create(&search_thread, NULL, search_subthread, NULL);
 }
 
-void stop() {
-  pthread_cancel(thread);
-  pthread_join(thread, NULL);
+void stop(int origin) {
+  if (!stopping) {
+    stopping = 1;
+    if (origin != STOP_TIME) {
+      printf("info string canceling manually\n");
+      fflush(stdout);
+      pthread_cancel(time_thread);
+      pthread_join(time_thread, NULL);
+    } else {
+      printf("info string canceling on time\n");
+      fflush(stdout);
+    }
 
-  if (si.bestmove) {
-    char buff[6];
-    move2str(buff, si.bestmove);
-    printf("bestmove %s\n", buff);
-    fflush(stdout);
-  } else {
-    printf("info string no legal move detected\n");
-    fflush(stdout);
+    pthread_cancel(search_thread);
+    pthread_join(search_thread, NULL);
+
+    search_finish();
+    stopping = 0;
   }
 }

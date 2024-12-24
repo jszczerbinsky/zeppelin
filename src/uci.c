@@ -48,7 +48,7 @@ static void respond2isready() {
   fflush(stdout);
 }
 
-static void respond2stop() { stop(); }
+static void respond2stop() { stop(STOP_MANUAL); }
 
 static void respond2go(char *token) {
   if (equals(token, "perft")) {

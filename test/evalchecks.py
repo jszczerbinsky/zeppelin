@@ -1,5 +1,5 @@
 def checkeval(engine, fen, expected):
-    score_mated = -1000000
+    score_mated = -99999999
 
     engine.loadfen(fen)
     res = engine.eval()
@@ -43,6 +43,7 @@ def run(engine):
     result &= checkeval(engine, '4k3/8/8/8/8/8/5PPP/2r3K1 w - - 0 1', 'mated')
     result &= checkeval(engine, '3R4/8/8/8/6B1/4N2K/2qqq3/2qkq3 b - - 0 1', 'mated')
     result &= checkeval(engine, '4k3/8/8/8/8/8/5PPP/6K1 w - - 0 1', 'winning')
+    result &= checkeval(engine, 'k6R/ppp5/8/8/8/1r6/r7/3K4 b - - 2 1 ', 'mated')
     result &= checkeval(engine, '8/3PP1P1/2K5/8/3p4/1p2k3/8/8 w - - 0 1', 'winning')
     result &= checkeval(engine, '4k3/8/8/8/8/8/8/6K1 w - - 0 1', 'draw')
     result &= checkeval(engine, '8/3n4/2K5/4k3/6N1/8/8/8 w - - 0 1', 'draw')

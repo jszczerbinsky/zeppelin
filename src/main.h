@@ -336,9 +336,12 @@ int evaluate(int pliescnt);
 
 #define DEPTH_INF -1
 
+#define STOP_MANUAL 0
+#define STOP_TIME 1
+
 void reset_hashtables();
 void search(int requesteddepth);
-void stop();
+void stop(int origin);
 
 // =============================
 //             Dump
