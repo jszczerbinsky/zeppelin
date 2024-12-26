@@ -36,14 +36,6 @@ static void printline(const MoveList *line) {
   }
 }
 
-static void printline_rev(const MoveList *line) {
-  for (int i = line->cnt - 1; i >= 0; i--) {
-    char buff[6];
-    move2str(buff, line->move[i]);
-    printf(" %s", buff);
-  }
-}
-
 static void printscore(int score) {
   printf("score ");
   if (IS_CHECKMATE(score) || IS_CHECKMATE(-score)) {
@@ -135,143 +127,73 @@ static void order(MoveList *movelist, int curr) {
   }
 }
 
-int negamax(int alpha, int beta, int depthleft, MoveList *parent_pv) {
-  if (depthleft == 0) {
-    return evaluate(si.currline.cnt);
-  }
-
-  si.nodes++;
-
-  MoveList movelist;
-  movelist.cnt = 0;
-  genmoves(g_game.who2move, &movelist);
-
-  int legalcnt = 0;
-
+int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
   int score = SCORE_ILLEGAL;
+  Move bestmove = NULLMOVE;
 
-  for (int i = 0; i < movelist.cnt; i++) {
-    order(&movelist, i);
-    makemove(movelist.move[i]);
-
-    if (lastmovelegal()) {
-      legalcnt++;
-
-      MoveList pv = {0};
-
-      pushmove(&si.currline, movelist.move[i]);
-      score = max(score, -negamax(-beta, -alpha, depthleft - 1, &pv));
-      printinfo(score, NULL);
-      popmove(&si.currline);
-
-      if (score >= beta) {
-        unmakemove();
-        return score;
-      }
-
-      if (score > alpha) {
-        alpha = score;
-
-        parent_pv->move[0] = movelist.move[i];
-        for (int j = 0; j < pv.cnt; j++) {
-          parent_pv->move[j + 1] = pv.move[j];
-        }
-        parent_pv->cnt = pv.cnt + 1;
-      }
-    }
-
-    unmakemove();
-  }
-
-  if (legalcnt == 0) {
-    int e = evaluate(si.currline.cnt);
-
-    /*printf("info string found game ending - ");
-    if (e == 0) {
-      printf("draw (?)");
-    } else {
-      if (si.currline.cnt % 2 == 0)
-        printf("lose by ");
-      else
-        printf("win by ");
-      printf("mate in %d", si.currline.cnt);
-    }*/
-
-    printline(&si.currline);
-    printf("\n");
-
-    printinfo(e, NULL);
-    return e;
-  }
-
-  return alpha;
-}
-
-void negamax_root(int depthleft) {
-  MoveList pv = {0};
-
-  int alpha = SCORE_ILLEGAL;
-  int beta = -SCORE_ILLEGAL;
-
-  int bestmove = 0;
-
-  MoveList movelist;
-  genmoves(g_game.who2move, &movelist);
-
-  char movenames[movelist.cnt][6];
-
-  int legal_i = 1;
-
-  for (int i = 0; i < movelist.cnt; i++) {
-    order(&movelist, i);
-    makemove(movelist.move[i]);
-    if (lastmovelegal()) {
-      si.movenum = legal_i;
-      move2str(si.movestr, movelist.move[i]);
-      pushmove(&si.currline, movelist.move[i]);
-
-      move2str(movenames[i], movelist.move[i]);
-
-      if (isrepetition()) {
-        // printf("info string repetition detected\n");
-      }
-
-      MoveList child_pv = {0};
-      int score = -negamax(-beta, -alpha, depthleft, &child_pv);
-
-      if (score > alpha) {
-        alpha = score;
-        pv.move[0] = movelist.move[i];
-        for (int j = 0; j < child_pv.cnt; j++) {
-          pv.move[j + 1] = child_pv.move[j];
-        }
-        pv.cnt = child_pv.cnt + 1;
-
-        bestmove = i;
-      }
-
-      popmove(&si.currline);
-      legal_i++;
-    }
-    printinfo(alpha, NULL);
-    unmakemove();
-  }
-
-  si.prev_pv.cnt = pv.cnt;
-  for (int i = 0; i < pv.cnt; i++) {
-    si.prev_pv.move[i] = pv.move[i];
-  }
-  printinfo(alpha, &si.prev_pv);
-
-  if (alpha == SCORE_ILLEGAL) {
-    si.bestmove = NULLMOVE;
+  if (depthleft == 0) {
+    score = evaluate(si.currline.cnt);
   } else {
-    si.bestmove = movelist.move[bestmove];
+
+    si.nodes++;
+
+    MoveList movelist = {0};
+    genmoves(g_game.who2move, &movelist);
+
+    int legalcnt = 0;
+
+    for (int i = 0; i < movelist.cnt; i++) {
+      order(&movelist, i);
+      makemove(movelist.move[i]);
+
+      if (lastmovelegal()) {
+        legalcnt++;
+
+        MoveList subpv = {0};
+
+        pushmove(&si.currline, movelist.move[i]);
+        score = max(score, -negamax(-beta, -alpha, depthleft - 1, &subpv));
+        // printinfo(score, NULL);
+        popmove(&si.currline);
+
+        if (score >= beta) {
+          unmakemove();
+          break;
+        }
+
+        if (score > alpha) {
+          alpha = score;
+          bestmove = movelist.move[i];
+
+          pv->move[0] = movelist.move[i];
+          for (int j = 0; j < subpv.cnt; j++) {
+            pv->move[j + 1] = subpv.move[j];
+          }
+          pv->cnt = subpv.cnt + 1;
+        }
+      }
+
+      unmakemove();
+    }
+
+    if (legalcnt == 0) {
+      score = evaluate(si.currline.cnt);
+    }
   }
+
+  if (si.currline.cnt == 0) {
+    if (score == SCORE_ILLEGAL) {
+      si.bestmove = NULLMOVE;
+    } else {
+      si.bestmove = bestmove;
+    }
+  }
+
+  return score;
 }
 
 static void search_finish() {
-  if (si.bestmove) {
+  if (si.bestmove != NULLMOVE) {
     char buff[6];
     move2str(buff, si.bestmove);
     // todo lock for printing
@@ -285,7 +207,14 @@ static void search_finish() {
 
 static void *search_subthread(void *arg) {
   for (int depth = 1; depth <= si.requesteddepth; depth++) {
-    negamax_root(depth);
+    si.currline.cnt = 0;
+    MoveList pv = {0};
+    int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
+    printinfo(score, &pv);
+    printf("info string "
+           "_________________________________________________________\n");
+    fflush(stdout);
+    memcpy(&si.prev_pv, &pv, sizeof(MoveList));
   }
 
   search_finish();
