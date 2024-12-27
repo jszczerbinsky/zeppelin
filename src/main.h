@@ -174,6 +174,8 @@ int isrepetition();
 // =============================
 
 void genmoves(int player, MoveList *movelist);
+void genquiet(int player, MoveList *movelist);
+void gencapt(int player, MoveList *movelist);
 int sqr_attackedby(int attacker, int sqr);
 
 // =============================
@@ -234,6 +236,8 @@ int sqr_attackedby(int attacker, int sqr);
 #define ADIAG_12 0x2040800000000000ULL
 #define ADIAG_13 0x4080000000000000ULL
 #define ADIAG_14 0x8000000000000000ULL
+
+#define CENTER ((FILE_D | FILE_E) & (RANK_4 | RANK_5))
 
 #define W_KINGSQR 4
 #define B_KINGSQR 60
@@ -400,9 +404,14 @@ static inline int lastmovelegal() {
   return !sqr_attackedby(g_game.who2move,
                          bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
-static inline int isincheck() {
+static inline int undercheck() {
   return sqr_attackedby(!g_game.who2move,
                         bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
+}
+
+static inline int checking() {
+  return sqr_attackedby(g_game.who2move,
+                        bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
 static inline BitBrd rand64() { return rand() | (((BitBrd)rand()) << 32); }

@@ -5,6 +5,7 @@ build/*
 dump-*
 tags
 *.taghl
+vgcore*
 __pycache__
 
 CMakeLists.txt.user

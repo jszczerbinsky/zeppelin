@@ -247,7 +247,7 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
         int ext = 0;
 
         pushmove(&si.currline, movelist.move[i]);
-        if (isincheck()) {
+        if (depthleft == 1 && (undercheck() || IS_CAPT(movelist.move[i]))) {
           ext++;
         }
         score =
@@ -257,7 +257,6 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
         if (si.currline.cnt == 0) {
           printinfo_regular(score);
         } else {
-
           // printinfo_regular(score);
         }
 
