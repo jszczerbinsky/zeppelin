@@ -16,14 +16,57 @@ typedef struct {
   int requesteddepth;
 } SearchInfo;
 
+#define TT_EXACT 0
+#define TT_ALPHA 1
+#define TT_BETA 2
+
+typedef struct {
+  int used;
+  BitBrd hash;
+  int type;
+  int value;
+  int depth;
+  Move bestmove;
+} TT;
+
+#define TT_SIZE 20000
+
+static TT tt[TT_SIZE];
+
 static SearchInfo si;
 static pthread_t search_thread;
 static pthread_t time_thread;
 
 static int stopping = 0;
 
+static const TT *ttread(BitBrd hash, int depth) {
+  TT *ttentry = tt + (hash % TT_SIZE);
+  if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth)
+    return ttentry;
+  return NULL;
+}
+
+static void ttwrite(BitBrd hash, int type, int depth, int value,
+                    Move bestmove) {
+  TT *ttentry = tt + (hash % TT_SIZE);
+  if (!ttentry->used || (ttentry->hash == hash && ttentry->depth <= depth)) {
+    ttentry->used = 1;
+    ttentry->hash = hash;
+    ttentry->type = type;
+    ttentry->depth = depth;
+    ttentry->value = value;
+    ttentry->bestmove = bestmove;
+  }
+}
+
 int max(int a, int b) {
   if (a > b)
+    return a;
+  return b;
+}
+
+int min(int a, int b) {
+  if (a < b)
     return a;
   return b;
 }
@@ -128,8 +171,33 @@ static void order(MoveList *movelist, int curr) {
 }
 
 int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
+  const BitBrd hash = gethash();
+
+  const TT *ttentry = ttread(hash, depthleft);
+  if (ttentry) {
+    switch (ttentry->type) {
+    case TT_EXACT:
+      pv->cnt = 1;
+      pv->move[0] = ttentry->bestmove;
+      return ttentry->value;
+      break;
+    case TT_ALPHA:
+      if (ttentry->value <= alpha)
+        return ttentry->value;
+      break;
+
+    case TT_BETA:
+      if (ttentry->value >= beta)
+        return ttentry->value;
+      break;
+    }
+  }
+
   int score = SCORE_ILLEGAL;
   Move bestmove = NULLMOVE;
+
+  int betacutoff = 0;
+  int alpharisen = 0;
 
   if (depthleft == 0) {
     score = evaluate(si.currline.cnt);
@@ -153,17 +221,20 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
 
         pushmove(&si.currline, movelist.move[i]);
         score = max(score, -negamax(-beta, -alpha, depthleft - 1, &subpv));
-        // printinfo(score, NULL);
+        printinfo(score, NULL);
         popmove(&si.currline);
 
         if (score >= beta) {
           unmakemove();
+          betacutoff = 1;
           break;
         }
 
         if (score > alpha) {
           alpha = score;
           bestmove = movelist.move[i];
+
+          alpharisen = 1;
 
           pv->move[0] = movelist.move[i];
           for (int j = 0; j < subpv.cnt; j++) {
@@ -180,6 +251,16 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
       score = evaluate(si.currline.cnt);
     }
   }
+
+  int tttype;
+  if (betacutoff)
+    tttype = TT_BETA;
+  else if (alpharisen)
+    tttype = TT_EXACT;
+  else
+    tttype = TT_ALPHA;
+
+  ttwrite(hash, tttype, depthleft, score, bestmove);
 
   if (si.currline.cnt == 0) {
     if (score == SCORE_ILLEGAL) {
@@ -206,7 +287,9 @@ static void search_finish() {
 }
 
 static void *search_subthread(void *arg) {
+  memset(tt, 0, sizeof(TT) * TT_SIZE);
   for (int depth = 1; depth <= si.requesteddepth; depth++) {
+    memset(tt, 0, sizeof(TT) * TT_SIZE);
     si.currline.cnt = 0;
     MoveList pv = {0};
     int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
