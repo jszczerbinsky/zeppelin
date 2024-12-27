@@ -14,6 +14,8 @@ typedef struct {
   MoveList prev_pv;
   Move bestmove;
   int requesteddepth;
+  int tbhits;
+  int maxdepth;
 } SearchInfo;
 
 #define TT_EXACT 0
@@ -29,9 +31,10 @@ typedef struct {
   Move bestmove;
 } TT;
 
-#define TT_SIZE 20000
+#define TT_SIZE 2000000
 
 static TT tt[TT_SIZE];
+static int ttused = 0;
 
 static SearchInfo si;
 static pthread_t search_thread;
@@ -41,22 +44,26 @@ static int stopping = 0;
 
 static const TT *ttread(BitBrd hash, int depth) {
   TT *ttentry = tt + (hash % TT_SIZE);
-  if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth)
+  if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth) {
     return ttentry;
+  }
   return NULL;
 }
 
 static void ttwrite(BitBrd hash, int type, int depth, int value,
                     Move bestmove) {
   TT *ttentry = tt + (hash % TT_SIZE);
-  if (!ttentry->used || (ttentry->hash == hash && ttentry->depth <= depth)) {
-    ttentry->used = 1;
-    ttentry->hash = hash;
-    ttentry->type = type;
-    ttentry->depth = depth;
-    ttentry->value = value;
-    ttentry->bestmove = bestmove;
+
+  if (!ttentry->used) {
+    ttused++;
   }
+
+  ttentry->used = 1;
+  ttentry->hash = hash;
+  ttentry->type = type;
+  ttentry->depth = depth;
+  ttentry->value = value;
+  ttentry->bestmove = bestmove;
 }
 
 int max(int a, int b) {
@@ -90,32 +97,50 @@ static void printscore(int score) {
     }
 
     int moves = (1 + SCORE_CHECKMATE - score) / 2;
-    printf("mate %d ", moves * mul);
+    printf("mate %d", moves * mul);
   } else {
-    printf("cp %d ", score);
+    printf("cp %d", score);
   }
 }
 
-static void printinfo(int score, MoveList *pv) {
-  printf("info depth %d nodes %d currmovenumber %d currmove %s ",
-         si.currline.cnt, si.nodes, si.movenum, si.movestr);
-  printscore(score);
-  printf(" currline");
-  printline(&si.currline);
-  if (pv) {
-    printf(" pv");
-    printline(pv);
+static void printinfo_regular(int score) {
+  int hashfull = (ttused * 1000) / TT_SIZE;
+
+  printf("info nodes %d currmove %s currmovenumber %d hashfull %d ", si.nodes,
+         si.movestr, si.movenum, hashfull);
+
+  if (si.currline.cnt > 0) {
+    printline(&si.currline);
+    printf(" ");
   }
-  printf("\n");
+  printscore(score);
+  putchar('\n');
+  fflush(stdout);
+}
+
+static void printinfo_final(int depth, int score) {
+  int hashfull = (ttused * 1000) / TT_SIZE;
+
+  printf("info depth %d seldepth %d tbhits %d hashfull %d nodes %d ", depth,
+         si.maxdepth, si.tbhits, hashfull, si.nodes);
+  printscore(score);
+  printf(" pv");
+  printline(&si.prev_pv);
+  putchar('\n');
+  fflush(stdout);
 }
 
 void reset_hashtables() {}
 
-static int get_priority(Move move) {
+static int get_priority(Move move, Move ttbest) {
+
+  if (move == ttbest) {
+    return 100000;
+  }
 
   int ply = si.currline.cnt;
   if (ply < si.prev_pv.cnt && move == si.prev_pv.move[ply]) {
-    return 99999;
+    return 10000;
   }
 
   switch (GET_FLAGS(move)) {
@@ -153,12 +178,12 @@ static int get_priority(Move move) {
   return 0;
 }
 
-static void order(MoveList *movelist, int curr) {
+static void order(MoveList *movelist, int curr, Move ttbest) {
   int best_i = -1;
   int best_priority = MIN_PRIORITY;
 
   for (int i = curr; i < movelist->cnt; i++) {
-    int priority = get_priority(movelist->move[i]);
+    int priority = get_priority(movelist->move[i], ttbest);
     if (priority > best_priority) {
       best_i = i;
       best_priority = priority;
@@ -173,24 +198,18 @@ static void order(MoveList *movelist, int curr) {
 int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
   const BitBrd hash = gethash();
 
+  Move ttbest = NULLMOVE;
   const TT *ttentry = ttread(hash, depthleft);
   if (ttentry) {
-    switch (ttentry->type) {
-    case TT_EXACT:
+    if (ttentry->type == TT_EXACT ||
+        (ttentry->type == TT_ALPHA && ttentry->value <= alpha) ||
+        (ttentry->type == TT_BETA && ttentry->value >= beta)) {
       pv->cnt = 1;
       pv->move[0] = ttentry->bestmove;
+      si.tbhits++;
       return ttentry->value;
-      break;
-    case TT_ALPHA:
-      if (ttentry->value <= alpha)
-        return ttentry->value;
-      break;
-
-    case TT_BETA:
-      if (ttentry->value >= beta)
-        return ttentry->value;
-      break;
     }
+    ttbest = ttentry->bestmove;
   }
 
   int score = SCORE_ILLEGAL;
@@ -211,7 +230,7 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
     int legalcnt = 0;
 
     for (int i = 0; i < movelist.cnt; i++) {
-      order(&movelist, i);
+      order(&movelist, i, ttbest);
       makemove(movelist.move[i]);
 
       if (lastmovelegal()) {
@@ -219,10 +238,21 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
 
         MoveList subpv = {0};
 
+        if (si.currline.cnt == 0) {
+          move2str(si.movestr, movelist.move[i]);
+          si.movenum++;
+        }
+
         pushmove(&si.currline, movelist.move[i]);
         score = max(score, -negamax(-beta, -alpha, depthleft - 1, &subpv));
-        printinfo(score, NULL);
         popmove(&si.currline);
+
+        if (si.currline.cnt == 0) {
+          printinfo_regular(score);
+        } else {
+
+          // printinfo_regular(score);
+        }
 
         if (score >= beta) {
           unmakemove();
@@ -262,12 +292,11 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
 
   ttwrite(hash, tttype, depthleft, score, bestmove);
 
+  if (si.currline.cnt > si.maxdepth)
+    si.maxdepth = si.currline.cnt;
+
   if (si.currline.cnt == 0) {
-    if (score == SCORE_ILLEGAL) {
-      si.bestmove = NULLMOVE;
-    } else {
-      si.bestmove = bestmove;
-    }
+    si.bestmove = bestmove;
   }
 
   return score;
@@ -289,14 +318,15 @@ static void search_finish() {
 static void *search_subthread(void *arg) {
   memset(tt, 0, sizeof(TT) * TT_SIZE);
   for (int depth = 1; depth <= si.requesteddepth; depth++) {
-    memset(tt, 0, sizeof(TT) * TT_SIZE);
+    si.maxdepth = 0;
     si.currline.cnt = 0;
+    si.tbhits = 0;
+    si.nodes = 0;
+    si.movenum = 0;
     MoveList pv = {0};
     int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
-    printinfo(score, &pv);
-    printf("info string "
-           "_________________________________________________________\n");
-    fflush(stdout);
+
+    printinfo_final(depth, score);
     memcpy(&si.prev_pv, &pv, sizeof(MoveList));
   }
 
