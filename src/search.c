@@ -110,6 +110,7 @@ static void printinfo_regular(int score) {
          si.movestr, si.movenum, hashfull);
 
   if (si.currline.cnt > 0) {
+    printf("currline");
     printline(&si.currline);
     printf(" ");
   }
@@ -243,8 +244,14 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
           si.movenum++;
         }
 
+        int ext = 0;
+
         pushmove(&si.currline, movelist.move[i]);
-        score = max(score, -negamax(-beta, -alpha, depthleft - 1, &subpv));
+        if (isincheck()) {
+          ext++;
+        }
+        score =
+            max(score, -negamax(-beta, -alpha, depthleft - 1 + ext, &subpv));
         popmove(&si.currline);
 
         if (si.currline.cnt == 0) {

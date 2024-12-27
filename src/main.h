@@ -400,6 +400,11 @@ static inline int lastmovelegal() {
   return !sqr_attackedby(g_game.who2move,
                          bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
+static inline int isincheck() {
+  return sqr_attackedby(!g_game.who2move,
+                        bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
+}
 
 static inline BitBrd rand64() { return rand() | (((BitBrd)rand()) << 32); }
+
 #endif
