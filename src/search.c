@@ -6,6 +6,8 @@
 
 #define MIN_PRIORITY (-99999)
 
+#define KILLER_MAX 5
+
 typedef struct {
   int movenum;
   char movestr[6];
@@ -16,6 +18,7 @@ typedef struct {
   int requesteddepth;
   int tbhits;
   int maxdepth;
+  Move killers[MAX_PLY_PER_GAME][KILLER_MAX];
 } SearchInfo;
 
 #define TT_EXACT 0
@@ -131,6 +134,24 @@ static void printinfo_final(int depth, int score) {
   fflush(stdout);
 }
 
+static void addkiller(int depth, Move move) {
+  for (int i = 0; i < KILLER_MAX; i++) {
+    if (si.killers[depth][i] == move)
+      return;
+    if (si.killers[depth][i] == NULLMOVE) {
+      si.killers[depth][i] = move;
+      return;
+    }
+  }
+}
+
+static int iskiller(int depth, Move move) {
+  for (int i = 0; i < KILLER_MAX; i++)
+    if (si.killers[depth][i] == move)
+      return 1;
+  return 0;
+}
+
 void reset_hashtables() {}
 
 static int get_priority(Move move, Move ttbest) {
@@ -143,6 +164,9 @@ static int get_priority(Move move, Move ttbest) {
   if (ply < si.prev_pv.cnt && move == si.prev_pv.move[ply]) {
     return 10000;
   }
+
+  if (iskiller(ply, move))
+    return 5;
 
   switch (GET_FLAGS(move)) {
   case MOVE_F_ISCASTLEWQ:
@@ -247,9 +271,10 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
         int ext = 0;
 
         pushmove(&si.currline, movelist.move[i]);
-        if (depthleft == 1 && (undercheck() || IS_CAPT(movelist.move[i]))) {
+
+        if (depthleft == 1 && undercheck())
           ext++;
-        }
+
         score =
             max(score, -negamax(-beta, -alpha, depthleft - 1 + ext, &subpv));
         popmove(&si.currline);
@@ -263,6 +288,8 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
         if (score >= beta) {
           unmakemove();
           betacutoff = 1;
+          if (IS_SILENT(movelist.move[i]))
+            addkiller(si.currline.cnt, movelist.move[i]);
           break;
         }
 
@@ -329,6 +356,7 @@ static void *search_subthread(void *arg) {
     si.tbhits = 0;
     si.nodes = 0;
     si.movenum = 0;
+    memset(&si.killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
     MoveList pv = {0};
     int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
 

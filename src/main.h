@@ -89,6 +89,7 @@ typedef uint32_t Move;
 #define IS_CAPT(m) ((m) & MOVE_F_ISCAPT)
 #define IS_EP(m) ((m) & MOVE_F_ISEP)
 #define IS_CASTLE(m) (((m) & MOVE_CASTLE_FLAGS_MASK) != 0)
+#define IS_SILENT(m) (((m) & (MOVE_F_ISCAPT | MOVE_F_ISPROM)) == 0)
 
 // =============================
 //        Search definitions
