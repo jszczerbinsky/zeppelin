@@ -1,14 +1,5 @@
 #include "main.h"
 
-static const int pawnval = 100;
-static const int knightval = 300;
-static const int bishopval = 310;
-static const int rookval = 500;
-static const int queenval = 800;
-
-static const int material[] = {pawnval,   0,       knightval,
-                               bishopval, rookval, queenval};
-
 static const int doubledval = -15;
 
 static const int moveval = 10;

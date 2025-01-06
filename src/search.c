@@ -156,51 +156,51 @@ void reset_hashtables() {}
 
 static int get_priority(Move move, Move ttbest) {
 
+  const int pvpriority = 1000000;
+  const int ttpriority = 100000;
+  const int goodcaptpriority = 10000;
+  const int equalcaptpriority = 2;
+  const int killerpriority = 1;
+  const int normalpriority = 0;
+  const int badcaptpriority = -10000;
+
   if (move == ttbest) {
-    return 100000;
+    return ttpriority;
   }
 
   int ply = si.currline.cnt;
   if (ply < si.prev_pv.cnt && move == si.prev_pv.move[ply]) {
-    return 10000;
+    return pvpriority;
   }
 
-  if (iskiller(ply, move))
-    return 5;
-
-  switch (GET_TYPE(move)) {
-  case MOVE_TYPE_CASTLEWQ:
-    return 2;
-    break;
-  case MOVE_TYPE_CASTLEBQ:
-    return 2;
-    break;
-  case MOVE_TYPE_CASTLEWK:
-    return 2;
-    break;
-  case MOVE_TYPE_CASTLEBK:
-    return 2;
-    break;
-  case MOVE_TYPE_NORMALPROM:
-    return 10;
-    break;
-  case MOVE_TYPE_NORMALCAPT:
-    return 5 + (GET_MOV_PIECE(move) - GET_CAPT_PIECE(move));
-    break;
-  case MOVE_TYPE_PROMCAPT:
-    return 10;
-    break;
-  case MOVE_TYPE_EP:
-    return 5;
-    break;
-  case MOVE_TYPE_DOUBLEPUSH:
-    return 0;
-    break;
-  case 0:
-    return 0;
-    break;
+  if (iskiller(ply, move)) {
+    return killerpriority;
   }
-  return 0;
+
+  int isnormal = 1;
+
+  int diff = 0;
+  if (IS_CAPT(move)) {
+    diff = material[GET_CAPT_PIECE(move)] - material[GET_MOV_PIECE(move)];
+    isnormal = 0;
+  }
+
+  if (IS_PROM(move)) {
+    diff += material[GET_PROM_PIECE(move)];
+    isnormal = 0;
+  }
+
+  if (isnormal) {
+    return normalpriority;
+  }
+
+  if (diff > 0) {
+    return goodcaptpriority + diff;
+  } else if (diff == 0) {
+    return equalcaptpriority;
+  } else {
+    return badcaptpriority + diff;
+  }
 }
 
 static void order(MoveList *movelist, int curr, Move ttbest) {
