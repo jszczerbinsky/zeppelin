@@ -243,7 +243,7 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
   int betacutoff = 0;
   int alpharisen = 0;
 
-  if (depthleft == 0) {
+  if (depthleft <= 0) {
     score = evaluate(si.currline.cnt);
   } else {
 
@@ -253,6 +253,23 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
     genmoves(g_game.who2move, &movelist);
 
     int legalcnt = 0;
+
+    if (!undercheck() && (si.currline.cnt == 0 ||
+                          si.currline.move[si.currline.cnt - 1] != NULLMOVE)) {
+      MoveList tmppv;
+      makemove(NULLMOVE);
+      pushmove(&si.currline, NULLMOVE);
+      int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3, &tmppv);
+      popmove(&si.currline);
+      unmakemove();
+
+      if (nmpscore >= beta) {
+        return nmpscore;
+      }
+      if (nmpscore > alpha) {
+        alpha = nmpscore;
+      }
+    }
 
     for (int i = 0; i < movelist.cnt; i++) {
       order(&movelist, i, ttbest);
