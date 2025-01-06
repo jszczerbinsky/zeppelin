@@ -168,32 +168,32 @@ static int get_priority(Move move, Move ttbest) {
   if (iskiller(ply, move))
     return 5;
 
-  switch (GET_FLAGS(move)) {
-  case MOVE_F_ISCASTLEWQ:
+  switch (GET_TYPE(move)) {
+  case MOVE_TYPE_CASTLEWQ:
     return 2;
     break;
-  case MOVE_F_ISCASTLEBQ:
+  case MOVE_TYPE_CASTLEBQ:
     return 2;
     break;
-  case MOVE_F_ISCASTLEWK:
+  case MOVE_TYPE_CASTLEWK:
     return 2;
     break;
-  case MOVE_F_ISCASTLEBK:
+  case MOVE_TYPE_CASTLEBK:
     return 2;
     break;
-  case MOVE_F_ISPROM:
+  case MOVE_TYPE_NORMALPROM:
     return 10;
     break;
-  case MOVE_F_ISCAPT:
+  case MOVE_TYPE_NORMALCAPT:
     return 5 + (GET_MOV_PIECE(move) - GET_CAPT_PIECE(move));
     break;
-  case MOVE_F_ISPROM | MOVE_F_ISCAPT:
+  case MOVE_TYPE_PROMCAPT:
     return 10;
     break;
-  case MOVE_F_ISCAPT | MOVE_F_ISEP:
+  case MOVE_TYPE_EP:
     return 5;
     break;
-  case MOVE_F_ISDOUBLEPUSH:
+  case MOVE_TYPE_DOUBLEPUSH:
     return 0;
     break;
   case 0:

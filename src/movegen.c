@@ -63,10 +63,12 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type) {
 
       if (dstbbrd & g_game.piecesof[!player]) {
         if (type != GEN_QUIET) {
-          move |= MOVE_F_ISCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+          move |=
+              MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
           pushmove(movelist, move);
         }
       } else if (type != GEN_CAPT) {
+        move |= MOVE_TYPE_NORMAL;
         pushmove(movelist, move);
       }
 
@@ -94,10 +96,12 @@ static void gen_knight(int player, MoveList *movelist, int type) {
 
       if (dstbbrd & g_game.piecesof[!player]) {
         if (type != GEN_QUIET) {
-          move |= MOVE_F_ISCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+          move |=
+              MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
           pushmove(movelist, move);
         }
       } else if (type != GEN_CAPT) {
+        move |= MOVE_TYPE_NORMAL;
         pushmove(movelist, move);
       }
 
@@ -122,10 +126,11 @@ static void gen_king(int player, MoveList *movelist, int type) {
 
     if (dstbbrd & g_game.piecesof[!player]) {
       if (type != GEN_QUIET) {
-        move |= MOVE_F_ISCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+        move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
         pushmove(movelist, move);
       }
     } else if (type != GEN_CAPT) {
+      move |= MOVE_TYPE_NORMAL;
       pushmove(movelist, move);
     }
 
@@ -138,22 +143,22 @@ static void gen_castle(int player, MoveList *movelist) {
     if (CANCASTLE_WK(g_gamestate) && (g_game.piecesof[ANY] & 0x60ULL) == 0 &&
         !sqr_attackedby(BLACK, W_KINGSQR + 1) &&
         !sqr_attackedby(BLACK, W_KINGSQR + 2))
-      pushmove(movelist, MOVE_F_ISCASTLEWK);
+      pushmove(movelist, MOVE_TYPE_CASTLEWK);
     if (CANCASTLE_WQ(g_gamestate) && (g_game.piecesof[ANY] & 0xeULL) == 0 &&
         !sqr_attackedby(BLACK, W_KINGSQR - 1) &&
         !sqr_attackedby(BLACK, W_KINGSQR - 2))
-      pushmove(movelist, MOVE_F_ISCASTLEWQ);
+      pushmove(movelist, MOVE_TYPE_CASTLEWQ);
   } else if (player == BLACK && !sqr_attackedby(WHITE, B_KINGSQR)) {
     if (CANCASTLE_BK(g_gamestate) &&
         (g_game.piecesof[ANY] & 0x6000000000000000ULL) == 0 &&
         !sqr_attackedby(WHITE, B_KINGSQR + 1) &&
         !sqr_attackedby(WHITE, B_KINGSQR + 2))
-      pushmove(movelist, MOVE_F_ISCASTLEBK);
+      pushmove(movelist, MOVE_TYPE_CASTLEBK);
     if (CANCASTLE_BQ(g_gamestate) &&
         (g_game.piecesof[ANY] & 0xe00000000000000ULL) == 0 &&
         !sqr_attackedby(WHITE, B_KINGSQR - 1) &&
         !sqr_attackedby(WHITE, B_KINGSQR - 2))
-      pushmove(movelist, MOVE_F_ISCASTLEBQ);
+      pushmove(movelist, MOVE_TYPE_CASTLEBQ);
   }
 }
 
@@ -179,21 +184,26 @@ static void gen_pawncapt(int player, MoveList *movelist) {
     BitBrd dstbbrd = sqr2bbrd(dstsqr);
     int srcsqr;
 
+    const int isprom = (player == WHITE && (dstbbrd & RANK_8)) ||
+                       (player == BLACK && (dstbbrd & RANK_1));
+
     if (player == WHITE)
       srcsqr = dstsqr - 7;
     else
       srcsqr = dstsqr + 7;
 
-    Move move =
-        SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) | MOVE_F_ISCAPT;
+    Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN);
 
-    if (dstbbrd & g_gamestate->epbbrd)
-      move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
-    else
+    if (dstbbrd & g_gamestate->epbbrd) {
+      move |= MOVE_TYPE_EP | CAPT_PIECE(PAWN);
+    } else {
       move |= CAPT_PIECE(getpieceat(!player, dstbbrd));
-
-    const int isprom = (player == WHITE && (dstbbrd & RANK_8)) ||
-                       (player == BLACK && (dstbbrd & RANK_1));
+      if (isprom) {
+        move |= MOVE_TYPE_PROMCAPT;
+      } else {
+        move |= MOVE_TYPE_NORMALCAPT;
+      }
+    }
 
     if (isprom)
       pushprommove(movelist, move);
@@ -208,21 +218,26 @@ static void gen_pawncapt(int player, MoveList *movelist) {
     BitBrd dstbbrd = sqr2bbrd(dstsqr);
     int srcsqr;
 
+    const int isprom = (player == WHITE && (dstbbrd & RANK_8)) ||
+                       (player == BLACK && (dstbbrd & RANK_1));
+
     if (player == WHITE)
       srcsqr = dstsqr - 9;
     else
       srcsqr = dstsqr + 9;
 
-    Move move =
-        SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) | MOVE_F_ISCAPT;
+    Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN);
 
-    if (dstbbrd & g_gamestate->epbbrd)
-      move |= MOVE_F_ISEP | CAPT_PIECE(PAWN);
-    else
+    if (dstbbrd & g_gamestate->epbbrd) {
+      move |= MOVE_TYPE_EP | CAPT_PIECE(PAWN);
+    } else {
       move |= CAPT_PIECE(getpieceat(!player, dstbbrd));
-
-    const int isprom = (player == WHITE && (dstbbrd & RANK_8)) ||
-                       (player == BLACK && (dstbbrd & RANK_1));
+      if (isprom) {
+        move |= MOVE_TYPE_PROMCAPT;
+      } else {
+        move |= MOVE_TYPE_NORMALCAPT;
+      }
+    }
 
     if (isprom)
       pushprommove(movelist, move);
@@ -252,7 +267,8 @@ static void gen_pushprom(int player, MoveList *movelist) {
     else
       srcsqr = dstsqr + 8;
 
-    Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN);
+    Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) |
+                MOVE_TYPE_NORMALPROM;
     pushprommove(movelist, move);
 
     dstbbrd &= ~sqr2bbrd(dstsqr);
@@ -281,7 +297,8 @@ static void gen_pawnsilent(int player, MoveList *movelist) {
     else
       srcsqr = dstsqr + 8;
 
-    Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN);
+    Move move =
+        SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) | MOVE_TYPE_NORMAL;
     pushmove(movelist, move);
 
     single_dstbbrd &= ~sqr2bbrd(dstsqr);
@@ -297,7 +314,7 @@ static void gen_pawnsilent(int player, MoveList *movelist) {
       srcsqr = dstsqr + 16;
 
     Move move = SRC_SQR(srcsqr) | DST_SQR(dstsqr) | MOV_PIECE(PAWN) |
-                MOVE_F_ISDOUBLEPUSH;
+                MOVE_TYPE_DOUBLEPUSH;
     pushmove(movelist, move);
 
     double_dstbbrd &= ~sqr2bbrd(dstsqr);
