@@ -8,6 +8,11 @@
 
 #define KILLER_MAX 5
 
+#define NODE_INSIDEWND 0
+#define NODE_FAILH 1
+#define NODE_FAILL 2
+#define NODE_ILLEGAL 3
+
 typedef struct {
   int movenum;
   char movestr[6];
@@ -19,11 +24,12 @@ typedef struct {
   int tbhits;
   int maxdepth;
   Move killers[MAX_PLY_PER_GAME][KILLER_MAX];
+  int exttotal;
 } SearchInfo;
 
 #define TT_EXACT 0
-#define TT_ALPHA 1
-#define TT_BETA 2
+#define TT_LOWERBOUND 1
+#define TT_UPPERBOUND 2
 
 typedef struct {
   int used;
@@ -220,136 +226,159 @@ static void order(MoveList *movelist, int curr, Move ttbest) {
   }
 }
 
-int negamax(int alpha, int beta, int depthleft, MoveList *pv) {
+typedef struct {
+  MoveList availmoves;
+  Move bestmove;
+  int nodetype;
+  int legalcnt;
+  int score;
+} NodeInfo;
+
+int negamax(int alpha, int beta, int depthleft);
+
+void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
+                  Move ttbest) {
+  ni->legalcnt = 0;
+  ni->nodetype = NODE_FAILL;
+  ni->bestmove = NULLMOVE;
+  int score = SCORE_ILLEGAL;
+
+  if (!undercheck() && (si.currline.cnt == 0 ||
+                        si.currline.move[si.currline.cnt - 1] != NULLMOVE)) {
+    makemove(NULLMOVE);
+    pushmove(&si.currline, NULLMOVE);
+    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3);
+    popmove(&si.currline);
+    unmakemove();
+
+    if (nmpscore >= beta) {
+      ni->nodetype = NODE_FAILH;
+      ni->score = beta;
+      return;
+    }
+  }
+
+  genmoves(g_game.who2move, &ni->availmoves);
+
+  for (int i = 0; i < ni->availmoves.cnt; i++) {
+    order(&ni->availmoves, i, ttbest);
+    Move currmove = ni->availmoves.move[i];
+
+    pushmove(&si.currline, currmove);
+    makemove(currmove);
+
+    if (lastmovelegal()) {
+      ni->legalcnt++;
+
+      int ext = 0;
+      if (si.exttotal < 3 && depthleft == 1 && undercheck())
+        ext++;
+
+      si.exttotal += ext;
+      int movescore = -negamax(-beta, -alpha, depthleft + ext - 1);
+      si.exttotal -= ext;
+
+      if (si.currline.cnt == 1) {
+        move2str(si.movestr, ni->availmoves.move[i]);
+        si.movenum++;
+        printinfo_regular(movescore);
+      } else {
+        // printinfo_regular(movescore);
+      }
+
+      score = max(score, movescore);
+
+      if (score >= beta) {
+        unmakemove();
+        popmove(&si.currline);
+
+        if (IS_SILENT(currmove)) {
+          addkiller(si.currline.cnt, currmove);
+        }
+
+        ni->nodetype = NODE_FAILH;
+        ni->score = beta;
+        return;
+      }
+
+      if (score > alpha) {
+        ni->nodetype = NODE_INSIDEWND;
+        ni->bestmove = currmove;
+        alpha = score;
+      }
+    }
+
+    unmakemove();
+    popmove(&si.currline);
+  }
+
+  if (ni->legalcnt == 0) {
+    ni->nodetype = NODE_ILLEGAL;
+    ni->score = evaluate(si.currline.cnt);
+  } else {
+    ni->score = alpha;
+  }
+}
+
+int negamax(int alpha, int beta, int depthleft) {
   const BitBrd hash = gethash();
 
   Move ttbest = NULLMOVE;
   const TT *ttentry = ttread(hash, depthleft);
   if (ttentry) {
-    if (ttentry->type == TT_EXACT ||
-        (ttentry->type == TT_ALPHA && ttentry->value <= alpha) ||
-        (ttentry->type == TT_BETA && ttentry->value >= beta)) {
-      pv->cnt = 1;
-      pv->move[0] = ttentry->bestmove;
-      si.tbhits++;
+    ttbest = ttentry->bestmove;
+    si.tbhits++;
+
+    switch (ttentry->type) {
+    case TT_EXACT:
+      return ttentry->value;
+      break;
+    case TT_UPPERBOUND:
+      alpha = max(alpha, ttentry->value);
+      break;
+    case TT_LOWERBOUND:
+      beta = min(beta, ttentry->value);
+      break;
+    }
+    if (alpha >= beta) {
       return ttentry->value;
     }
-    ttbest = ttentry->bestmove;
   }
 
-  int score = SCORE_ILLEGAL;
-  Move bestmove = NULLMOVE;
-
-  int betacutoff = 0;
-  int alpharisen = 0;
+  if (si.currline.cnt > si.maxdepth) {
+    si.maxdepth = si.currline.cnt;
+  }
 
   if (depthleft <= 0) {
-    score = evaluate(si.currline.cnt);
-  } else {
-
-    si.nodes++;
-
-    MoveList movelist = {0};
-    genmoves(g_game.who2move, &movelist);
-
-    int legalcnt = 0;
-
-    if (!undercheck() && (si.currline.cnt == 0 ||
-                          si.currline.move[si.currline.cnt - 1] != NULLMOVE)) {
-      MoveList tmppv;
-      makemove(NULLMOVE);
-      pushmove(&si.currline, NULLMOVE);
-      int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3, &tmppv);
-      popmove(&si.currline);
-      unmakemove();
-
-      if (nmpscore >= beta) {
-        return nmpscore;
-      }
-      if (nmpscore > alpha) {
-        alpha = nmpscore;
-      }
-    }
-
-    for (int i = 0; i < movelist.cnt; i++) {
-      order(&movelist, i, ttbest);
-      makemove(movelist.move[i]);
-
-      if (lastmovelegal()) {
-        legalcnt++;
-
-        MoveList subpv = {0};
-
-        if (si.currline.cnt == 0) {
-          move2str(si.movestr, movelist.move[i]);
-          si.movenum++;
-        }
-
-        int ext = 0;
-
-        pushmove(&si.currline, movelist.move[i]);
-
-        if (depthleft == 1 && undercheck())
-          ext++;
-
-        score =
-            max(score, -negamax(-beta, -alpha, depthleft - 1 + ext, &subpv));
-        popmove(&si.currline);
-
-        if (si.currline.cnt == 0) {
-          printinfo_regular(score);
-        } else {
-          // printinfo_regular(score);
-        }
-
-        if (score >= beta) {
-          unmakemove();
-          betacutoff = 1;
-          if (IS_SILENT(movelist.move[i]))
-            addkiller(si.currline.cnt, movelist.move[i]);
-          break;
-        }
-
-        if (score > alpha) {
-          alpha = score;
-          bestmove = movelist.move[i];
-
-          alpharisen = 1;
-
-          pv->move[0] = movelist.move[i];
-          for (int j = 0; j < subpv.cnt; j++) {
-            pv->move[j + 1] = subpv.move[j];
-          }
-          pv->cnt = subpv.cnt + 1;
-        }
-      }
-
-      unmakemove();
-    }
-
-    if (legalcnt == 0) {
-      score = evaluate(si.currline.cnt);
-    }
+    return evaluate(si.currline.cnt);
   }
 
-  int tttype;
-  if (betacutoff)
-    tttype = TT_BETA;
-  else if (alpharisen)
-    tttype = TT_EXACT;
-  else
-    tttype = TT_ALPHA;
+  si.nodes++;
 
-  ttwrite(hash, tttype, depthleft, score, bestmove);
+  NodeInfo ni;
+  analyze_node(&ni, depthleft, alpha, beta, ttbest);
 
-  if (si.currline.cnt > si.maxdepth)
-    si.maxdepth = si.currline.cnt;
+  // Remember: old values of alpha and beta - don't use them after analyze_node
 
   if (si.currline.cnt == 0) {
-    si.bestmove = bestmove;
+    si.bestmove = ni.bestmove;
   }
 
-  return score;
+  switch (ni.nodetype) {
+  case NODE_FAILH:
+    ttwrite(hash, TT_UPPERBOUND, depthleft, ni.score, ni.bestmove);
+    break;
+  case NODE_FAILL:
+    ttwrite(hash, TT_LOWERBOUND, depthleft, ni.score, ni.bestmove);
+    break;
+  case NODE_INSIDEWND:
+    ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
+    break;
+  default: // Illegal (mated or stalemated)
+    ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
+    break;
+  }
+  return ni.score;
 }
 
 static void search_finish() {
@@ -365,6 +394,17 @@ static void search_finish() {
   }
 }
 
+static void recoverpv(MoveList *pv, int depth) {
+  const TT *tt = ttread(gethash(), depth);
+
+  if (tt) {
+    pushmove(pv, tt->bestmove);
+    makemove(tt->bestmove);
+    recoverpv(pv, depth - 1);
+    unmakemove();
+  }
+}
+
 static void *search_subthread(void *arg) {
   memset(tt, 0, sizeof(TT) * TT_SIZE);
   for (int depth = 1; depth <= si.requesteddepth; depth++) {
@@ -373,9 +413,13 @@ static void *search_subthread(void *arg) {
     si.tbhits = 0;
     si.nodes = 0;
     si.movenum = 0;
+    si.exttotal = 0;
     memset(&si.killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
+
+    int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth);
+
     MoveList pv = {0};
-    int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
+    recoverpv(&pv, depth);
 
     printinfo_final(depth, score);
     memcpy(&si.prev_pv, &pv, sizeof(MoveList));
