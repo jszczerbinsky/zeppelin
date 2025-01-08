@@ -22,6 +22,13 @@ void uci_start();
 void debug_start();
 #endif
 
+typedef struct {
+  int disbl_nmp;
+  int disbl_tt;
+} Settings;
+
+extern Settings g_set;
+
 // =============================
 //     Board representation
 // =============================
@@ -174,7 +181,7 @@ void makemove(Move move);
 void unmakemove();
 void move2str(char *buff, Move move);
 Move parsemove(const char *str);
-int isrepetition();
+int getrepetitions();
 
 // =============================
 //   Move generator definitions

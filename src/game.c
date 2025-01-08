@@ -342,18 +342,14 @@ void move2str(char *buff, Move move) {
     buff[4] = '\0';
 }
 
-int isrepetition() {
+int getrepetitions() {
   int count = 0;
-  for (int i = 0; i < g_gamestate->halfmove && g_game.movelist.cnt - i >= 0;
-       i++) {
-    /*printf(
-      "info string prevpos %lx\n",
-      g_game.brdstate[g_game.movelist.cnt - i - 1].hash
-      );*/
-    if (g_gamestate->hash == g_game.brdstate[g_game.movelist.cnt - i - 1].hash)
+  for (int i = 0; i < g_game.movelist.cnt; i++) {
+    if (g_gamestate->hash == g_game.brdstate[i].hash) {
       count++;
+    }
   }
-  return count == 3;
+  return count;
 }
 
 void makemove(Move move) {

@@ -6,13 +6,86 @@
 
 #define TOK_DELIMS " \n"
 
+#define OPT_CHECK 0
+
+typedef struct {
+  int opttype;
+  const char *optname;
+  void *valptr;
+  const char *defstr;
+} UciOpt;
+
+const UciOpt opts[] = {
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableNMP",
+        .valptr = &g_set.disbl_nmp,
+        .defstr = "false",
+    },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableTT",
+        .valptr = &g_set.disbl_tt,
+        .defstr = "false",
+    },
+};
+
 int g_ucidebug = 0;
 
 static void respond2uci() {
   printf("id name testengine\n");
   printf("id author Jakub Szczerbinski\n");
+
+  for (int i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
+    const UciOpt *opt = opts + i;
+
+    const char *typename = "check";
+
+    printf("option name %s type %s default %s\n", opt->optname, typename,
+           opt->defstr);
+  }
+
   printf("uciok\n");
   fflush(stdout);
+}
+
+static void respond2setoption(char *token) {
+  if (!token || !equals(token, "name")) {
+    return;
+  }
+
+  token = nexttok();
+
+  for (int i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
+    const UciOpt *opt = opts + i;
+
+    if (equals(token, opt->optname)) {
+
+      token = nexttok();
+
+      if (!token || !equals(token, "value")) {
+        return;
+      }
+
+      token = nexttok();
+      if (!token) {
+        return;
+      }
+
+      switch (opt->opttype) {
+      case OPT_CHECK:
+        if (equals(token, "true")) {
+          *((int *)opt->valptr) = 1;
+        } else if (equals(token, "false")) {
+          *((int *)opt->valptr) = 0;
+        }
+        break;
+      default:
+        break;
+      }
+      return;
+    }
+  }
 }
 
 static void respond2ucinewgame() { reset_hashtables(); }
@@ -100,13 +173,15 @@ static int next_cmd(char *buff, int len) {
   else if (equals(token, "go"))
     respond2go(nexttok());
   else if (equals(token, "stop"))
-    respond2stop(nexttok());
+    respond2stop();
   else if (equals(token, "position"))
     respond2position(nexttok());
   else if (equals(token, "debug"))
     respond2debug(nexttok());
   else if (equals(token, "isready"))
     respond2isready();
+  else if (equals(token, "setoption"))
+    respond2setoption(nexttok());
   else if (equals(token, "quit"))
     return 1;
 

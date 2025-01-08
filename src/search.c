@@ -243,8 +243,9 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
   ni->bestmove = NULLMOVE;
   int score = SCORE_ILLEGAL;
 
-  if (!undercheck() && (si.currline.cnt == 0 ||
-                        si.currline.move[si.currline.cnt - 1] != NULLMOVE)) {
+  if (!g_set.disbl_nmp && !undercheck() &&
+      (si.currline.cnt == 0 ||
+       si.currline.move[si.currline.cnt - 1] != NULLMOVE)) {
     makemove(NULLMOVE);
     pushmove(&si.currline, NULLMOVE);
     int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3);
@@ -323,25 +324,36 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
 int negamax(int alpha, int beta, int depthleft) {
   const BitBrd hash = gethash();
 
-  Move ttbest = NULLMOVE;
-  const TT *ttentry = ttread(hash, depthleft);
-  if (ttentry) {
-    ttbest = ttentry->bestmove;
-    si.tbhits++;
+  int rep = getrepetitions();
+  if (rep >= 5) {
+    // fivefold repetition - automatic draw
+    return 0;
+  } else if (rep >= 3) {
+    // threefold repetition - player has to claim the draw if he wants to
+    alpha = 0;
+  }
 
-    switch (ttentry->type) {
-    case TT_EXACT:
-      return ttentry->value;
-      break;
-    case TT_UPPERBOUND:
-      alpha = max(alpha, ttentry->value);
-      break;
-    case TT_LOWERBOUND:
-      beta = min(beta, ttentry->value);
-      break;
-    }
-    if (alpha >= beta) {
-      return ttentry->value;
+  Move ttbest = NULLMOVE;
+  if (!g_set.disbl_tt) {
+    const TT *ttentry = ttread(hash, depthleft);
+    if (ttentry) {
+      ttbest = ttentry->bestmove;
+      si.tbhits++;
+
+      switch (ttentry->type) {
+      case TT_EXACT:
+        return ttentry->value;
+        break;
+      case TT_UPPERBOUND:
+        alpha = max(alpha, ttentry->value);
+        break;
+      case TT_LOWERBOUND:
+        beta = min(beta, ttentry->value);
+        break;
+      }
+      if (alpha >= beta) {
+        return ttentry->value;
+      }
     }
   }
 
@@ -378,6 +390,7 @@ int negamax(int alpha, int beta, int depthleft) {
     ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
     break;
   }
+
   return ni.score;
 }
 
@@ -400,7 +413,10 @@ static void recoverpv(MoveList *pv, int depth) {
   if (tt) {
     pushmove(pv, tt->bestmove);
     makemove(tt->bestmove);
-    recoverpv(pv, depth - 1);
+
+    if (getrepetitions() < 3) {
+      recoverpv(pv, depth - 1);
+    }
     unmakemove();
   }
 }
@@ -421,8 +437,8 @@ static void *search_subthread(void *arg) {
     MoveList pv = {0};
     recoverpv(&pv, depth);
 
-    printinfo_final(depth, score);
     memcpy(&si.prev_pv, &pv, sizeof(MoveList));
+    printinfo_final(depth, score);
   }
 
   search_finish();
