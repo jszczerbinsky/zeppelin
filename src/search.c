@@ -422,6 +422,9 @@ static void recoverpv(MoveList *pv, int depth) {
 }
 
 static void *search_subthread(void *arg) {
+  int oldtype;
+  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
+
   memset(tt, 0, sizeof(TT) * TT_SIZE);
   for (int depth = 1; depth <= si.requesteddepth; depth++) {
     si.maxdepth = 0;
@@ -446,6 +449,9 @@ static void *search_subthread(void *arg) {
 }
 
 static void *time_subthread(void *arg) {
+  int oldtype;
+  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
+
   time_t start_time = time(NULL);
   while (1) {
     if (difftime(time(NULL), start_time) >= 99999) {
