@@ -234,6 +234,39 @@ typedef struct {
   int score;
 } NodeInfo;
 
+int quiescence(int alpha, int beta) {
+  float standpat = evaluate(si.currline.cnt);
+  int best = standpat;
+  if (standpat >= beta) {
+    return beta;
+  }
+  alpha = max(standpat, alpha);
+
+  MoveList availmoves;
+  BitBrd attackbbrd;
+  gencapt(g_game.who2move, &availmoves, &attackbbrd);
+
+  for (int i = 0; i < availmoves.cnt; i++) {
+    if (lastmovelegal()) {
+      order(&availmoves, i, NULLMOVE);
+      Move currmove = availmoves.move[i];
+
+      pushmove(&si.currline, currmove);
+      makemove(currmove);
+      int score = -quiescence(-beta, -alpha);
+      unmakemove();
+      popmove(&si.currline);
+
+      if (score >= beta) {
+        return beta;
+      }
+      best = max(score, best);
+      alpha = max(best, alpha);
+    }
+  }
+  return best;
+}
+
 int negamax(int alpha, int beta, int depthleft);
 
 void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
@@ -259,7 +292,8 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
     }
   }
 
-  genmoves(g_game.who2move, &ni->availmoves);
+  BitBrd attackbbrd;
+  genmoves(g_game.who2move, &ni->availmoves, &attackbbrd);
 
   for (int i = 0; i < ni->availmoves.cnt; i++) {
     order(&ni->availmoves, i, ttbest);
@@ -362,7 +396,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   if (depthleft <= 0) {
-    return evaluate(si.currline.cnt);
+    return quiescence(alpha, beta);
   }
 
   si.nodes++;
@@ -370,7 +404,8 @@ int negamax(int alpha, int beta, int depthleft) {
   NodeInfo ni;
   analyze_node(&ni, depthleft, alpha, beta, ttbest);
 
-  // Remember: old values of alpha and beta - don't use them after analyze_node
+  // Remember: old values of alpha and beta - don't use them after
+  // analyze_node
 
   if (si.currline.cnt == 0) {
     si.bestmove = ni.bestmove;

@@ -133,7 +133,8 @@ static void respond2go(char *token) {
     int depth = atoi(token);
 
     MoveList movelist;
-    genmoves(g_game.who2move, &movelist);
+    BitBrd attacksbbrd;
+    genmoves(g_game.who2move, &movelist, &attacksbbrd);
 
     int nodes = 0;
 

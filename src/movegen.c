@@ -33,7 +33,8 @@ int sqr_attackedby(int attacker, int sqr) {
   return 0;
 }
 
-static void gen_sliding(int player, MoveList *movelist, int piece, int type) {
+static void gen_sliding(int player, MoveList *movelist, int piece, int type,
+                        BitBrd *attackbbrd) {
   BitBrd piecesbbrd = g_game.pieces[player][piece];
 
   while (piecesbbrd) {
@@ -52,6 +53,8 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type) {
                      g_precomp.bishopmagicshift[piecesqr];
       poss_dstbbrd |= g_precomp.bishopmagicmoves[piecesqr][index];
     }
+
+    *attackbbrd |= poss_dstbbrd;
 
     poss_dstbbrd &= ~g_game.piecesof[player];
 
@@ -79,7 +82,8 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type) {
   }
 }
 
-static void gen_knight(int player, MoveList *movelist, int type) {
+static void gen_knight(int player, MoveList *movelist, int type,
+                       BitBrd *attackbbrd) {
   BitBrd knightsbbrd = g_game.pieces[player][KNIGHT];
 
   while (knightsbbrd) {
@@ -87,6 +91,8 @@ static void gen_knight(int player, MoveList *movelist, int type) {
 
     BitBrd poss_dstbbrd =
         g_precomp.knightmask[knightsqr] & (~g_game.piecesof[player]);
+
+    *attackbbrd |= poss_dstbbrd;
 
     while (poss_dstbbrd) {
       int dstsqr = bbrd2sqr(poss_dstbbrd);
@@ -112,11 +118,14 @@ static void gen_knight(int player, MoveList *movelist, int type) {
   }
 }
 
-static void gen_king(int player, MoveList *movelist, int type) {
+static void gen_king(int player, MoveList *movelist, int type,
+                     BitBrd *attackbbrd) {
   int kingsqr = bbrd2sqr(g_game.pieces[player][KING]);
 
   BitBrd poss_dstbbrd =
       g_precomp.kingmask[kingsqr] & (~g_game.piecesof[player]);
+
+  *attackbbrd |= poss_dstbbrd;
 
   while (poss_dstbbrd) {
     int dstsqr = bbrd2sqr(poss_dstbbrd);
@@ -162,7 +171,7 @@ static void gen_castle(int player, MoveList *movelist) {
   }
 }
 
-static void gen_pawncapt(int player, MoveList *movelist) {
+static void gen_pawncapt(int player, MoveList *movelist, BitBrd *attackbbrd) {
   const BitBrd player_pawns = g_game.pieces[player][PAWN];
 
   BitBrd poss_l_dstbbrd, poss_r_dstbbrd;
@@ -178,6 +187,8 @@ static void gen_pawncapt(int player, MoveList *movelist) {
     poss_r_dstbbrd = ((player_pawns & (~FILE_A)) >> 9) &
                      (g_game.piecesof[!player] | g_gamestate->epbbrd);
   }
+
+  *attackbbrd |= poss_l_dstbbrd | poss_r_dstbbrd;
 
   while (poss_l_dstbbrd) {
     int dstsqr = bbrd2sqr(poss_l_dstbbrd);
@@ -321,37 +332,37 @@ static void gen_pawnsilent(int player, MoveList *movelist) {
   }
 }
 
-void genmoves(int player, MoveList *movelist) {
+void genmoves(int player, MoveList *movelist, BitBrd *attackbbrd) {
   movelist->cnt = 0;
   gen_pawnsilent(player, movelist);
   gen_pushprom(player, movelist);
-  gen_pawncapt(player, movelist);
-  gen_king(player, movelist, GEN_ALL);
+  gen_pawncapt(player, movelist, attackbbrd);
+  gen_king(player, movelist, GEN_ALL, attackbbrd);
   gen_castle(player, movelist);
-  gen_knight(player, movelist, GEN_ALL);
-  gen_sliding(player, movelist, ROOK, GEN_ALL);
-  gen_sliding(player, movelist, BISHOP, GEN_ALL);
-  gen_sliding(player, movelist, QUEEN, GEN_ALL);
+  gen_knight(player, movelist, GEN_ALL, attackbbrd);
+  gen_sliding(player, movelist, ROOK, GEN_ALL, attackbbrd);
+  gen_sliding(player, movelist, BISHOP, GEN_ALL, attackbbrd);
+  gen_sliding(player, movelist, QUEEN, GEN_ALL, attackbbrd);
 }
 
-void genquiet(int player, MoveList *movelist) {
-  movelist->cnt = 0;
-  gen_pawnsilent(player, movelist);
-  gen_king(player, movelist, GEN_QUIET);
-  gen_castle(player, movelist);
-  gen_knight(player, movelist, GEN_QUIET);
-  gen_sliding(player, movelist, ROOK, GEN_QUIET);
-  gen_sliding(player, movelist, BISHOP, GEN_QUIET);
-  gen_sliding(player, movelist, QUEEN, GEN_QUIET);
-}
-
-void gencapt(int player, MoveList *movelist) {
+void genquiet(int player, MoveList *movelist, BitBrd *attackbbrd) {
   movelist->cnt = 0;
   gen_pushprom(player, movelist);
-  gen_pawncapt(player, movelist);
-  gen_king(player, movelist, GEN_CAPT);
-  gen_knight(player, movelist, GEN_CAPT);
-  gen_sliding(player, movelist, ROOK, GEN_CAPT);
-  gen_sliding(player, movelist, BISHOP, GEN_CAPT);
-  gen_sliding(player, movelist, QUEEN, GEN_CAPT);
+  gen_pawnsilent(player, movelist);
+  gen_king(player, movelist, GEN_QUIET, attackbbrd);
+  gen_castle(player, movelist);
+  gen_knight(player, movelist, GEN_QUIET, attackbbrd);
+  gen_sliding(player, movelist, ROOK, GEN_QUIET, attackbbrd);
+  gen_sliding(player, movelist, BISHOP, GEN_QUIET, attackbbrd);
+  gen_sliding(player, movelist, QUEEN, GEN_QUIET, attackbbrd);
+}
+
+void gencapt(int player, MoveList *movelist, BitBrd *attackbbrd) {
+  movelist->cnt = 0;
+  gen_pawncapt(player, movelist, attackbbrd);
+  gen_king(player, movelist, GEN_CAPT, attackbbrd);
+  gen_knight(player, movelist, GEN_CAPT, attackbbrd);
+  gen_sliding(player, movelist, ROOK, GEN_CAPT, attackbbrd);
+  gen_sliding(player, movelist, BISHOP, GEN_CAPT, attackbbrd);
+  gen_sliding(player, movelist, QUEEN, GEN_CAPT, attackbbrd);
 }

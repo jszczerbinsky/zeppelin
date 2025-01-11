@@ -187,9 +187,9 @@ int getrepetitions();
 //   Move generator definitions
 // =============================
 
-void genmoves(int player, MoveList *movelist);
-void genquiet(int player, MoveList *movelist);
-void gencapt(int player, MoveList *movelist);
+void genmoves(int player, MoveList *movelist, BitBrd *attackbbrd);
+void genquiet(int player, MoveList *movelist, BitBrd *attackbbrd);
+void gencapt(int player, MoveList *movelist, BitBrd *attackbbrd);
 int sqr_attackedby(int attacker, int sqr);
 
 // =============================
