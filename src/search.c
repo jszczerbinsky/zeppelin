@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "main.h"
@@ -16,6 +17,8 @@
 typedef struct {
   int movenum;
   char movestr[6];
+  clock_t lastprint;
+  int lastnodes;
   int nodes;
   MoveList currline;
   MoveList prev_pv;
@@ -112,6 +115,19 @@ static void printscore(int score) {
   }
 }
 
+static void printnps() {
+  clock_t now = clock();
+
+  double seconds = (now - si.lastprint) / (double)CLOCKS_PER_SEC;
+  int nodesdiff = si.nodes - si.lastnodes;
+
+  int nps = nodesdiff / seconds;
+  printf("nps %d", nps);
+
+  si.lastnodes = si.nodes;
+  si.lastprint = clock();
+}
+
 static void printinfo_regular(int score) {
   int hashfull = (ttused * 1000) / TT_SIZE;
 
@@ -124,6 +140,8 @@ static void printinfo_regular(int score) {
     printf(" ");
   }
   printscore(score);
+  putchar(' ');
+  printnps();
   putchar('\n');
   fflush(stdout);
 }
@@ -134,6 +152,8 @@ static void printinfo_final(int depth, int score) {
   printf("info depth %d seldepth %d tbhits %d hashfull %d nodes %d ", depth,
          si.maxdepth, si.tbhits, hashfull, si.nodes);
   printscore(score);
+  putchar(' ');
+  printnps();
   printf(" pv");
   printline(&si.prev_pv);
   putchar('\n');
@@ -231,6 +251,8 @@ int quiescence(int alpha, int beta, int depthleft) {
   if (standpat >= beta || depthleft == 0) {
     return beta;
   }
+
+  si.nodes++;
   alpha = max(standpat, alpha);
 
   MoveList availmoves;
@@ -469,6 +491,8 @@ static void *search_subthread(void *arg) {
     si.currline.cnt = 0;
     si.tbhits = 0;
     si.nodes = 0;
+    si.lastnodes = 0;
+    si.lastprint = clock();
     si.movenum = 0;
     si.exttotal = 0;
     memset(&si.killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
