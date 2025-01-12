@@ -164,11 +164,9 @@ static int get_priority(Move move, Move ttbest) {
 
   const int pvpriority = 1000000;
   const int ttpriority = 100000;
-  const int goodcaptpriority = 10000;
-  const int equalcaptpriority = 2;
+  const int captpriority = 10000;
   const int killerpriority = 1;
   const int normalpriority = 0;
-  const int badcaptpriority = -10000;
 
   if (move == ttbest) {
     return ttpriority;
@@ -200,13 +198,7 @@ static int get_priority(Move move, Move ttbest) {
     return normalpriority;
   }
 
-  if (diff > 0) {
-    return goodcaptpriority + diff;
-  } else if (diff == 0) {
-    return equalcaptpriority;
-  } else {
-    return badcaptpriority + diff;
-  }
+  return captpriority + diff;
 }
 
 static void order(MoveList *movelist, int curr, Move ttbest) {
@@ -219,11 +211,10 @@ static void order(MoveList *movelist, int curr, Move ttbest) {
       best_i = i;
       best_priority = priority;
     }
-
-    Move best = movelist->move[best_i];
-    movelist->move[best_i] = movelist->move[curr];
-    movelist->move[curr] = best;
   }
+  Move best = movelist->move[best_i];
+  movelist->move[best_i] = movelist->move[curr];
+  movelist->move[curr] = best;
 }
 
 typedef struct {
@@ -234,10 +225,10 @@ typedef struct {
   int score;
 } NodeInfo;
 
-int quiescence(int alpha, int beta) {
+int quiescence(int alpha, int beta, int depthleft) {
   float standpat = evaluate(si.currline.cnt);
   int best = standpat;
-  if (standpat >= beta) {
+  if (standpat >= beta || depthleft == 0) {
     return beta;
   }
   alpha = max(standpat, alpha);
@@ -253,7 +244,7 @@ int quiescence(int alpha, int beta) {
 
       pushmove(&si.currline, currmove);
       makemove(currmove);
-      int score = -quiescence(-beta, -alpha);
+      int score = -quiescence(-beta, -alpha, depthleft - 1);
       unmakemove();
       popmove(&si.currline);
 
@@ -310,7 +301,14 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
         ext++;
 
       si.exttotal += ext;
-      int movescore = -negamax(-beta, -alpha, depthleft + ext - 1);
+      int movescore;
+      if (i > 0 && !g_set.disbl_pvs) {
+        movescore = -negamax(-alpha - 1, -alpha, depthleft + ext - 1);
+      }
+      if (i == 0 || (movescore > alpha && movescore < beta) ||
+          g_set.disbl_pvs) {
+        movescore = -negamax(-beta, -alpha, depthleft + ext - 1);
+      }
       si.exttotal -= ext;
 
       if (si.currline.cnt == 1) {
@@ -396,7 +394,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   if (depthleft <= 0) {
-    return quiescence(alpha, beta);
+    return quiescence(alpha, beta, 4);
   }
 
   si.nodes++;

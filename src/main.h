@@ -25,6 +25,7 @@ void debug_start();
 typedef struct {
   int disbl_nmp;
   int disbl_tt;
+  int disbl_pvs;
 } Settings;
 
 extern Settings g_set;

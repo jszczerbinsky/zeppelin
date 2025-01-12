@@ -28,6 +28,13 @@ const UciOpt opts[] = {
         .valptr = &g_set.disbl_tt,
         .defstr = "false",
     },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisablePVS",
+        .valptr = &g_set.disbl_pvs,
+        .defstr = "false",
+    },
+
 };
 
 int g_ucidebug = 0;
