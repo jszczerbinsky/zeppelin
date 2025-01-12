@@ -299,15 +299,20 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
       int ext = 0;
       if (si.exttotal < 3 && depthleft == 1 && undercheck())
         ext++;
+      int red = 0;
+      if (!g_set.disbl_lmr && si.currline.cnt > 3 && !IS_CAPT(currmove) &&
+          !undercheck() && ni->legalcnt > 6) {
+        red++;
+      }
 
       si.exttotal += ext;
       int movescore;
       if (i > 0 && !g_set.disbl_pvs) {
-        movescore = -negamax(-alpha - 1, -alpha, depthleft + ext - 1);
+        movescore = -negamax(-alpha - 1, -alpha, depthleft + ext - red - 1);
       }
       if (i == 0 || (movescore > alpha && movescore < beta) ||
           g_set.disbl_pvs) {
-        movescore = -negamax(-beta, -alpha, depthleft + ext - 1);
+        movescore = -negamax(-beta, -alpha, depthleft + ext - red - 1);
       }
       si.exttotal -= ext;
 

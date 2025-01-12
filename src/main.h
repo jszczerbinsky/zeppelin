@@ -26,6 +26,7 @@ typedef struct {
   int disbl_nmp;
   int disbl_tt;
   int disbl_pvs;
+  int disbl_lmr;
 } Settings;
 
 extern Settings g_set;
