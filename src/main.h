@@ -330,6 +330,13 @@ void freeprecomp();
 // =============================
 //          Zobrist hash
 // =============================
+extern BitBrd hash_piecesqr[2][64][PIECE_MAX];
+extern BitBrd hash_whitemove;
+extern BitBrd hash_castle_wk;
+extern BitBrd hash_castle_wq;
+extern BitBrd hash_castle_bk;
+extern BitBrd hash_castle_bq;
+extern BitBrd hash_epfile[8];
 
 void inithash();
 BitBrd gethash();

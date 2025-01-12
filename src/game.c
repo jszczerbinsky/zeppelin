@@ -12,7 +12,6 @@ static inline char *fen_nexttok() { return strtok(NULL, FEN_TOK_DELIMS); }
 
 static inline void update_gamestate() {
   g_gamestate = g_game.brdstate + g_game.movelist.cnt;
-  g_gamestate->hash = gethash();
 }
 
 void update_game() {
@@ -59,6 +58,8 @@ void reset_game() {
   g_game.pieces[BLACK][BISHOP] = 0x2400000000000000ULL;
   g_game.pieces[BLACK][ROOK] = 0x8100000000000000ULL;
   g_game.pieces[BLACK][QUEEN] = 0x800000000000000ULL;
+
+  g_gamestate->hash = gethash();
 
   update_game();
 }
@@ -212,6 +213,7 @@ char *parsefen(char *fen) {
     token++;
   }
   g_gamestate->fullmove = fullmov;
+  g_gamestate->hash = gethash();
 
   update_game();
 
@@ -357,37 +359,69 @@ void makemove(Move move) {
   memcpy(newgamestate, g_gamestate, sizeof(GameState));
 
   const int player = g_game.who2move;
-  const BitBrd srcbbrd = sqr2bbrd(GET_SRC_SQR(move));
-  const BitBrd dstbbrd = sqr2bbrd(GET_DST_SQR(move));
+  const int srcsqr = GET_SRC_SQR(move);
+  const int dstsqr = GET_DST_SQR(move);
+  const BitBrd srcbbrd = sqr2bbrd(srcsqr);
+  const BitBrd dstbbrd = sqr2bbrd(dstsqr);
 
   newgamestate->epbbrd = 0;
   newgamestate->halfmove++;
+  newgamestate->hash = g_gamestate->hash ^ hash_whitemove;
+  if (g_gamestate->epbbrd != 0) {
+    newgamestate->hash ^= hash_epfile[bbrd2sqr(g_gamestate->epbbrd) % 8];
+  }
 
-  if (player == BLACK)
+  if (player == BLACK) {
     newgamestate->fullmove++;
+  }
 
   if (GET_MOV_PIECE(move) == ROOK) {
     switch (GET_SRC_SQR(move)) {
     case WK_ROOKSQR:
       newgamestate->flags &= ~GAME_F_CANCASTLE_WK;
+      if (CANCASTLE_WK(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_wk;
+      }
       break;
     case BK_ROOKSQR:
       newgamestate->flags &= ~GAME_F_CANCASTLE_BK;
+      if (CANCASTLE_BK(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_bk;
+      }
       break;
     case WQ_ROOKSQR:
       newgamestate->flags &= ~GAME_F_CANCASTLE_WQ;
+      if (CANCASTLE_WQ(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_wq;
+      }
       break;
     case BQ_ROOKSQR:
       newgamestate->flags &= ~GAME_F_CANCASTLE_BQ;
+      if (CANCASTLE_BQ(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_bq;
+      }
       break;
     default:
       break;
     }
   } else if (GET_MOV_PIECE(move) == KING) {
-    if (player == WHITE)
+    if (player == WHITE) {
       newgamestate->flags &= ~(GAME_F_CANCASTLE_WQ | GAME_F_CANCASTLE_WK);
-    else
+      if (CANCASTLE_WK(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_wk;
+      }
+      if (CANCASTLE_WQ(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_wq;
+      }
+    } else {
       newgamestate->flags &= ~(GAME_F_CANCASTLE_BQ | GAME_F_CANCASTLE_BK);
+      if (CANCASTLE_BK(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_bk;
+      }
+      if (CANCASTLE_BQ(g_gamestate)) {
+        newgamestate->hash ^= hash_castle_bq;
+      }
+    }
   }
 
   switch (GET_TYPE(move)) {
@@ -396,47 +430,88 @@ void makemove(Move move) {
     g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(WQ_ROOKSQR);
     g_game.pieces[WHITE][ROOK] |= sqr2bbrd(CASTLE_WQ_ROOKSQR);
     newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
+    if (CANCASTLE_WK(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_wk;
+    }
+    if (CANCASTLE_WQ(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_wq;
+    }
     break;
   case MOVE_TYPE_CASTLEBQ:
     g_game.pieces[BLACK][KING] = sqr2bbrd(CASTLE_BQ_KINGSQR);
     g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(BQ_ROOKSQR);
     g_game.pieces[BLACK][ROOK] |= sqr2bbrd(CASTLE_BQ_ROOKSQR);
     newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
+    if (CANCASTLE_BK(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_bk;
+    }
+    if (CANCASTLE_BQ(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_bq;
+    }
     break;
   case MOVE_TYPE_CASTLEWK:
     g_game.pieces[WHITE][KING] = sqr2bbrd(CASTLE_WK_KINGSQR);
     g_game.pieces[WHITE][ROOK] &= ~sqr2bbrd(WK_ROOKSQR);
     g_game.pieces[WHITE][ROOK] |= sqr2bbrd(CASTLE_WK_ROOKSQR);
     newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
+    if (CANCASTLE_WK(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_wk;
+    }
+    if (CANCASTLE_WQ(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_wq;
+    }
     break;
   case MOVE_TYPE_CASTLEBK:
     g_game.pieces[BLACK][KING] = sqr2bbrd(CASTLE_BK_KINGSQR);
     g_game.pieces[BLACK][ROOK] &= ~sqr2bbrd(BK_ROOKSQR);
     g_game.pieces[BLACK][ROOK] |= sqr2bbrd(CASTLE_BK_ROOKSQR);
     newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
+    if (CANCASTLE_BK(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_bk;
+    }
+    if (CANCASTLE_BQ(g_gamestate)) {
+      newgamestate->hash ^= hash_castle_bq;
+    }
     break;
   case MOVE_TYPE_NORMALPROM:
     g_game.pieces[player][PAWN] &= ~srcbbrd;
     g_game.pieces[player][GET_PROM_PIECE(move)] |= dstbbrd;
     newgamestate->halfmove = 0;
+    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
+    newgamestate->hash ^= hash_piecesqr[player][GET_PROM_PIECE(move)][dstsqr];
     break;
   case MOVE_TYPE_NORMALCAPT:
     g_game.pieces[!player][GET_CAPT_PIECE(move)] &= ~dstbbrd;
     g_game.pieces[player][GET_MOV_PIECE(move)] &= ~srcbbrd;
     g_game.pieces[player][GET_MOV_PIECE(move)] |= dstbbrd;
+    newgamestate->hash ^= hash_piecesqr[!player][GET_CAPT_PIECE(move)][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][srcsqr];
+    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][dstsqr];
     if (GET_CAPT_PIECE(move) == ROOK) {
       switch (GET_DST_SQR(move)) {
       case WK_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_WK;
+        if (CANCASTLE_WK(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_wk;
+        }
         break;
       case BK_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_BK;
+        if (CANCASTLE_BK(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_bk;
+        }
         break;
       case WQ_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_WQ;
+        if (CANCASTLE_WQ(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_wq;
+        }
         break;
       case BQ_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_BQ;
+        if (CANCASTLE_BQ(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_bq;
+        }
         break;
       default:
         break;
@@ -448,19 +523,34 @@ void makemove(Move move) {
     g_game.pieces[player][PAWN] &= ~srcbbrd;
     g_game.pieces[player][GET_PROM_PIECE(move)] |= dstbbrd;
     g_game.pieces[!player][GET_CAPT_PIECE(move)] &= ~dstbbrd;
+    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
+    newgamestate->hash ^= hash_piecesqr[player][GET_PROM_PIECE(move)][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[!player][GET_CAPT_PIECE(move)][dstsqr];
     if (GET_CAPT_PIECE(move) == ROOK) {
       switch (GET_DST_SQR(move)) {
       case WK_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_WK;
+        if (CANCASTLE_WK(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_wk;
+        }
         break;
       case BK_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_BK;
+        if (CANCASTLE_BK(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_bk;
+        }
         break;
       case WQ_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_WQ;
+        if (CANCASTLE_WQ(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_wq;
+        }
         break;
       case BQ_ROOKSQR:
         newgamestate->flags &= ~GAME_F_CANCASTLE_BQ;
+        if (CANCASTLE_BQ(g_gamestate)) {
+          newgamestate->hash ^= hash_castle_bq;
+        }
         break;
       default:
         break;
@@ -469,17 +559,27 @@ void makemove(Move move) {
     newgamestate->halfmove = 0;
     break;
   case MOVE_TYPE_EP:
-    if (player == WHITE)
+    if (player == WHITE) {
       g_game.pieces[!player][PAWN] &= ~(g_gamestate->epbbrd >> 8);
-    else
+      newgamestate->hash ^=
+          hash_piecesqr[!player][PAWN][bbrd2sqr(g_gamestate->epbbrd >> 8)];
+    } else {
       g_game.pieces[!player][PAWN] &= ~(g_gamestate->epbbrd << 8);
+      newgamestate->hash ^=
+          hash_piecesqr[!player][PAWN][bbrd2sqr(g_gamestate->epbbrd << 8)];
+    }
     g_game.pieces[player][PAWN] &= ~srcbbrd;
     g_game.pieces[player][PAWN] |= dstbbrd;
+    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
+    newgamestate->hash ^= hash_piecesqr[player][PAWN][dstsqr];
     newgamestate->halfmove = 0;
     break;
   case MOVE_TYPE_DOUBLEPUSH:
     g_game.pieces[player][PAWN] &= ~srcbbrd;
     g_game.pieces[player][PAWN] |= dstbbrd;
+    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
+    newgamestate->hash ^= hash_piecesqr[player][PAWN][dstsqr];
+    newgamestate->hash ^= hash_epfile[srcsqr % 8];
     if (player == WHITE)
       newgamestate->epbbrd = srcbbrd << 8;
     else
@@ -489,6 +589,8 @@ void makemove(Move move) {
   case MOVE_TYPE_NORMAL:
     g_game.pieces[player][GET_MOV_PIECE(move)] &= ~srcbbrd;
     g_game.pieces[player][GET_MOV_PIECE(move)] |= dstbbrd;
+    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][srcsqr];
+    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][dstsqr];
     if (GET_MOV_PIECE(move) == PAWN)
       newgamestate->halfmove = 0;
     break;

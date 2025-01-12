@@ -1,32 +1,34 @@
 #include "main.h"
 
-static BitBrd piecekey[2][64][PIECE_MAX];
-static BitBrd playerkey[2];
-static BitBrd castekey_wk;
-static BitBrd castekey_wq;
-static BitBrd castekey_bk;
-static BitBrd castekey_bq;
-static BitBrd epfilekey[8];
+BitBrd hash_piecesqr[2][64][PIECE_MAX];
+BitBrd hash_whitemove;
+BitBrd hash_castle_wk;
+BitBrd hash_castle_wq;
+BitBrd hash_castle_bk;
+BitBrd hash_castle_bq;
+BitBrd hash_epfile[8];
 
 void inithash() {
   for (int player = 0; player < 2; player++) {
-    playerkey[player] = rand64();
+    hash_whitemove = rand64();
     for (int piece = 0; piece < PIECE_MAX; piece++)
       for (int sqr = 0; sqr < 64; sqr++)
-        piecekey[player][sqr][piece] = rand64();
+        hash_piecesqr[player][sqr][piece] = rand64();
   }
-  castekey_wk = rand64();
-  castekey_wq = rand64();
-  castekey_bk = rand64();
-  castekey_bq = rand64();
+  hash_castle_wk = rand64();
+  hash_castle_wq = rand64();
+  hash_castle_bk = rand64();
+  hash_castle_bq = rand64();
   for (int i = 0; i < 8; i++)
-    epfilekey[i] = rand64();
+    hash_epfile[i] = rand64();
 }
 
 BitBrd gethash() {
   BitBrd hash = 0;
 
-  hash ^= playerkey[g_game.who2move];
+  if (g_game.who2move == WHITE) {
+    hash ^= hash_whitemove;
+  }
 
   for (int sqr = 0; sqr < 64; sqr++) {
     BitBrd bbrd = sqr2bbrd(sqr);
@@ -34,20 +36,20 @@ BitBrd gethash() {
     for (int player = 0; player < 2; player++)
       for (int piece = 0; piece < PIECE_MAX; piece++)
         if (g_game.pieces[player][piece] & bbrd)
-          hash ^= piecekey[player][sqr][piece];
+          hash ^= hash_piecesqr[player][sqr][piece];
 
     if (g_gamestate->epbbrd & bbrd)
-      hash ^= epfilekey[sqr % 8];
+      hash ^= hash_epfile[sqr % 8];
   }
 
   if (CANCASTLE_WK(g_gamestate))
-    hash ^= castekey_wk;
+    hash ^= hash_castle_wk;
   if (CANCASTLE_WQ(g_gamestate))
-    hash ^= castekey_wq;
+    hash ^= hash_castle_wq;
   if (CANCASTLE_BK(g_gamestate))
-    hash ^= castekey_bk;
+    hash ^= hash_castle_bk;
   if (CANCASTLE_BQ(g_gamestate))
-    hash ^= castekey_bq;
+    hash ^= hash_castle_bq;
 
   return hash;
 }

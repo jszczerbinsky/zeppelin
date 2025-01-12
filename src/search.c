@@ -381,7 +381,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
 }
 
 int negamax(int alpha, int beta, int depthleft) {
-  const BitBrd hash = gethash();
+  const BitBrd hash = g_gamestate->hash;
 
   int rep = getrepetitions();
   if (rep >= 5) {
@@ -468,7 +468,7 @@ static void search_finish() {
 }
 
 static void recoverpv(MoveList *pv, int depth) {
-  const TT *tt = ttread(gethash(), depth);
+  const TT *tt = ttread(g_gamestate->hash, depth);
 
   if (tt) {
     pushmove(pv, tt->bestmove);
