@@ -40,6 +40,12 @@ const UciOpt opts[] = {
         .valptr = &g_set.disbl_lmr,
         .defstr = "false",
     },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableAspWnd",
+        .valptr = &g_set.disbl_aspwnd,
+        .defstr = "false",
+    },
 
 };
 

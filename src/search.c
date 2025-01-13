@@ -12,7 +12,8 @@
 #define NODE_INSIDEWND 0
 #define NODE_FAILH 1
 #define NODE_FAILL 2
-#define NODE_ILLEGAL 3
+#define NODE_GAMEFINISHED 3
+#define NODE_NMPFAILH 4
 
 typedef struct {
   int movenum;
@@ -28,6 +29,7 @@ typedef struct {
   int maxdepth;
   Move killers[MAX_PLY_PER_GAME][KILLER_MAX];
   int exttotal;
+  int rootnodetype;
 } SearchInfo;
 
 #define TT_EXACT 0
@@ -66,7 +68,17 @@ static void ttwrite(BitBrd hash, int type, int depth, int value,
                     Move bestmove) {
   TT *ttentry = tt + (hash % TT_SIZE);
 
-  if (!ttentry->used) {
+  if (ttentry->used) {
+
+    if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth) {
+      return;
+    }
+
+    if (ttentry->type == TT_EXACT && type != TT_EXACT) {
+      return;
+    }
+
+  } else {
     ttused++;
   }
 
@@ -282,16 +294,16 @@ int quiescence(int alpha, int beta, int depthleft) {
 
 int negamax(int alpha, int beta, int depthleft);
 
-void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
+void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
                   Move ttbest) {
   ni->legalcnt = 0;
   ni->nodetype = NODE_FAILL;
   ni->bestmove = NULLMOVE;
   int score = SCORE_ILLEGAL;
 
-  if (!g_set.disbl_nmp && !undercheck() &&
-      (si.currline.cnt == 0 ||
-       si.currline.move[si.currline.cnt - 1] != NULLMOVE)) {
+  if (!g_set.disbl_nmp && !undercheck() && si.currline.cnt > 3 &&
+      si.currline.move[si.currline.cnt - 1] != NULLMOVE &&
+      evaluate(si.currline.cnt) >= beta) {
     makemove(NULLMOVE);
     pushmove(&si.currline, NULLMOVE);
     int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3);
@@ -299,7 +311,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
     unmakemove();
 
     if (nmpscore >= beta) {
-      ni->nodetype = NODE_FAILH;
+      ni->nodetype = 17;
       ni->score = beta;
       return;
     }
@@ -330,18 +342,18 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
       si.exttotal += ext;
       int movescore;
       if (i > 0 && !g_set.disbl_pvs) {
-        movescore = -negamax(-alpha - 1, -alpha, depthleft + ext - red - 1);
+        movescore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - red - 1);
       }
-      if (i == 0 || (movescore > alpha && movescore < beta) ||
+      if (i == 0 || (movescore > *alpha && movescore < beta) ||
           g_set.disbl_pvs) {
-        movescore = -negamax(-beta, -alpha, depthleft + ext - red - 1);
+        movescore = -negamax(-beta, -*alpha, depthleft + ext - red - 1);
       }
       si.exttotal -= ext;
 
       if (si.currline.cnt == 1) {
         move2str(si.movestr, ni->availmoves.move[i]);
         si.movenum++;
-        printinfo_regular(movescore);
+        // printinfo_regular(movescore);
       } else {
         // printinfo_regular(movescore);
       }
@@ -357,14 +369,15 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
         }
 
         ni->nodetype = NODE_FAILH;
-        ni->score = beta;
+        // ni->score = beta;
+        ni->score = score;
         return;
       }
 
-      if (score > alpha) {
+      if (score > *alpha) {
         ni->nodetype = NODE_INSIDEWND;
         ni->bestmove = currmove;
-        alpha = score;
+        *alpha = score;
       }
     }
 
@@ -373,10 +386,10 @@ void analyze_node(NodeInfo *ni, int depthleft, int alpha, int beta,
   }
 
   if (ni->legalcnt == 0) {
-    ni->nodetype = NODE_ILLEGAL;
+    ni->nodetype = NODE_GAMEFINISHED;
     ni->score = evaluate(si.currline.cnt);
   } else {
-    ni->score = alpha;
+    ni->score = score;
   }
 }
 
@@ -404,10 +417,10 @@ int negamax(int alpha, int beta, int depthleft) {
         return ttentry->value;
         break;
       case TT_UPPERBOUND:
-        alpha = max(alpha, ttentry->value);
+        beta = min(beta, ttentry->value);
         break;
       case TT_LOWERBOUND:
-        beta = min(beta, ttentry->value);
+        alpha = max(alpha, ttentry->value);
         break;
       }
       if (alpha >= beta) {
@@ -427,27 +440,27 @@ int negamax(int alpha, int beta, int depthleft) {
   si.nodes++;
 
   NodeInfo ni;
-  analyze_node(&ni, depthleft, alpha, beta, ttbest);
-
-  // Remember: old values of alpha and beta - don't use them after
-  // analyze_node
+  analyze_node(&ni, depthleft, &alpha, beta, ttbest);
 
   if (si.currline.cnt == 0) {
     si.bestmove = ni.bestmove;
+    si.rootnodetype = ni.nodetype;
   }
 
   switch (ni.nodetype) {
-  case NODE_FAILH:
-    ttwrite(hash, TT_UPPERBOUND, depthleft, ni.score, ni.bestmove);
-    break;
   case NODE_FAILL:
-    ttwrite(hash, TT_LOWERBOUND, depthleft, ni.score, ni.bestmove);
+    ttwrite(hash, TT_UPPERBOUND, depthleft, alpha, ni.bestmove);
+    break;
+  case NODE_FAILH:
+    ttwrite(hash, TT_LOWERBOUND, depthleft, beta, ni.bestmove);
     break;
   case NODE_INSIDEWND:
     ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
     break;
-  default: // Illegal (mated or stalemated)
+  case NODE_GAMEFINISHED: // Illegal (mated or stalemated)
     ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
+    break;
+  default:
     break;
   }
 
@@ -470,7 +483,7 @@ static void search_finish() {
 static void recoverpv(MoveList *pv, int depth) {
   const TT *tt = ttread(g_gamestate->hash, depth);
 
-  if (tt) {
+  if (tt && tt->bestmove != NULLMOVE) {
     pushmove(pv, tt->bestmove);
     makemove(tt->bestmove);
 
@@ -486,6 +499,10 @@ static void *search_subthread(void *arg) {
   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
 
   memset(tt, 0, sizeof(TT) * TT_SIZE);
+
+  int firsttime = 1;
+  int lastscore;
+
   for (int depth = 1; depth <= si.requesteddepth; depth++) {
     si.maxdepth = 0;
     si.currline.cnt = 0;
@@ -497,7 +514,46 @@ static void *search_subthread(void *arg) {
     si.exttotal = 0;
     memset(&si.killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
 
-    int score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth);
+    int score;
+    if (g_set.disbl_aspwnd || firsttime || IS_CHECKMATE(lastscore)) {
+      score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth);
+      firsttime = 0;
+    } else {
+      int inbounds = 0;
+      const int sizes[] = {25, 50, 100, 200, 400};
+      const int sizes_max = sizeof(sizes) / sizeof(int);
+
+      int asize_i = 0;
+      int bsize_i = 0;
+      do {
+        int alpha;
+        int beta;
+
+        if (asize_i < sizes_max) {
+          alpha = lastscore - sizes[asize_i];
+        } else {
+          alpha = SCORE_ILLEGAL;
+        }
+        if (bsize_i < sizes_max) {
+          beta = lastscore + sizes[bsize_i];
+        } else {
+          beta = -SCORE_ILLEGAL;
+        }
+
+        fflush(stdout);
+
+        score = negamax(alpha, beta, depth);
+
+        if (si.rootnodetype == NODE_FAILL) {
+          asize_i++;
+        } else if (si.rootnodetype == NODE_FAILH) {
+          bsize_i++;
+        } else {
+          inbounds = 1;
+        }
+      } while (!inbounds);
+    }
+    lastscore = score;
 
     MoveList pv = {0};
     recoverpv(&pv, depth);
