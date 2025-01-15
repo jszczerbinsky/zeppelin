@@ -59,9 +59,8 @@ void reset_game() {
   g_game.pieces[BLACK][ROOK] = 0x8100000000000000ULL;
   g_game.pieces[BLACK][QUEEN] = 0x800000000000000ULL;
 
-  g_gamestate->hash = gethash();
-
   update_game();
+  g_gamestate->hash = gethash();
 }
 
 char *parsefen(char *fen) {
