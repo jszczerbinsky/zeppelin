@@ -24,12 +24,13 @@ typedef struct {
   MoveList currline;
   MoveList prev_pv;
   Move bestmove;
-  int requesteddepth;
   int tbhits;
   int maxdepth;
   Move killers[MAX_PLY_PER_GAME][KILLER_MAX];
   int exttotal;
   int rootnodetype;
+  int finished;
+  long totalnodes;
 } SearchInfo;
 
 #define TT_EXACT 0
@@ -51,10 +52,11 @@ static TT tt[TT_SIZE];
 static int ttused = 0;
 
 static SearchInfo si;
+static SearchSettings ss;
 static pthread_t search_thread;
-static pthread_t time_thread;
+static pthread_t supervisor_thread;
 
-static int stopping = 0;
+static int manualstop = 0;
 
 static const TT *ttread(BitBrd hash, int depth) {
   TT *ttentry = tt + (hash % TT_SIZE);
@@ -265,6 +267,7 @@ int quiescence(int alpha, int beta, int depthleft) {
   }
 
   si.nodes++;
+  si.totalnodes++;
   alpha = max(standpat, alpha);
 
   MoveList availmoves;
@@ -323,6 +326,11 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   for (int i = 0; i < ni->availmoves.cnt; i++) {
     order(&ni->availmoves, i, ttbest);
     Move currmove = ni->availmoves.move[i];
+
+    if (si.currline.cnt == 0 && ss.specificmoves.cnt > 0 &&
+        !containsmove(&ss.specificmoves, currmove)) {
+      continue;
+    }
 
     pushmove(&si.currline, currmove);
     makemove(currmove);
@@ -438,6 +446,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   si.nodes++;
+  si.totalnodes++;
 
   NodeInfo ni;
   analyze_node(&ni, depthleft, &alpha, beta, ttbest);
@@ -455,10 +464,13 @@ int negamax(int alpha, int beta, int depthleft) {
     ttwrite(hash, TT_LOWERBOUND, depthleft, beta, ni.bestmove);
     break;
   case NODE_INSIDEWND:
-    ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
-    break;
-  case NODE_GAMEFINISHED: // Illegal (mated or stalemated)
-    ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
+  case NODE_GAMEFINISHED:           // Illegal (mated or stalemated)
+    if (ss.specificmoves.cnt > 0) { // possible better move wasnt checked
+      ttwrite(hash, TT_LOWERBOUND, depthleft, ni.score, ni.bestmove);
+    } else {
+      ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
+      ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
+    }
     break;
   default:
     break;
@@ -468,9 +480,9 @@ int negamax(int alpha, int beta, int depthleft) {
 }
 
 static void search_finish() {
-  if (si.bestmove != NULLMOVE) {
+  if (si.prev_pv.cnt > 0) {
     char buff[6];
-    move2str(buff, si.bestmove);
+    move2str(buff, si.prev_pv.move[0]);
     // todo lock for printing
     printf("\nbestmove %s\n", buff);
     fflush(stdout);
@@ -478,6 +490,7 @@ static void search_finish() {
     printf("info string no legal move detected\n");
     fflush(stdout);
   }
+  si.finished = 1;
 }
 
 static void recoverpv(MoveList *pv, int depth) {
@@ -503,7 +516,7 @@ static void *search_subthread(void *arg) {
   int firsttime = 1;
   int lastscore;
 
-  for (int depth = 1; depth <= si.requesteddepth; depth++) {
+  for (int depth = 1; depth <= ss.depthlimit; depth++) {
     si.maxdepth = 0;
     si.currline.cnt = 0;
     si.tbhits = 0;
@@ -560,53 +573,71 @@ static void *search_subthread(void *arg) {
 
     memcpy(&si.prev_pv, &pv, sizeof(MoveList));
     printinfo_final(depth, score);
+
+    if (IS_CHECKMATE(score)) {
+      break;
+    }
   }
+
+  si.finished = 1;
+  return 0;
+}
+
+static void *supervisor_subthread(void *arg) {
+  int oldtype;
+  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
+
+  clock_t start_time = clock() / CLOCKS_PER_MS;
+
+  si.totalnodes = 0;
+  pthread_create(&search_thread, NULL, search_subthread, NULL);
+
+  while (1) {
+    if (si.finished) {
+      break;
+    }
+    if (ss.timelimit != TIME_FOREVER &&
+        difftime(clock() / CLOCKS_PER_MS, start_time) >= ss.timelimit) {
+      printf("info string canceling on time\n");
+      break;
+    }
+    if (ss.nodeslimit != 0 && si.nodes >= ss.nodeslimit) {
+      printf("info string canceling on nodes limit\n");
+      break;
+    }
+    if (manualstop) {
+      printf("info string canceling on time\n");
+      break;
+    }
+
+    usleep(10);
+  }
+  fflush(stdout);
+
+  while (si.prev_pv.cnt == 0) {
+    usleep(10);
+  }
+
+  pthread_cancel(search_thread);
+  pthread_join(search_thread, NULL);
 
   search_finish();
   return 0;
 }
 
-static void *time_subthread(void *arg) {
-  int oldtype;
-  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
-
-  time_t start_time = time(NULL);
-  while (1) {
-    if (difftime(time(NULL), start_time) >= 99999) {
-      stop(STOP_TIME);
-      break;
-    }
-    usleep(10);
-  }
-  return 0;
-}
-
-void search(int requesteddepth) {
+void search(const SearchSettings *settings) {
   memset(&si, 0, sizeof(SearchInfo));
 
-  si.requesteddepth = requesteddepth;
+  memcpy(&ss, settings, sizeof(SearchSettings));
 
-  pthread_create(&time_thread, NULL, time_subthread, NULL);
-  pthread_create(&search_thread, NULL, search_subthread, NULL);
+  manualstop = 0;
+  si.finished = 0;
+  pthread_create(&supervisor_thread, NULL, supervisor_subthread, NULL);
 }
 
 void stop(int origin) {
-  if (!stopping) {
-    stopping = 1;
-    if (origin != STOP_TIME) {
-      printf("info string canceling manually\n");
-      fflush(stdout);
-      pthread_cancel(time_thread);
-      pthread_join(time_thread, NULL);
-    } else {
-      printf("info string canceling on time\n");
-      fflush(stdout);
-    }
-
-    pthread_cancel(search_thread);
-    pthread_join(search_thread, NULL);
-
-    search_finish();
-    stopping = 0;
-  }
+  printf("info string canceling manually\n");
+  fflush(stdout);
+  manualstop = 1;
+  pthread_join(supervisor_thread, NULL);
 }

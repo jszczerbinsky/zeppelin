@@ -132,6 +132,15 @@ static inline void pushprommove(MoveList *moves, Move m) {
   }
 }
 
+static inline int containsmove(const MoveList *moves, Move m) {
+  for (int i = 0; i < moves->cnt; i++) {
+    if (m == moves->move[i]) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 // =============================
 //        Game definitions
 // =============================
@@ -368,16 +377,32 @@ static const int material[] = {pawnval,   0,       knightval,
 int evaluate(int pliescnt);
 
 // =============================
+//             Time
+// =============================
+
+#define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
+long getsearchtime(long wtime, long btime, long winc, long binc);
+
+// =============================
 //             Search
 // =============================
 
-#define DEPTH_INF -1
+typedef struct {
+  long timelimit;
+  int depthlimit;
+  int nodeslimit;
+  MoveList specificmoves;
+} SearchSettings;
+
+#define TIME_FOREVER -1
+
+#define DEPTH_INF 99999
 
 #define STOP_MANUAL 0
 #define STOP_TIME 1
 
 void reset_hashtables();
-void search(int requesteddepth);
+void search(const SearchSettings *ss);
 void stop(int origin);
 
 // =============================

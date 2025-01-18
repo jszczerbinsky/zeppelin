@@ -142,43 +142,134 @@ static void respond2isready() {
 
 static void respond2stop() { stop(STOP_MANUAL); }
 
-static void respond2go(char *token) {
-  if (equals(token, "perft")) {
-    token = nexttok();
-    if (!token) {
-      return;
-    }
-
-    int depth = atoi(token);
-
-    MoveList movelist;
-    BitBrd attacksbbrd;
-    genmoves(g_game.who2move, &movelist, &attacksbbrd);
-
-    int nodes = 0;
-
-    for (int i = 0; i < movelist.cnt; i++) {
-      Game backup;
-      memcpy(&backup, &g_game, sizeof(Game));
-
-      int leafnodes = 0;
-      makemove(movelist.move[i]);
-      char buff[6];
-      if (lastmovelegal()) {
-        perft(depth - 1, &nodes, &leafnodes);
-        move2str(buff, movelist.move[i]);
-        printf("%s: %d\n", buff, leafnodes);
-      }
-
-      unmakemove();
-    }
-    printf("\nTotal: %d\n", nodes);
-    fflush(stdout);
-  } else {
-    while (token)
-      token = nexttok();
-    search(999);
+static void runperft(char *token) {
+  if (!token) {
+    return;
   }
+
+  int depth = atoi(token);
+
+  MoveList movelist;
+  BitBrd attacksbbrd;
+  genmoves(g_game.who2move, &movelist, &attacksbbrd);
+
+  int nodes = 0;
+
+  for (int i = 0; i < movelist.cnt; i++) {
+    int leafnodes = 0;
+    makemove(movelist.move[i]);
+    char buff[6];
+    if (lastmovelegal()) {
+      perft(depth - 1, &nodes, &leafnodes);
+      move2str(buff, movelist.move[i]);
+      printf("%s: %d\n", buff, leafnodes);
+    }
+
+    unmakemove();
+  }
+  printf("\nTotal: %d\n", nodes);
+  fflush(stdout);
+}
+
+static void respond2go(char *token) {
+  if (token && equals(token, "perft")) {
+    return runperft(nexttok());
+  }
+
+  SearchSettings ss;
+  ss.specificmoves.cnt = 0;
+
+  int wtime = TIME_FOREVER;
+  int btime = TIME_FOREVER;
+  int winc = 0;
+  int binc = 0;
+  int movetime = TIME_FOREVER;
+
+  int depth = DEPTH_INF;
+  int nodes = 0;
+  int ponder = 0;
+
+  int readingmoves = 0;
+  while (token) {
+    if (equals(token, "wtime")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        wtime = atoi(token);
+      }
+    } else if (equals(token, "btime")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        btime = atoi(token);
+      }
+    } else if (equals(token, "winc")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        winc = atoi(token);
+      }
+    } else if (equals(token, "binc")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        binc = atoi(token);
+      }
+    } else if (equals(token, "moves2go")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        // moves2go = atoi(token);
+      }
+    } else if (equals(token, "depth")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        depth = atoi(token);
+      }
+    } else if (equals(token, "nodes")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        nodes = atoi(token);
+      }
+    } else if (equals(token, "mate")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        depth = atoi(token);
+      }
+    } else if (equals(token, "movetime")) {
+      readingmoves = 0;
+      token = nexttok();
+      if (token) {
+        movetime = atoi(token);
+      }
+    } else if (equals(token, "infinite")) {
+      readingmoves = 0;
+    } else if (equals(token, "searchmoves")) {
+      readingmoves = 1;
+    } else if (readingmoves) {
+      pushmove(&ss.specificmoves, parsemove(token));
+    }
+
+    token = nexttok();
+  }
+
+  ss.depthlimit = depth;
+
+  ss.nodeslimit = nodes;
+
+  ss.timelimit = TIME_FOREVER;
+  if (wtime != TIME_FOREVER && btime != TIME_FOREVER) {
+    ss.timelimit = getsearchtime(wtime, btime, winc, binc);
+  } else if (movetime) {
+    ss.timelimit = movetime;
+  }
+
+  printf("info string timelimit %ld\n", ss.timelimit);
+
+  search(&ss);
 }
 
 static int next_cmd(char *buff, int len) {
