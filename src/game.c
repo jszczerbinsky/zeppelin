@@ -61,6 +61,7 @@ void reset_game() {
 
   update_game();
   g_gamestate->hash = gethash();
+  g_gamestate->isendgame = 0;
 }
 
 char *parsefen(char *fen) {
@@ -213,6 +214,12 @@ char *parsefen(char *fen) {
   }
   g_gamestate->fullmove = fullmov;
   g_gamestate->hash = gethash();
+
+  g_gamestate->isendgame =
+      0 == g_game.pieces[WHITE][BISHOP] + g_game.pieces[BLACK][BISHOP] +
+               g_game.pieces[WHITE][KNIGHT] + g_game.pieces[BLACK][KNIGHT] +
+               g_game.pieces[WHITE][ROOK] + g_game.pieces[BLACK][ROOK] +
+               g_game.pieces[WHITE][QUEEN] + g_game.pieces[BLACK][QUEEN];
 
   update_game();
 
@@ -601,6 +608,12 @@ void makemove(Move move) {
 #endif
     break;
   }
+
+  newgamestate->isendgame =
+      0 == g_game.pieces[WHITE][BISHOP] + g_game.pieces[BLACK][BISHOP] +
+               g_game.pieces[WHITE][KNIGHT] + g_game.pieces[BLACK][KNIGHT] +
+               g_game.pieces[WHITE][ROOK] + g_game.pieces[BLACK][ROOK] +
+               g_game.pieces[WHITE][QUEEN] + g_game.pieces[BLACK][QUEEN];
 
   g_game.movelist.move[g_game.movelist.cnt] = move;
   g_game.movelist.cnt++;

@@ -171,6 +171,7 @@ typedef struct {
   uint8_t flags;
   BitBrd epbbrd;
   BitBrd hash;
+  int isendgame;
 } GameState;
 
 typedef struct {

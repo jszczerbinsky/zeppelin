@@ -349,11 +349,11 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       si.exttotal += ext;
       int movescore;
-      if (i > 0 && !g_set.disbl_pvs) {
+      int pvsallowed = i > 0 && !g_set.disbl_pvs && !g_gamestate->isendgame;
+      if (pvsallowed) {
         movescore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - red - 1);
       }
-      if (i == 0 || (movescore > *alpha && movescore < beta) ||
-          g_set.disbl_pvs) {
+      if (!pvsallowed || (movescore > *alpha && movescore < beta)) {
         movescore = -negamax(-beta, -*alpha, depthleft + ext - red - 1);
       }
       si.exttotal -= ext;
@@ -405,12 +405,8 @@ int negamax(int alpha, int beta, int depthleft) {
   const BitBrd hash = g_gamestate->hash;
 
   int rep = getrepetitions();
-  if (rep >= 5) {
-    // fivefold repetition - automatic draw
+  if (rep >= 3) {
     return 0;
-  } else if (rep >= 3) {
-    // threefold repetition - player has to claim the draw if he wants to
-    alpha = 0;
   }
 
   Move ttbest = NULLMOVE;
