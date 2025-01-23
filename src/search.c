@@ -13,7 +13,6 @@
 #define NODE_FAILH 1
 #define NODE_FAILL 2
 #define NODE_GAMEFINISHED 3
-#define NODE_NMPFAILH 4
 
 typedef struct {
   int movenum;
@@ -77,11 +76,7 @@ static void ttwrite(BitBrd hash, int type, int depth, int value,
                     Move bestmove) {
   TT *ttentry = tt + (hash % ttsize);
 
-  if (ttentry->used) {
-    if (ttentry->hash == hash && ttentry->depth > depth) {
-      return;
-    }
-  } else {
+  if (!ttentry->used) {
     ttused++;
   }
 
@@ -144,9 +139,9 @@ static void printnps() {
 }
 
 static void printinfo_regular(int score) {
-  int hashfull = (ttused * 1000) / ttsize;
+  long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
 
-  printf("info nodes %d currmove %s currmovenumber %d hashfull %d ", si.nodes,
+  printf("info nodes %d currmove %s currmovenumber %d hashfull %ld ", si.nodes,
          si.movestr, si.movenum, hashfull);
 
   if (si.currline.cnt > 0) {
