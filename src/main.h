@@ -28,6 +28,8 @@ typedef struct {
   int disbl_pvs;
   int disbl_lmr;
   int disbl_aspwnd;
+
+  long ttbytes;
 } Settings;
 
 extern Settings g_set;
@@ -60,7 +62,7 @@ typedef uint64_t BitBrd;
 typedef uint32_t Move;
 
 // |31   21|20       18|17       15|14      12|11     6|5      0|
-// | Flags | PromPiece | CaptPiece | MovPiece | DstSqr | SrcSqr |
+// | Type  | PromPiece | CaptPiece | MovPiece | DstSqr | SrcSqr |
 // | 11bit |   3bit    |   3bit    |   3bit   |  6bit  |  6bit  |
 
 #define MOVE_SRC_SQR_MASK 0b00000000000000000000000000111111UL
@@ -387,6 +389,9 @@ long getsearchtime(long wtime, long btime, long winc, long binc);
 // =============================
 //             Search
 // =============================
+
+void ttinit();
+void ttfree();
 
 typedef struct {
   long timelimit;

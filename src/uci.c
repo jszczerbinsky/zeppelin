@@ -7,13 +7,23 @@
 #define TOK_DELIMS " \n"
 
 #define OPT_CHECK 0
+#define OPT_SPIN 1
 
 typedef struct {
   int opttype;
   const char *optname;
   void *valptr;
+  int valmul;
   const char *defstr;
+  const char *minstr;
+  const char *maxstr;
+  void (*onchange)();
 } UciOpt;
+
+void onhashchange() {
+  ttfree();
+  ttinit();
+}
 
 const UciOpt opts[] = {
     {
@@ -21,30 +31,45 @@ const UciOpt opts[] = {
         .optname = "Debug_DisableNMP",
         .valptr = &g_set.disbl_nmp,
         .defstr = "false",
+        .onchange = NULL,
     },
     {
         .opttype = OPT_CHECK,
         .optname = "Debug_DisableTT",
         .valptr = &g_set.disbl_tt,
         .defstr = "false",
+        .onchange = NULL,
     },
     {
         .opttype = OPT_CHECK,
         .optname = "Debug_DisablePVS",
         .valptr = &g_set.disbl_pvs,
         .defstr = "false",
+        .onchange = NULL,
     },
     {
         .opttype = OPT_CHECK,
         .optname = "Debug_DisableLMR",
         .valptr = &g_set.disbl_lmr,
         .defstr = "false",
+        .onchange = NULL,
     },
     {
         .opttype = OPT_CHECK,
         .optname = "Debug_DisableAspWnd",
         .valptr = &g_set.disbl_aspwnd,
         .defstr = "false",
+        .onchange = NULL,
+    },
+    {
+        .opttype = OPT_SPIN,
+        .optname = "Hash",
+        .valptr = &g_set.ttbytes,
+        .valmul = 1000000,
+        .defstr = "20",
+        .minstr = "1",
+        .maxstr = "1000",
+        .onchange = onhashchange,
     },
 
 };
@@ -58,10 +83,16 @@ static void respond2uci() {
   for (int i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
     const UciOpt *opt = opts + i;
 
-    const char *typename = "check";
-
-    printf("option name %s type %s default %s\n", opt->optname, typename,
-           opt->defstr);
+    switch (opt->opttype) {
+    case OPT_SPIN:
+      printf("option name %s type spin default %s min %s max %s\n",
+             opt->optname, opt->defstr, opt->minstr, opt->maxstr);
+      break;
+    case OPT_CHECK:
+      printf("option name %s type check default %s\n", opt->optname,
+             opt->defstr);
+      break;
+    }
   }
 
   printf("uciok\n");
@@ -99,8 +130,15 @@ static void respond2setoption(char *token) {
           *((int *)opt->valptr) = 0;
         }
         break;
+      case OPT_SPIN:
+        *((long *)opt->valptr) = atoi(token) * opt->valmul;
+        break;
       default:
         break;
+      }
+
+      if (opt->onchange) {
+        opt->onchange();
       }
       return;
     }
@@ -300,6 +338,9 @@ static int next_cmd(char *buff, int len) {
 }
 
 void uci_start() {
+  g_set.ttbytes = 20000000;
+  ttinit();
+
   g_mode = MODE_UCI;
   respond2uci();
 
@@ -317,4 +358,5 @@ void uci_start() {
   }
 
   free(buff);
+  ttfree();
 }

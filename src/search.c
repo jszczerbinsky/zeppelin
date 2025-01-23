@@ -46,9 +46,8 @@ typedef struct {
   Move bestmove;
 } TT;
 
-#define TT_SIZE 2000000
-
-static TT tt[TT_SIZE];
+static TT *tt = NULL;
+static int ttsize;
 static int ttused = 0;
 
 static SearchInfo si;
@@ -58,8 +57,16 @@ static pthread_t supervisor_thread;
 
 static int manualstop = 0;
 
+void ttinit() {
+  ttsize = g_set.ttbytes / sizeof(TT);
+  ttused = 0;
+  tt = calloc(ttsize, sizeof(TT));
+}
+
+void ttfree() { free(tt); }
+
 static const TT *ttread(BitBrd hash, int depth) {
-  TT *ttentry = tt + (hash % TT_SIZE);
+  TT *ttentry = tt + (hash % ttsize);
   if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth) {
     return ttentry;
   }
@@ -68,18 +75,12 @@ static const TT *ttread(BitBrd hash, int depth) {
 
 static void ttwrite(BitBrd hash, int type, int depth, int value,
                     Move bestmove) {
-  TT *ttentry = tt + (hash % TT_SIZE);
+  TT *ttentry = tt + (hash % ttsize);
 
   if (ttentry->used) {
-
-    if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth) {
+    if (ttentry->hash == hash && ttentry->depth > depth) {
       return;
     }
-
-    if (ttentry->type == TT_EXACT && type != TT_EXACT) {
-      return;
-    }
-
   } else {
     ttused++;
   }
@@ -143,7 +144,7 @@ static void printnps() {
 }
 
 static void printinfo_regular(int score) {
-  int hashfull = (ttused * 1000) / TT_SIZE;
+  int hashfull = (ttused * 1000) / ttsize;
 
   printf("info nodes %d currmove %s currmovenumber %d hashfull %d ", si.nodes,
          si.movestr, si.movenum, hashfull);
@@ -161,7 +162,7 @@ static void printinfo_regular(int score) {
 }
 
 static void printinfo_final(int depth, int score) {
-  int hashfull = (ttused * 1000) / TT_SIZE;
+  int hashfull = (ttused * 1000) / ttsize;
 
   printf("info depth %d seldepth %d tbhits %d hashfull %d nodes %d ", depth,
          si.maxdepth, si.tbhits, hashfull, si.nodes);
@@ -410,7 +411,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   Move ttbest = NULLMOVE;
-  if (!g_set.disbl_tt) {
+  if (!g_set.disbl_tt && si.currline.cnt > 0) {
     const TT *ttentry = ttread(hash, depthleft);
     if (ttentry) {
       ttbest = ttentry->bestmove;
@@ -465,7 +466,6 @@ int negamax(int alpha, int beta, int depthleft) {
       ttwrite(hash, TT_LOWERBOUND, depthleft, ni.score, ni.bestmove);
     } else {
       ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
-      ttwrite(hash, TT_EXACT, depthleft, ni.score, ni.bestmove);
     }
     break;
   default:
@@ -507,8 +507,6 @@ static void *search_subthread(void *arg) {
   int oldtype;
   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
 
-  memset(tt, 0, sizeof(TT) * TT_SIZE);
-
   int firsttime = 1;
   int lastscore;
 
@@ -549,8 +547,6 @@ static void *search_subthread(void *arg) {
           beta = -SCORE_ILLEGAL;
         }
 
-        fflush(stdout);
-
         score = negamax(alpha, beta, depth);
 
         if (si.rootnodetype == NODE_FAILL) {
@@ -566,6 +562,12 @@ static void *search_subthread(void *arg) {
 
     MoveList pv = {0};
     recoverpv(&pv, depth);
+    if (pv.cnt == 0) {
+      printf("info string couldnt recover from pv!\n");
+      fflush(stdout);
+      pv.cnt = 1;
+      pv.move[0] = si.bestmove;
+    }
 
     memcpy(&si.prev_pv, &pv, sizeof(MoveList));
     printinfo_final(depth, score);
