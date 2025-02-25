@@ -34,7 +34,7 @@ class Engine:
         self.send_nores('unmakemove')
     
     def perft(self, depth):
-        return self.send('perft '+str(depth))
+        return self.send('perft '+str(depth))['nodes']
 
     def getmoves(self):
         return self.send('getmoves')
@@ -43,5 +43,7 @@ class Engine:
         return self.send('getboard')
 
     def eval(self):
-        return self.send('eval')
+        return self.send('eval')['score']
 
+    def getscoreinfo(self, score):
+        return self.send('getscoreinfo ' + str(score))['type']

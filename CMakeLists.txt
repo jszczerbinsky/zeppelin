@@ -34,6 +34,6 @@ add_executable(zeppelin ${SOURCE_FILES})
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(test
-		COMMAND python ${CMAKE_SOURCE_DIR}/test/test.py ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/zeppelin${CMAKE_EXECUTABLE_SUFFIX}
+		COMMAND python ${CMAKE_SOURCE_DIR}/test/run_tests.py ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/zeppelin${CMAKE_EXECUTABLE_SUFFIX}
 	)
 endif()

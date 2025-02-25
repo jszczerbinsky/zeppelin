@@ -98,6 +98,23 @@ static void respond2perft(char *depthstr) {
   finishsending();
 }
 
+static void respond2getscoreinfo(int score) {
+  if (score == 0) {
+    printf("{\"type\": \"draw\"}\n");
+  } else if (score == SCORE_ILLEGAL || score == -SCORE_ILLEGAL) {
+    printf("{\"type\": \"illegal\"}\n");
+  } else if (score >= SCORE_CHECKMATE_BOUND && score <= SCORE_CHECKMATE) {
+    printf("{\"type\": \"mate\"}\n");
+  } else if (score <= -SCORE_CHECKMATE_BOUND && score >= -SCORE_CHECKMATE) {
+    printf("{\"type\": \"mated\"}\n");
+  } else if (score > 0) {
+    printf("{\"type\": \"advantage\"}\n");
+  } else {
+    printf("{\"type\": \"disadvantage\"}\n");
+  }
+  finishsending();
+}
+
 static int next_cmd(char *buff, int len) {
   char *token = strtok(buff, " \n");
   if (!token)
@@ -117,6 +134,8 @@ static int next_cmd(char *buff, int len) {
     respond2perft(nexttok());
   else if (equals(token, "eval"))
     respond2eval();
+  else if (equals(token, "getscoreinfo"))
+    respond2getscoreinfo(atoi(nexttok()));
   else if (equals(token, "quit"))
     return 1;
 
