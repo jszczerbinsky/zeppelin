@@ -5,32 +5,20 @@
 
 #include "main.h"
 
-#define MIN_PRIORITY (-99999)
+#define ON_FINISH() (ss.on_finish ? (*ss.on_finish)(&si) : "")
+#define ON_ROOTMOVE(score)                                                     \
+  (ss.on_rootmove ? (*ss.on_rootmove)(&si, ttused, ttsize, score) : "")
+#define ON_NONROOTMOVE(score)                                                  \
+  (ss.on_nonrootmove ? (*ss.on_nonrootmove)(&si, ttused, ttsize, score) : "")
+#define ON_ITERFINISH(score)                                                   \
+  (ss.on_iterfinish ? (*ss.on_iterfinish)(&si, ttused, ttsize, score) : "")
 
-#define KILLER_MAX 5
+#define MIN_PRIORITY (-99999)
 
 #define NODE_INSIDEWND 0
 #define NODE_FAILH 1
 #define NODE_FAILL 2
 #define NODE_GAMEFINISHED 3
-
-typedef struct {
-  int movenum;
-  char movestr[6];
-  clock_t lastprint;
-  int lastnodes;
-  int nodes;
-  MoveList currline;
-  MoveList prev_pv;
-  Move bestmove;
-  int tbhits;
-  int maxdepth;
-  Move killers[MAX_PLY_PER_GAME][KILLER_MAX];
-  int exttotal;
-  int rootnodetype;
-  int finished;
-  long totalnodes;
-} SearchInfo;
 
 #define TT_EXACT 0
 #define TT_LOWERBOUND 1
@@ -100,82 +88,26 @@ int min(int a, int b) {
   return b;
 }
 
-static void printline(const MoveList *line) {
-  for (int i = 0; i < line->cnt; i++) {
-    char buff[6];
-    move2str(buff, line->move[i]);
-    printf(" %s", buff);
-  }
-}
-
-static void printscore(int score) {
-  printf("score ");
-  if (IS_CHECKMATE(score) || IS_CHECKMATE(-score)) {
-    int mul = 1;
-
-    if (score < 0) {
-      score *= -1;
-      mul = -1;
-    }
-
-    int moves = (1 + SCORE_CHECKMATE - score) / 2;
-    printf("mate %d", moves * mul);
-  } else {
-    printf("cp %d", score);
-  }
-}
-
-static void printnps() {
+int calcnps() {
   clock_t now = clock();
 
-  double seconds = (now - si.lastprint) / (double)CLOCKS_PER_SEC;
-  int nodesdiff = si.nodes - si.lastnodes;
+  double seconds = (now - si.nps_lastcalc) / (double)CLOCKS_PER_SEC;
+  int nodesdiff = si.iter_visited_nodes - si.nps_lastnodes;
 
   int nps = nodesdiff / seconds;
-  printf("nps %d", nps);
 
-  si.lastnodes = si.nodes;
-  si.lastprint = clock();
-}
+  si.nps_lastnodes = si.iter_visited_nodes;
+  si.nps_lastcalc = clock();
 
-static void printinfo_regular(int score) {
-  long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
-
-  printf("info nodes %d currmove %s currmovenumber %d hashfull %ld ", si.nodes,
-         si.movestr, si.movenum, hashfull);
-
-  if (si.currline.cnt > 0) {
-    printf("currline");
-    printline(&si.currline);
-    printf(" ");
-  }
-  printscore(score);
-  putchar(' ');
-  printnps();
-  putchar('\n');
-  fflush(stdout);
-}
-
-static void printinfo_final(int depth, int score) {
-  int hashfull = (ttused * 1000) / ttsize;
-
-  printf("info depth %d seldepth %d tbhits %d hashfull %d nodes %d ", depth,
-         si.maxdepth, si.tbhits, hashfull, si.nodes);
-  printscore(score);
-  putchar(' ');
-  printnps();
-  printf(" pv");
-  printline(&si.prev_pv);
-  putchar('\n');
-  fflush(stdout);
+  return nps;
 }
 
 static void addkiller(int depth, Move move) {
   for (int i = 0; i < KILLER_MAX; i++) {
-    if (si.killers[depth][i] == move)
+    if (si.iter_killers[depth][i] == move)
       return;
-    if (si.killers[depth][i] == NULLMOVE) {
-      si.killers[depth][i] = move;
+    if (si.iter_killers[depth][i] == NULLMOVE) {
+      si.iter_killers[depth][i] = move;
       return;
     }
   }
@@ -183,7 +115,7 @@ static void addkiller(int depth, Move move) {
 
 static int iskiller(int depth, Move move) {
   for (int i = 0; i < KILLER_MAX; i++)
-    if (si.killers[depth][i] == move)
+    if (si.iter_killers[depth][i] == move)
       return 1;
   return 0;
 }
@@ -203,7 +135,7 @@ static int get_priority(Move move, Move ttbest) {
   }
 
   int ply = si.currline.cnt;
-  if (ply < si.prev_pv.cnt && move == si.prev_pv.move[ply]) {
+  if (ply < si.prev_iter_pv.cnt && move == si.prev_iter_pv.move[ply]) {
     return pvpriority;
   }
 
@@ -262,8 +194,7 @@ int quiescence(int alpha, int beta, int depthleft) {
     return beta;
   }
 
-  si.nodes++;
-  si.totalnodes++;
+  si.iter_visited_nodes++;
   alpha = max(standpat, alpha);
 
   MoveList availmoves;
@@ -335,7 +266,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       ni->legalcnt++;
 
       int ext = 0;
-      if (si.exttotal < 3 && depthleft == 1 && undercheck())
+      if (si.currext < 3 && depthleft == 1 && undercheck())
         ext++;
       int red = 0;
       if (!g_set.disbl_lmr && si.currline.cnt > 3 && !IS_CAPT(currmove) &&
@@ -343,7 +274,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
         red++;
       }
 
-      si.exttotal += ext;
+      si.currext += ext;
       int movescore;
       int pvsallowed = i > 0 && !g_set.disbl_pvs && !g_gamestate->isendgame;
       if (pvsallowed) {
@@ -352,14 +283,14 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       if (!pvsallowed || (movescore > *alpha && movescore < beta)) {
         movescore = -negamax(-beta, -*alpha, depthleft + ext - red - 1);
       }
-      si.exttotal -= ext;
+      si.currext -= ext;
 
       if (si.currline.cnt == 1) {
-        move2str(si.movestr, ni->availmoves.move[i]);
-        si.movenum++;
-        // printinfo_regular(movescore);
+        move2str(si.rootmove_str, ni->availmoves.move[i]);
+        si.rootmove_n++;
+        ON_ROOTMOVE(movescore);
       } else {
-        // printinfo_regular(movescore);
+        ON_NONROOTMOVE(movescore);
       }
 
       score = max(score, movescore);
@@ -410,7 +341,7 @@ int negamax(int alpha, int beta, int depthleft) {
     const TT *ttentry = ttread(hash, depthleft);
     if (ttentry) {
       ttbest = ttentry->bestmove;
-      si.tbhits++;
+      si.iter_tbhits++;
 
       switch (ttentry->type) {
       case TT_EXACT:
@@ -429,23 +360,22 @@ int negamax(int alpha, int beta, int depthleft) {
     }
   }
 
-  if (si.currline.cnt > si.maxdepth) {
-    si.maxdepth = si.currline.cnt;
+  if (si.currline.cnt > si.iter_highest_depth) {
+    si.iter_highest_depth = si.currline.cnt;
   }
 
   if (depthleft <= 0) {
     return quiescence(alpha, beta, 4);
   }
 
-  si.nodes++;
-  si.totalnodes++;
+  si.iter_visited_nodes++;
 
   NodeInfo ni;
   analyze_node(&ni, depthleft, &alpha, beta, ttbest);
 
   if (si.currline.cnt == 0) {
-    si.bestmove = ni.bestmove;
-    si.rootnodetype = ni.nodetype;
+    si.iter_bestmove = ni.bestmove;
+    si.root_nodetype = ni.nodetype;
   }
 
   switch (ni.nodetype) {
@@ -471,14 +401,10 @@ int negamax(int alpha, int beta, int depthleft) {
 }
 
 static void search_finish() {
-  if (si.prev_pv.cnt > 0) {
-    char buff[6];
-    move2str(buff, si.prev_pv.move[0]);
-    // todo lock for printing
-    printf("\nbestmove %s\n", buff);
-    fflush(stdout);
+  if (si.prev_iter_pv.cnt > 0) {
+    ON_FINISH();
   } else {
-    printf("info string no legal move detected\n");
+    PRINTDBG("no legal move detected");
     fflush(stdout);
   }
   si.finished = 1;
@@ -506,15 +432,16 @@ static void *search_subthread(void *arg) {
   int lastscore;
 
   for (int depth = 1; depth <= ss.depthlimit; depth++) {
-    si.maxdepth = 0;
+    si.iter_highest_depth = 0;
     si.currline.cnt = 0;
-    si.tbhits = 0;
-    si.nodes = 0;
-    si.lastnodes = 0;
-    si.lastprint = clock();
-    si.movenum = 0;
-    si.exttotal = 0;
-    memset(&si.killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
+    si.iter_tbhits = 0;
+    si.iter_visited_nodes = 0;
+    si.nps_lastnodes = 0;
+    si.nps_lastcalc = clock();
+    si.rootmove_n = 0;
+    si.currext = 0;
+    si.iter_depth = depth;
+    memset(&si.iter_killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
 
     int score;
     if (g_set.disbl_aspwnd || firsttime || IS_CHECKMATE(lastscore)) {
@@ -544,9 +471,9 @@ static void *search_subthread(void *arg) {
 
         score = negamax(alpha, beta, depth);
 
-        if (si.rootnodetype == NODE_FAILL) {
+        if (si.root_nodetype == NODE_FAILL) {
           asize_i++;
-        } else if (si.rootnodetype == NODE_FAILH) {
+        } else if (si.root_nodetype == NODE_FAILH) {
           bsize_i++;
         } else {
           inbounds = 1;
@@ -558,14 +485,14 @@ static void *search_subthread(void *arg) {
     MoveList pv = {0};
     recoverpv(&pv, depth);
     if (pv.cnt == 0) {
-      printf("info string couldnt recover from pv!\n");
+      PRINTDBG("couldnt recover from pv!");
       fflush(stdout);
       pv.cnt = 1;
-      pv.move[0] = si.bestmove;
+      pv.move[0] = si.iter_bestmove;
     }
 
-    memcpy(&si.prev_pv, &pv, sizeof(MoveList));
-    printinfo_final(depth, score);
+    memcpy(&si.prev_iter_pv, &pv, sizeof(MoveList));
+    ON_ITERFINISH(score);
 
     if (IS_CHECKMATE(score)) {
       break;
@@ -582,7 +509,6 @@ static void *supervisor_subthread(void *arg) {
 
   clock_t start_time = clock() / CLOCKS_PER_MS;
 
-  si.totalnodes = 0;
   pthread_create(&search_thread, NULL, search_subthread, NULL);
 
   while (1) {
@@ -591,15 +517,15 @@ static void *supervisor_subthread(void *arg) {
     }
     if (ss.timelimit != TIME_FOREVER &&
         difftime(clock() / CLOCKS_PER_MS, start_time) >= ss.timelimit) {
-      printf("info string canceling on time\n");
+      PRINTDBG("cancelling on time");
       break;
     }
-    if (ss.nodeslimit != 0 && si.nodes >= ss.nodeslimit) {
-      printf("info string canceling on nodes limit\n");
+    if (ss.nodeslimit != 0 && si.iter_visited_nodes >= ss.nodeslimit) {
+      PRINTDBG("canceling on nodes limit");
       break;
     }
     if (manualstop) {
-      printf("info string canceling on time\n");
+      PRINTDBG("canceling on time");
       break;
     }
 
@@ -607,7 +533,7 @@ static void *supervisor_subthread(void *arg) {
   }
   fflush(stdout);
 
-  while (si.prev_pv.cnt == 0) {
+  while (si.prev_iter_pv.cnt == 0) {
     usleep(10);
   }
 
@@ -629,7 +555,7 @@ void search(const SearchSettings *settings) {
 }
 
 void stop(int origin) {
-  printf("info string canceling manually\n");
+  PRINTDBG("canceling manually");
   fflush(stdout);
   manualstop = 1;
   pthread_join(supervisor_thread, NULL);

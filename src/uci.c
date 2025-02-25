@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,6 +63,27 @@ const UciOpt opts[] = {
         .onchange = NULL,
     },
     {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableAspWnd",
+        .valptr = &g_set.disbl_aspwnd,
+        .defstr = "false",
+        .onchange = NULL,
+    },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableAspWnd",
+        .valptr = &g_set.disbl_aspwnd,
+        .defstr = "false",
+        .onchange = NULL,
+    },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "UCI_ShowCurrLine",
+        .valptr = &g_set.print_currline,
+        .defstr = "false",
+        .onchange = NULL,
+    },
+    {
         .opttype = OPT_SPIN,
         .optname = "Hash",
         .valptr = &g_set.ttbytes,
@@ -75,6 +97,80 @@ const UciOpt opts[] = {
 };
 
 int g_ucidebug = 0;
+
+#ifdef DEBUG_INTERFACE
+static void printdbg(const char *format, ...) {
+  printf("info string ");
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
+  putchar('\n');
+}
+#endif
+
+static void printline(const MoveList *line) {
+  for (int i = 0; i < line->cnt; i++) {
+    char buff[6];
+    move2str(buff, line->move[i]);
+    printf(" %s", buff);
+  }
+}
+
+static void printscore(int score) {
+  printf("score ");
+  if (IS_CHECKMATE(score) || IS_CHECKMATE(-score)) {
+    int mul = 1;
+
+    if (score < 0) {
+      score *= -1;
+      mul = -1;
+    }
+
+    int moves = (1 + SCORE_CHECKMATE - score) / 2;
+    printf("mate %d", moves * mul);
+  } else {
+    printf("cp %d", score);
+  }
+}
+
+static void on_iterfinish(const SearchInfo *si, long ttused, long ttsize,
+                          int score) {
+  long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
+
+  printf("info depth %d seldepth %d nps %d tbhits %d hashfull %ld nodes %d ",
+         si->iter_depth, si->iter_highest_depth, calcnps(), si->iter_tbhits,
+         hashfull, si->iter_visited_nodes);
+  printscore(score);
+  printf(" pv");
+  printline(&si->prev_iter_pv);
+  putchar('\n');
+  fflush(stdout);
+}
+
+static void on_move(const SearchInfo *si, long ttused, long ttsize, int score) {
+  long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
+
+  printf("info nodes %d currmove %s currmovenumber %d nps %d hashfull %ld ",
+         si->iter_visited_nodes, si->rootmove_str, si->rootmove_n, calcnps(),
+         hashfull);
+
+  if (si->currline.cnt > 0) {
+    printf("currline");
+    printline(&si->currline);
+    printf(" ");
+  }
+  printscore(score);
+  putchar('\n');
+  fflush(stdout);
+}
+
+static void on_finish(const SearchInfo *si) {
+  char buff[6];
+  move2str(buff, si->prev_iter_pv.move[0]);
+  printf("\nbestmove %s\n", buff);
+  fflush(stdout);
+}
 
 static void respond2uci() {
   printf("id name testengine\n");
@@ -215,6 +311,10 @@ static void respond2go(char *token) {
   }
 
   SearchSettings ss;
+  ss.on_finish = &on_finish;
+  ss.on_rootmove = g_set.print_currline ? &on_move : NULL;
+  ss.on_nonrootmove = g_set.print_currline ? &on_move : NULL;
+  ss.on_iterfinish = &on_iterfinish;
   ss.specificmoves.cnt = 0;
 
   int wtime = TIME_FOREVER;
@@ -305,7 +405,7 @@ static void respond2go(char *token) {
     ss.timelimit = movetime;
   }
 
-  printf("info string timelimit %ld\n", ss.timelimit);
+  PRINTDBG("timelimit %ld", ss.timelimit);
 
   search(&ss);
 }
@@ -338,6 +438,10 @@ static int next_cmd(char *buff, int len) {
 }
 
 void uci_start() {
+#ifdef DEBUG_INTERFACE
+  g_printdbg = &printdbg;
+#endif
+
   g_set.ttbytes = 20000000;
   ttinit();
 

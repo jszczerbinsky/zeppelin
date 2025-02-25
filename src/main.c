@@ -80,6 +80,10 @@ int g_mode = MODE_CLIARG;
 
 Settings g_set = {0};
 
+#ifdef DEBUG_INTERFACE
+void (*g_printdbg)(const char *format, ...) = NULL;
+#endif
+
 static void choose_protocol() {
   size_t buffsize = 256;
   char *buff = malloc(buffsize * sizeof(char));

@@ -7,6 +7,7 @@ tags
 *.taghl
 vgcore*
 __pycache__
+.cache
 
 CMakeLists.txt.user
 CMakeCache.txt

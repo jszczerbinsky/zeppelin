@@ -20,6 +20,10 @@ void uci_start();
 
 #ifdef DEBUG_INTERFACE
 void debug_start();
+extern void (*g_printdbg)(const char *format, ...);
+#define PRINTDBG(args...) (g_printdbg ? (*g_printdbg)(args) : "")
+#else
+#define PRINTDBG(args...)
 #endif
 
 typedef struct {
@@ -28,6 +32,8 @@ typedef struct {
   int disbl_pvs;
   int disbl_lmr;
   int disbl_aspwnd;
+
+  int print_currline;
 
   long ttbytes;
 } Settings;
@@ -393,11 +399,43 @@ long getsearchtime(long wtime, long btime, long winc, long binc);
 void ttinit();
 void ttfree();
 
+#define KILLER_MAX 5
+
+typedef struct {
+  int rootmove_n;
+  char rootmove_str[6];
+  int root_nodetype;
+
+  MoveList currline;
+  int currext;
+
+  clock_t nps_lastcalc;
+  int nps_lastnodes;
+
+  int iter_depth;
+  int iter_visited_nodes;
+  Move iter_bestmove;
+  int iter_tbhits;
+  int iter_highest_depth;
+  Move iter_killers[MAX_PLY_PER_GAME][KILLER_MAX];
+
+  MoveList prev_iter_pv;
+
+  int finished;
+} SearchInfo;
+
 typedef struct {
   long timelimit;
   int depthlimit;
   int nodeslimit;
   MoveList specificmoves;
+  void (*on_finish)(const SearchInfo *si);
+  void (*on_rootmove)(const SearchInfo *si, long ttused, long ttsize,
+                      int score);
+  void (*on_nonrootmove)(const SearchInfo *si, long ttused, long ttsize,
+                         int score);
+  void (*on_iterfinish)(const SearchInfo *si, long ttused, long ttsize,
+                        int score);
 } SearchSettings;
 
 #define TIME_FOREVER -1
@@ -410,6 +448,7 @@ typedef struct {
 void reset_hashtables();
 void search(const SearchSettings *ss);
 void stop(int origin);
+int calcnps();
 
 // =============================
 //             Dump
