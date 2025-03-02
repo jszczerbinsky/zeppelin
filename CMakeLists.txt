@@ -26,7 +26,7 @@ endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 
-set(CMAKE_C_FLAGS_DEBUG "-Wall -ggdb2 -DDEBUG_INTERFACE")
+set(CMAKE_C_FLAGS_DEBUG "-Wall -ggdb2 -pg -DDEBUG_INTERFACE")
 set(CMAKE_C_FLAGS_RELEASE "-Wall -O3")
 
 add_executable(zeppelin ${SOURCE_FILES})

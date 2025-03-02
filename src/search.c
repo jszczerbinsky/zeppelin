@@ -92,12 +92,12 @@ int calcnps() {
   clock_t now = clock();
 
   double seconds = (now - si.nps_lastcalc) / (double)CLOCKS_PER_SEC;
-  int nodesdiff = si.iter_visited_nodes - si.nps_lastnodes;
+  int nodesdiff = si.search_visitednodes; //- si.nps_lastnodes;
 
   int nps = nodesdiff / seconds;
 
-  si.nps_lastnodes = si.iter_visited_nodes;
-  si.nps_lastcalc = clock();
+  // si.nps_lastnodes = si.search_visitednodes;
+  // si.nps_lastcalc = clock();
 
   return nps;
 }
@@ -195,6 +195,7 @@ int quiescence(int alpha, int beta, int depthleft) {
   }
 
   si.iter_visited_nodes++;
+  si.search_visitednodes++;
   alpha = max(standpat, alpha);
 
   MoveList availmoves;
@@ -369,6 +370,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   si.iter_visited_nodes++;
+  si.search_visitednodes++;
 
   NodeInfo ni;
   analyze_node(&ni, depthleft, &alpha, beta, ttbest);
@@ -429,9 +431,10 @@ static void *search_subthread(void *arg) {
   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
 
   int firsttime = 1;
-  int lastscore;
+  int lastscore = SCORE_ILLEGAL;
 
-  for (int depth = 1; depth <= ss.depthlimit; depth++) {
+  si.search_visitednodes = 0;
+  for (int depth = ss.startdepth; depth <= ss.depthlimit; depth++) {
     si.iter_highest_depth = 0;
     si.currline.cnt = 0;
     si.iter_tbhits = 0;

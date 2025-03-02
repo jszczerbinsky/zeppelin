@@ -177,7 +177,6 @@ try:
     UnmakeMoveTest(engine, 'r3k2r/1b4bq/8/8/8/8/7B/R2K3R b kq - 1 1')
     UnmakeMoveTest(engine, 'r3k2r/1b5q/8/8/8/2b5/7B/R2K3R w kq - 2 2')
 
-
     EvalTest(engine, '2R3k1/5ppp/8/8/8/8/8/4K3 b - - 1 1', 'mated')
     EvalTest(engine, '4k3/8/8/8/8/8/5PPP/2r3K1 w - - 0 1', 'mated')
     EvalTest(engine, '3R4/8/8/8/6B1/4N2K/2qqq3/2qkq3 b - - 0 1', 'mated')

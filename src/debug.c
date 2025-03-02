@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -136,14 +137,38 @@ static int next_cmd(char *buff, int len) {
     respond2eval();
   else if (equals(token, "getscoreinfo"))
     respond2getscoreinfo(atoi(nexttok()));
+  else if (equals(token, "ttactive"))
+    g_set.disbl_tt = !atoi(nexttok());
+  else if (equals(token, "nmpactive"))
+    g_set.disbl_nmp = !atoi(nexttok());
+  else if (equals(token, "pvsactive"))
+    g_set.disbl_pvs = !atoi(nexttok());
+  else if (equals(token, "lmractive"))
+    g_set.disbl_lmr = !atoi(nexttok());
+  else if (equals(token, "aspwndactive"))
+    g_set.disbl_aspwnd = !atoi(nexttok());
+
   else if (equals(token, "quit"))
     return 1;
 
   return 0;
 }
 
+static void printdbg(const char *format, ...) {
+  printf("INFO");
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
+  putchar('\n');
+}
+
 void debug_start() {
   g_mode = MODE_DEBUG;
+  g_printdbg = &printdbg;
+
+  g_set.ttbytes = 20000000;
+  ttinit();
 
   size_t buffsize = 256;
   char *buff = malloc(buffsize * sizeof(char));

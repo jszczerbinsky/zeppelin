@@ -409,11 +409,13 @@ typedef struct {
   MoveList currline;
   int currext;
 
+  long search_visitednodes;
+
   clock_t nps_lastcalc;
-  int nps_lastnodes;
+  long nps_lastnodes;
 
   int iter_depth;
-  int iter_visited_nodes;
+  long iter_visited_nodes;
   Move iter_bestmove;
   int iter_tbhits;
   int iter_highest_depth;
@@ -426,6 +428,7 @@ typedef struct {
 
 typedef struct {
   long timelimit;
+  int startdepth;
   int depthlimit;
   int nodeslimit;
   MoveList specificmoves;
@@ -441,6 +444,8 @@ typedef struct {
 #define TIME_FOREVER -1
 
 #define DEPTH_INF 99999
+
+#define NODES_INF 0
 
 #define STOP_MANUAL 0
 #define STOP_TIME 1
@@ -467,9 +472,9 @@ void perft(int depth, int *nodes, int *leafnodes);
 //           Utils
 // =============================
 
-static inline int bbrd2sqr(BitBrd bbrd) { return __builtin_ffsll(bbrd) - 1; }
+#define bbrd2sqr(bbrd) (__builtin_ffsll(bbrd) - 1)
 
-static inline BitBrd sqr2bbrd(int sqr) { return (1ULL << (BitBrd)sqr); }
+#define sqr2bbrd(sqr) (1ULL << (BitBrd)(sqr))
 
 static inline int sqr2diag(int sqr) { return (sqr / 8) - (sqr % 8) + 7; }
 
@@ -479,7 +484,9 @@ static inline int equals(const char *s1, const char *s2) {
   return strcmp(s1, s2) == 0;
 }
 
-static inline int popcnt(BitBrd bbrd) {
+#define popcnt(bbrd) (__builtin_popcountl(bbrd))
+
+/*static inline int popcnt(BitBrd bbrd) {
   int cnt = 0;
 
   while (bbrd) {
@@ -488,7 +495,7 @@ static inline int popcnt(BitBrd bbrd) {
   }
 
   return cnt;
-}
+}*/
 
 static inline BitBrd file2rank(BitBrd bbrd) { return (bbrd * DIAG_7) >> 56; }
 

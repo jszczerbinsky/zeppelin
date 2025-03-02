@@ -138,7 +138,7 @@ static void on_iterfinish(const SearchInfo *si, long ttused, long ttsize,
                           int score) {
   long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
 
-  printf("info depth %d seldepth %d nps %d tbhits %d hashfull %ld nodes %d ",
+  printf("info depth %d seldepth %d nps %d tbhits %d hashfull %ld nodes %ld ",
          si->iter_depth, si->iter_highest_depth, calcnps(), si->iter_tbhits,
          hashfull, si->iter_visited_nodes);
   printscore(score);
@@ -151,7 +151,7 @@ static void on_iterfinish(const SearchInfo *si, long ttused, long ttsize,
 static void on_move(const SearchInfo *si, long ttused, long ttsize, int score) {
   long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
 
-  printf("info nodes %d currmove %s currmovenumber %d nps %d hashfull %ld ",
+  printf("info nodes %ld currmove %s currmovenumber %d nps %d hashfull %ld ",
          si->iter_visited_nodes, si->rootmove_str, si->rootmove_n, calcnps(),
          hashfull);
 
@@ -311,6 +311,7 @@ static void respond2go(char *token) {
   }
 
   SearchSettings ss;
+  ss.startdepth = 1;
   ss.on_finish = &on_finish;
   ss.on_rootmove = g_set.print_currline ? &on_move : NULL;
   ss.on_nonrootmove = g_set.print_currline ? &on_move : NULL;

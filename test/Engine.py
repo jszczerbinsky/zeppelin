@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys 
 
 class Engine:
 
@@ -17,12 +18,17 @@ class Engine:
         while True:
             line = self.subproc.stdout.readline()
             if line.startswith('INFO'):
-                print('  [engine]:  '+line[4:])
+                print('  [engine]:  '+line[4:-1])
+                sys.stdout.flush()
             elif line == 'END\n':
                 break
             else:
                 res += line
-        return json.loads(res)
+        try:
+            return json.loads(res)
+        except Exception as e:
+            print(res)
+            raise e
 
     def loadfen(self, fen):
         self.send_nores('loadfen ' + fen)
@@ -47,3 +53,36 @@ class Engine:
 
     def getscoreinfo(self, score):
         return self.send('getscoreinfo ' + str(score))['type']
+
+    def searchdepth(self, depth):
+        return self.send('searchdepth ' + str(depth))
+
+    def enable_tt(self):
+        self.send_nores('ttactive 1')
+
+    def disable_tt(self):
+        self.send_nores('ttactive 0')
+
+    def enable_nmp(self):
+        self.send_nores('nmpactive 1')
+
+    def disable_nmp(self):
+        self.send_nores('nmpactive 0')
+
+    def enable_pvs(self):
+        self.send_nores('pvsactive 1')
+
+    def disable_pvs(self):
+        self.send_nores('pvsactive 0')
+
+    def enable_lmr(self):
+        self.send_nores('lmractive 1')
+
+    def disable_lmr(self):
+        self.send_nores('lmractive 0')
+
+    def enable_aspwnd(self):
+        self.send_nores('aspwndactive 1')
+
+    def disable_aspwnd(self):
+        self.send_nores('aspwndactive 0')
