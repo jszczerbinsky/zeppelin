@@ -453,6 +453,11 @@ void makemove(Move move) {
     removepiece(WHITE, ROOK, sqr2bbrd(WQ_ROOKSQR));
     putpiece(WHITE, ROOK, sqr2bbrd(CASTLE_WQ_ROOKSQR));
 
+    newgamestate->hash ^= hash_piecesqr[player][W_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_WQ_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][WQ_ROOKSQR][ROOK];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_WQ_ROOKSQR][ROOK];
+
     newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
     if (CANCASTLE_WK(g_gamestate)) {
       newgamestate->hash ^= hash_castle_wk;
@@ -466,6 +471,11 @@ void makemove(Move move) {
     putpiece(BLACK, KING, sqr2bbrd(CASTLE_BQ_KINGSQR));
     removepiece(BLACK, ROOK, sqr2bbrd(BQ_ROOKSQR));
     putpiece(BLACK, ROOK, sqr2bbrd(CASTLE_BQ_ROOKSQR));
+
+    newgamestate->hash ^= hash_piecesqr[player][B_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_BQ_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][BQ_ROOKSQR][ROOK];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_BQ_ROOKSQR][ROOK];
 
     newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
     if (CANCASTLE_BK(g_gamestate)) {
@@ -481,6 +491,11 @@ void makemove(Move move) {
     removepiece(WHITE, ROOK, sqr2bbrd(WK_ROOKSQR));
     putpiece(WHITE, ROOK, sqr2bbrd(CASTLE_WK_ROOKSQR));
 
+    newgamestate->hash ^= hash_piecesqr[player][W_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_WK_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][WK_ROOKSQR][ROOK];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_WK_ROOKSQR][ROOK];
+
     newgamestate->flags &= ~(GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ);
     if (CANCASTLE_WK(g_gamestate)) {
       newgamestate->hash ^= hash_castle_wk;
@@ -495,6 +510,11 @@ void makemove(Move move) {
     removepiece(BLACK, ROOK, sqr2bbrd(BK_ROOKSQR));
     putpiece(BLACK, ROOK, sqr2bbrd(CASTLE_BK_ROOKSQR));
 
+    newgamestate->hash ^= hash_piecesqr[player][B_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_BK_KINGSQR][KING];
+    newgamestate->hash ^= hash_piecesqr[player][BK_ROOKSQR][ROOK];
+    newgamestate->hash ^= hash_piecesqr[player][CASTLE_BK_ROOKSQR][ROOK];
+
     newgamestate->flags &= ~(GAME_F_CANCASTLE_BK | GAME_F_CANCASTLE_BQ);
     if (CANCASTLE_BK(g_gamestate)) {
       newgamestate->hash ^= hash_castle_bk;
@@ -508,17 +528,17 @@ void makemove(Move move) {
     putpiece(player, GET_PROM_PIECE(move), dstbbrd);
 
     newgamestate->halfmove = 0;
-    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
-    newgamestate->hash ^= hash_piecesqr[player][GET_PROM_PIECE(move)][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[player][srcsqr][PAWN];
+    newgamestate->hash ^= hash_piecesqr[player][dstsqr][GET_PROM_PIECE(move)];
     break;
   case MOVE_TYPE_NORMALCAPT:
     removepiece(!player, GET_CAPT_PIECE(move), dstbbrd);
     removepiece(player, GET_MOV_PIECE(move), srcbbrd);
     putpiece(player, GET_MOV_PIECE(move), dstbbrd);
 
-    newgamestate->hash ^= hash_piecesqr[!player][GET_CAPT_PIECE(move)][dstsqr];
-    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][srcsqr];
-    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[!player][dstsqr][GET_CAPT_PIECE(move)];
+    newgamestate->hash ^= hash_piecesqr[player][srcsqr][GET_MOV_PIECE(move)];
+    newgamestate->hash ^= hash_piecesqr[player][dstsqr][GET_MOV_PIECE(move)];
     if (GET_CAPT_PIECE(move) == ROOK) {
       switch (GET_DST_SQR(move)) {
       case WK_ROOKSQR:
@@ -556,9 +576,9 @@ void makemove(Move move) {
     removepiece(player, GET_MOV_PIECE(move), srcbbrd);
     putpiece(player, GET_PROM_PIECE(move), dstbbrd);
 
-    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
-    newgamestate->hash ^= hash_piecesqr[player][GET_PROM_PIECE(move)][dstsqr];
-    newgamestate->hash ^= hash_piecesqr[!player][GET_CAPT_PIECE(move)][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[player][srcsqr][PAWN];
+    newgamestate->hash ^= hash_piecesqr[player][dstsqr][GET_PROM_PIECE(move)];
+    newgamestate->hash ^= hash_piecesqr[!player][dstsqr][GET_CAPT_PIECE(move)];
     if (GET_CAPT_PIECE(move) == ROOK) {
       switch (GET_DST_SQR(move)) {
       case WK_ROOKSQR:
@@ -595,25 +615,25 @@ void makemove(Move move) {
     if (player == WHITE) {
       removepiece(!player, PAWN, g_gamestate->epbbrd >> 8);
       newgamestate->hash ^=
-          hash_piecesqr[!player][PAWN][bbrd2sqr(g_gamestate->epbbrd >> 8)];
+          hash_piecesqr[!player][bbrd2sqr(g_gamestate->epbbrd >> 8)][PAWN];
     } else {
       removepiece(!player, PAWN, g_gamestate->epbbrd << 8);
       newgamestate->hash ^=
-          hash_piecesqr[!player][PAWN][bbrd2sqr(g_gamestate->epbbrd << 8)];
+          hash_piecesqr[!player][bbrd2sqr(g_gamestate->epbbrd << 8)][PAWN];
     }
     removepiece(player, PAWN, srcbbrd);
     putpiece(player, PAWN, dstbbrd);
 
-    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
-    newgamestate->hash ^= hash_piecesqr[player][PAWN][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[player][srcsqr][PAWN];
+    newgamestate->hash ^= hash_piecesqr[player][dstsqr][PAWN];
     newgamestate->halfmove = 0;
     break;
   case MOVE_TYPE_DOUBLEPUSH:
     removepiece(player, PAWN, srcbbrd);
     putpiece(player, PAWN, dstbbrd);
 
-    newgamestate->hash ^= hash_piecesqr[player][PAWN][srcsqr];
-    newgamestate->hash ^= hash_piecesqr[player][PAWN][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[player][srcsqr][PAWN];
+    newgamestate->hash ^= hash_piecesqr[player][dstsqr][PAWN];
     newgamestate->hash ^= hash_epfile[srcsqr % 8];
     if (player == WHITE)
       newgamestate->epbbrd = srcbbrd << 8;
@@ -625,8 +645,8 @@ void makemove(Move move) {
     removepiece(player, GET_MOV_PIECE(move), srcbbrd);
     putpiece(player, GET_MOV_PIECE(move), dstbbrd);
 
-    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][srcsqr];
-    newgamestate->hash ^= hash_piecesqr[player][GET_MOV_PIECE(move)][dstsqr];
+    newgamestate->hash ^= hash_piecesqr[player][srcsqr][GET_MOV_PIECE(move)];
+    newgamestate->hash ^= hash_piecesqr[player][dstsqr][GET_MOV_PIECE(move)];
     if (GET_MOV_PIECE(move) == PAWN)
       newgamestate->halfmove = 0;
     break;

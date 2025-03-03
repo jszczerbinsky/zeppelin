@@ -13,6 +13,8 @@ static void finishsending() {
 static void sendboard() {
   printf("{\n");
 
+  printf("\"hash\": %lu,\n", g_gamestate->hash);
+
   printf("\"wpawn\": %lu,\n", g_game.pieces[WHITE][PAWN]);
   printf("\"wking\": %lu,\n", g_game.pieces[WHITE][KING]);
   printf("\"wknight\": %lu,\n", g_game.pieces[WHITE][KNIGHT]);

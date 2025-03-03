@@ -122,6 +122,7 @@ try:
      ])
 
     MakeMoveTest(engine, 'g5h6', '1K6/8/7r/6P1/7b/1Bk2pP1/8/8 w - - 0 1', '1K6/8/7P/8/7b/1Bk2pP1/8/8 b - - 0 1')
+    MakeMoveTest(engine, 'e8g8', 'r2qk2r/p1p2ppp/2np4/4N1bb/1pB1P1P1/2NP4/PPP2P2/R2QK2R b KQkq - 0 12', 'r2q1rk1/p1p2ppp/2np4/4N1bb/1pB1P1P1/2NP4/PPP2P2/R2QK2R w KQ - 1 13')
     MakeMoveTest(engine, 'g3h4', '1K6/8/7r/6P1/7b/1Bk2pP1/8/8 w - - 0 1', '1K6/8/7r/6P1/7P/1Bk2p2/8/8 b - - 0 1')
     MakeMoveTest(engine, 'a2a4', 'r2qk2r/p1p1bppp/2np4/4N1Bb/1pB1P1n1/2NP3P/PPP2P2/R2QK2R w KQkq - 0 11', 'r2qk2r/p1p1bppp/2np4/4N1Bb/PpB1P1n1/2NP3P/1PP2P2/R2QK2R b KQkq a3 0 11')
     MakeMoveTest(engine, 'b4a3', 'r2qk2r/p1p1bppp/2np4/4N1Bb/PpB1P1n1/2NP3P/1PP2P2/R2QK2R b KQkq a3 0 11', 'r2qk2r/p1p1bppp/2np4/4N1Bb/2B1P1n1/p1NP3P/1PP2P2/R2QK2R w KQkq - 0 12')
