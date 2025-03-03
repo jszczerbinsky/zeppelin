@@ -333,7 +333,7 @@ int negamax(int alpha, int beta, int depthleft) {
   const BitBrd hash = g_gamestate->hash;
 
   int rep = getrepetitions();
-  if (rep >= 3) {
+  if (rep >= 2) {
     return 0;
   }
 

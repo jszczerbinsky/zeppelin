@@ -48,6 +48,9 @@ class Engine:
     def getboard(self):
         return self.send('getboard')
 
+    def getrepetitions(self):
+        return self.send('getrepetitions')
+
     def eval(self):
         return self.send('eval')['score']
 

@@ -84,6 +84,11 @@ static void respond2getboard() {
   finishsending();
 }
 
+static void respond2getrepetitions() {
+  printf("{\"repetitions\": %d}\n", getrepetitions());
+  finishsending();
+}
+
 static void respond2eval() {
   int score = evaluate(0);
   printf("{\"score\": %d}\n", score);
@@ -133,6 +138,8 @@ static int next_cmd(char *buff, int len) {
     respond2getboard();
   else if (equals(token, "getmoves"))
     respond2getmoves();
+  else if (equals(token, "getrepetitions"))
+    respond2getrepetitions();
   else if (equals(token, "perft"))
     respond2perft(nexttok());
   else if (equals(token, "eval"))

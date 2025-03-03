@@ -24,7 +24,7 @@ class EngineTest:
     def ready(self):
         prefix = self.test_name + " [" + self.test_id + "] "
         
-        str = "{res} - {test_name: <15} {test_id}"
+        str = "{res} - {test_name: <20} {test_id}"
 
         if self.perform_test():
             print(str.format(res='\033[32mOK\033[0m', test_name=self.test_name, test_id=self.test_id))
@@ -150,3 +150,27 @@ class PerftTest(EngineTest):
                     return False
 
         return True
+
+class RepetitionDetectionTest(EngineTest):
+    def __init__(self, engine, fen, variations):
+        super().__init__(engine, "Repetition Detect", fen)
+        self.fen = fen
+        self.variations = variations 
+        self.ready()
+
+    def perform_test(self):
+        for variation in self.variations: 
+            self.engine.loadfen(self.fen)
+
+            before = self.engine.getrepetitions()['repetitions']
+            for move in variation:
+                self.engine.makemove(move)
+            after = self.engine.getrepetitions()['repetitions']
+
+            if before+1 != after:
+                self.set_failinfo("repetitions count", before+1, after)
+                return False
+
+        return True
+
+

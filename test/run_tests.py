@@ -178,6 +178,11 @@ try:
     UnmakeMoveTest(engine, 'r3k2r/1b4bq/8/8/8/8/7B/R2K3R b kq - 1 1')
     UnmakeMoveTest(engine, 'r3k2r/1b5q/8/8/8/2b5/7B/R2K3R w kq - 2 2')
 
+    RepetitionDetectionTest(engine, 'r3k1nr/pp3p1p/2npbbp1/q1p1p3/2B1Q3/3PPN2/PPP2PPP/RNB2RK1 b kq - 4 11', [['e6f5', 'e4d5', 'f5e6', 'd5e4']]) 
+    RepetitionDetectionTest(engine, '2k5/p1p5/3p1bp1/1p2p1q1/8/1P1B3K/P1P5/7R b - - 1 39', [['g5e3', 'h3g4', 'e3g5', 'g4h3']])
+    RepetitionDetectionTest(engine, 'rn5Q/ppp1kp2/4p2p/6p1/8/5NP1/1P2PPP1/1K1q1B1R w - - 4 21', [['b1a2', 'd1a4', 'a2b1', 'a4d1']])
+    RepetitionDetectionTest(engine, '8/5R2/8/8/8/4K3/6p1/5k2 b - - 25 81', [['f1e1', 'f7g7', 'e1f1', 'g7f7']])
+
     EvalTest(engine, '2R3k1/5ppp/8/8/8/8/8/4K3 b - - 1 1', 'mated')
     EvalTest(engine, '4k3/8/8/8/8/8/5PPP/2r3K1 w - - 0 1', 'mated')
     EvalTest(engine, '3R4/8/8/8/6B1/4N2K/2qqq3/2qkq3 b - - 0 1', 'mated')
