@@ -449,7 +449,7 @@ static void gen_magic_for(int piece, int sqr, int mode)
 
 	if (mode == GEN_NORMAL)
 		printf(
-				"Found %s magic number for square %d: 0x%lx (index len: "
+				"Found %s magic number for square %d: 0x%llx (index len: "
 				"%d, array size: %d)\n",
 				piece == BISHOP ? "bishop" : "rook",
 				sqr,
@@ -460,7 +460,7 @@ static void gen_magic_for(int piece, int sqr, int mode)
 	else
 	{
 		printf("Hunted a better magic number!\n");
-		printf("Number: 0x%lx\n", num);
+		printf("Number: 0x%llx\n", num);
 		printf("Index length: %d -> %d\n", previndexlen, indexlen);
 		printf(
 				"Decreased the size of precomp file by %d bytes\n\n",

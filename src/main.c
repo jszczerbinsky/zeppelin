@@ -85,27 +85,24 @@ void (*g_printdbg)(const char *format, ...) = NULL;
 #endif
 
 static void choose_protocol() {
-  size_t buffsize = 256;
-  char *buff = malloc(buffsize * sizeof(char));
+  const size_t buffsize = 256;
+  char buff[buffsize];
 
   int quit = 0;
-  int len = 0;
 
   while (!quit) {
-    len = getline(&buff, &buffsize, stdin);
+    char* res = fgets(buff, buffsize, stdin);
 
-    if (len == -1) {
+    if (res == NULL) {
       quit = 1;
     } else if (equals(buff, "quit\n")) {
       quit = 1;
     } else if (equals(buff, "uci\n")) {
-      free(buff);
       uci_start();
       quit = 1;
     }
 #ifdef DEBUG_INTERFACE
     else if (equals(buff, "debug\n")) {
-      free(buff);
       debug_start();
       quit = 1;
     }

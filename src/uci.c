@@ -411,7 +411,7 @@ static void respond2go(char *token) {
   search(&ss);
 }
 
-static int next_cmd(char *buff, int len) {
+static int next_cmd(char *buff) {
   char *token = strtok(buff, " \n");
   if (!token)
     return 0;
@@ -449,19 +449,17 @@ void uci_start() {
   g_mode = MODE_UCI;
   respond2uci();
 
-  size_t buffsize = 256;
-  char *buff = malloc(buffsize * sizeof(char));
+  const size_t buffsize = 256;
+  char buff[buffsize];
 
   int quit = 0;
-  int len = 0;
 
   while (!quit) {
-    if ((len = getline(&buff, &buffsize, stdin)) == -1)
+    if (fgets(buff, buffsize, stdin) == NULL)
       quit = 1;
     else
-      quit = next_cmd(buff, len);
+      quit = next_cmd(buff);
   }
 
-  free(buff);
   ttfree();
 }

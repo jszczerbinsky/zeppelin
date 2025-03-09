@@ -13,20 +13,20 @@ static void finishsending() {
 static void sendboard() {
   printf("{\n");
 
-  printf("\"hash\": %lu,\n", g_gamestate->hash);
+  printf("\"hash\": %llu,\n", g_gamestate->hash);
 
-  printf("\"wpawn\": %lu,\n", g_game.pieces[WHITE][PAWN]);
-  printf("\"wking\": %lu,\n", g_game.pieces[WHITE][KING]);
-  printf("\"wknight\": %lu,\n", g_game.pieces[WHITE][KNIGHT]);
-  printf("\"wbishop\": %lu,\n", g_game.pieces[WHITE][BISHOP]);
-  printf("\"wrook\": %lu,\n", g_game.pieces[WHITE][ROOK]);
-  printf("\"wqueen\": %lu,\n", g_game.pieces[WHITE][QUEEN]);
-  printf("\"bpawn\": %lu,\n", g_game.pieces[BLACK][PAWN]);
-  printf("\"bking\": %lu,\n", g_game.pieces[BLACK][KING]);
-  printf("\"bknight\": %lu,\n", g_game.pieces[BLACK][KNIGHT]);
-  printf("\"bbishop\": %lu,\n", g_game.pieces[BLACK][BISHOP]);
-  printf("\"brook\": %lu,\n", g_game.pieces[BLACK][ROOK]);
-  printf("\"bqueen\": %lu,\n", g_game.pieces[BLACK][QUEEN]);
+  printf("\"wpawn\": %llu,\n", g_game.pieces[WHITE][PAWN]);
+  printf("\"wking\": %llu,\n", g_game.pieces[WHITE][KING]);
+  printf("\"wknight\": %llu,\n", g_game.pieces[WHITE][KNIGHT]);
+  printf("\"wbishop\": %llu,\n", g_game.pieces[WHITE][BISHOP]);
+  printf("\"wrook\": %llu,\n", g_game.pieces[WHITE][ROOK]);
+  printf("\"wqueen\": %llu,\n", g_game.pieces[WHITE][QUEEN]);
+  printf("\"bpawn\": %llu,\n", g_game.pieces[BLACK][PAWN]);
+  printf("\"bking\": %llu,\n", g_game.pieces[BLACK][KING]);
+  printf("\"bknight\": %llu,\n", g_game.pieces[BLACK][KNIGHT]);
+  printf("\"bbishop\": %llu,\n", g_game.pieces[BLACK][BISHOP]);
+  printf("\"brook\": %llu,\n", g_game.pieces[BLACK][ROOK]);
+  printf("\"bqueen\": %llu,\n", g_game.pieces[BLACK][QUEEN]);
 
   printf("\"player\": \"%s\",\n", g_game.who2move == WHITE ? "w" : "b");
 
@@ -35,7 +35,7 @@ static void sendboard() {
   printf("\"bk\": %s,\n", CANCASTLE_BK(g_gamestate) ? "true" : "false");
   printf("\"bq\": %s,\n", CANCASTLE_BQ(g_gamestate) ? "true" : "false");
 
-  printf("\"ep\": %lu,\n", g_gamestate->epbbrd);
+  printf("\"ep\": %llu,\n", g_gamestate->epbbrd);
 
   printf("\"halfmove\": %u,\n", g_gamestate->halfmove);
   printf("\"fullmove\": %u\n", g_gamestate->fullmove);
@@ -123,7 +123,7 @@ static void respond2getscoreinfo(int score) {
   finishsending();
 }
 
-static int next_cmd(char *buff, int len) {
+static int next_cmd(char *buff) {
   char *token = strtok(buff, " \n");
   if (!token)
     return 0;
@@ -179,18 +179,15 @@ void debug_start() {
   g_set.ttbytes = 20000000;
   ttinit();
 
-  size_t buffsize = 256;
-  char *buff = malloc(buffsize * sizeof(char));
+  const size_t buffsize = 256;
+  char buff[buffsize];
 
   int quit = 0;
-  int len = 0;
 
   while (!quit) {
-    if ((len = getline(&buff, &buffsize, stdin)) == -1)
+    if (fgets(buff, buffsize, stdin) == NULL)
       quit = 1;
     else
-      quit = next_cmd(buff, len);
+      quit = next_cmd(buff);
   }
-
-  free(buff);
 }
