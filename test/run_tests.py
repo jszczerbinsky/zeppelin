@@ -226,3 +226,4 @@ try:
 
 except TestFailedException:
     print("Unit test failed")
+    exit(1)
