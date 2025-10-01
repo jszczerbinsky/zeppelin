@@ -91,7 +91,7 @@ static void choose_protocol() {
   int quit = 0;
 
   while (!quit) {
-    char* res = fgets(buff, buffsize, stdin);
+    char *res = fgets(buff, buffsize, stdin);
 
     if (res == NULL) {
       quit = 1;

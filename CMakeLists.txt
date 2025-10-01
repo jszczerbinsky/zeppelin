@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 4.0)
 
 project(zeppelin)
 
@@ -50,6 +50,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		set(CMAKE_C_COMPILER gcc)
 	else()
 		set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+		set(CMAKE_EXE_LINKER_FLAGS "-static")
 	endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	if(TARGET_PLATFORM STREQUAL "Windows")

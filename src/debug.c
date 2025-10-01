@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,20 +14,20 @@ static void finishsending() {
 static void sendboard() {
   printf("{\n");
 
-  printf("\"hash\": %llu,\n", g_gamestate->hash);
+  printf("\"hash\": %" PRIu64 ",\n", g_gamestate->hash);
 
-  printf("\"wpawn\": %llu,\n", g_game.pieces[WHITE][PAWN]);
-  printf("\"wking\": %llu,\n", g_game.pieces[WHITE][KING]);
-  printf("\"wknight\": %llu,\n", g_game.pieces[WHITE][KNIGHT]);
-  printf("\"wbishop\": %llu,\n", g_game.pieces[WHITE][BISHOP]);
-  printf("\"wrook\": %llu,\n", g_game.pieces[WHITE][ROOK]);
-  printf("\"wqueen\": %llu,\n", g_game.pieces[WHITE][QUEEN]);
-  printf("\"bpawn\": %llu,\n", g_game.pieces[BLACK][PAWN]);
-  printf("\"bking\": %llu,\n", g_game.pieces[BLACK][KING]);
-  printf("\"bknight\": %llu,\n", g_game.pieces[BLACK][KNIGHT]);
-  printf("\"bbishop\": %llu,\n", g_game.pieces[BLACK][BISHOP]);
-  printf("\"brook\": %llu,\n", g_game.pieces[BLACK][ROOK]);
-  printf("\"bqueen\": %llu,\n", g_game.pieces[BLACK][QUEEN]);
+  printf("\"wpawn\": %" PRIu64 ",\n", g_game.pieces[WHITE][PAWN]);
+  printf("\"wking\": %" PRIu64 ",\n", g_game.pieces[WHITE][KING]);
+  printf("\"wknight\": %" PRIu64 ",\n", g_game.pieces[WHITE][KNIGHT]);
+  printf("\"wbishop\": %" PRIu64 ",\n", g_game.pieces[WHITE][BISHOP]);
+  printf("\"wrook\": %" PRIu64 ",\n", g_game.pieces[WHITE][ROOK]);
+  printf("\"wqueen\": %" PRIu64 ",\n", g_game.pieces[WHITE][QUEEN]);
+  printf("\"bpawn\": %" PRIu64 ",\n", g_game.pieces[BLACK][PAWN]);
+  printf("\"bking\": %" PRIu64 ",\n", g_game.pieces[BLACK][KING]);
+  printf("\"bknight\": %" PRIu64 ",\n", g_game.pieces[BLACK][KNIGHT]);
+  printf("\"bbishop\": %" PRIu64 ",\n", g_game.pieces[BLACK][BISHOP]);
+  printf("\"brook\": %" PRIu64 ",\n", g_game.pieces[BLACK][ROOK]);
+  printf("\"bqueen\": %" PRIu64 ",\n", g_game.pieces[BLACK][QUEEN]);
 
   printf("\"player\": \"%s\",\n", g_game.who2move == WHITE ? "w" : "b");
 
@@ -35,7 +36,7 @@ static void sendboard() {
   printf("\"bk\": %s,\n", CANCASTLE_BK(g_gamestate) ? "true" : "false");
   printf("\"bq\": %s,\n", CANCASTLE_BQ(g_gamestate) ? "true" : "false");
 
-  printf("\"ep\": %llu,\n", g_gamestate->epbbrd);
+  printf("\"ep\": %" PRIu64 ",\n", g_gamestate->epbbrd);
 
   printf("\"halfmove\": %u,\n", g_gamestate->halfmove);
   printf("\"fullmove\": %u\n", g_gamestate->fullmove);

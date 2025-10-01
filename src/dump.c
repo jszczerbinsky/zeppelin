@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 
 #include "main.h"
@@ -83,7 +84,7 @@ static void dumpprecomp_magic(FILE *f, BitBrd magic[64], int shift[64],
                               BitBrd *magicmoves[64], BitBrd premask[64]) {
   for (int sqr = 0; sqr < 64; sqr++) {
     fprintf(f, "Square: %d\n", sqr);
-    fprintf(f, "Magic number: 0x%lx\n", magic[sqr]);
+    fprintf(f, "Magic number: 0x%" PRIx64 "\n", magic[sqr]);
     fprintf(f, "Shitft (64-indexsize): %d\n", shift[sqr]);
     fprintf(f, "Index size: %d\n", 64 - shift[sqr]);
 
