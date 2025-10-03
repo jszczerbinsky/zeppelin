@@ -43,6 +43,7 @@ static pthread_t search_thread;
 static pthread_t supervisor_thread;
 
 static int manualstop = 0;
+static int abort_search = 0;
 
 void ttinit() {
   ttsize = g_set.ttbytes / sizeof(TT);
@@ -332,6 +333,10 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 int negamax(int alpha, int beta, int depthleft) {
   const BitBrd hash = g_gamestate->hash;
 
+  if (abort_search) {
+    return SCORE_ILLEGAL;
+  }
+
   int rep = getrepetitions();
   if (rep >= 2) {
     return 0;
@@ -428,7 +433,7 @@ static void recoverpv(MoveList *pv, int depth) {
 
 static void *search_subthread(void *arg) {
   int oldtype;
-  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
+  // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
 
   int firsttime = 1;
   int lastscore = SCORE_ILLEGAL;
@@ -450,6 +455,10 @@ static void *search_subthread(void *arg) {
     if (g_set.disbl_aspwnd || firsttime || IS_CHECKMATE(lastscore)) {
       score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth);
       firsttime = 0;
+
+      if (abort_search) {
+        return 0;
+      }
     } else {
       int inbounds = 0;
       const int sizes[] = {25, 50, 100, 200, 400};
@@ -474,6 +483,10 @@ static void *search_subthread(void *arg) {
 
         score = negamax(alpha, beta, depth);
 
+        if (abort_search) {
+          return 0;
+        }
+
         if (si.root_nodetype == NODE_FAILL) {
           asize_i++;
         } else if (si.root_nodetype == NODE_FAILH) {
@@ -483,6 +496,7 @@ static void *search_subthread(void *arg) {
         }
       } while (!inbounds);
     }
+
     lastscore = score;
 
     MoveList pv = {0};
@@ -508,7 +522,7 @@ static void *search_subthread(void *arg) {
 
 static void *supervisor_subthread(void *arg) {
   int oldtype;
-  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
+  // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
 
   clock_t start_time = clock() / CLOCKS_PER_MS;
 
@@ -540,7 +554,8 @@ static void *supervisor_subthread(void *arg) {
     usleep(10);
   }
 
-  pthread_cancel(search_thread);
+  // pthread_cancel(search_thread);
+  abort_search = 1;
   pthread_join(search_thread, NULL);
 
   search_finish();
@@ -553,6 +568,7 @@ void search(const SearchSettings *settings) {
   memcpy(&ss, settings, sizeof(SearchSettings));
 
   manualstop = 0;
+  abort_search = 0;
   si.finished = 0;
   pthread_create(&supervisor_thread, NULL, supervisor_subthread, NULL);
 }

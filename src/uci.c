@@ -449,7 +449,7 @@ void uci_start() {
   g_mode = MODE_UCI;
   respond2uci();
 
-  const size_t buffsize = 256;
+  const size_t buffsize = 4096;
   char buff[buffsize];
 
   int quit = 0;
@@ -457,8 +457,10 @@ void uci_start() {
   while (!quit) {
     if (fgets(buff, buffsize, stdin) == NULL)
       quit = 1;
-    else
+    else {
+      // todo check if all string fit in the buff
       quit = next_cmd(buff);
+    }
   }
 
   ttfree();
