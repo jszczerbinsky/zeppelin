@@ -201,7 +201,7 @@ int quiescence(int alpha, int beta, int depthleft) {
 
   MoveList availmoves;
   BitBrd attackbbrd;
-  gencapt(g_game.who2move, &availmoves, &attackbbrd);
+  gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_CAPT, 0);
 
   for (int i = 0; i < availmoves.cnt; i++) {
     order(&availmoves, i, NULLMOVE);
@@ -237,7 +237,9 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   ni->bestmove = NULLMOVE;
   int score = SCORE_ILLEGAL;
 
-  if (!g_set.disbl_nmp && !undercheck() && si.currline.cnt > 3 &&
+  int under_check_cnt = get_under_check_cnt();
+
+  if (!g_set.disbl_nmp && under_check_cnt == 0 && si.currline.cnt > 3 &&
       si.currline.move[si.currline.cnt - 1] != NULLMOVE &&
       evaluate(si.currline.cnt) >= beta) {
     makemove(NULLMOVE);
@@ -254,7 +256,8 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   }
 
   BitBrd attackbbrd;
-  genmoves(g_game.who2move, &ni->availmoves, &attackbbrd);
+  gen_moves(g_game.who2move, &ni->availmoves, &attackbbrd, GEN_ALL,
+            under_check_cnt);
 
   for (int i = 0; i < ni->availmoves.cnt; i++) {
     order(&ni->availmoves, i, ttbest);
@@ -271,12 +274,14 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
     if (lastmovelegal()) {
       ni->legalcnt++;
 
+      int new_under_check_cnt = get_under_check_cnt();
+
       int ext = 0;
-      if (si.currext < 3 && depthleft == 1 && undercheck())
+      if (si.currext < 3 && depthleft == 1 && new_under_check_cnt > 0)
         ext++;
       int red = 0;
       if (!g_set.disbl_lmr && si.currline.cnt > 3 && !IS_CAPT(currmove) &&
-          !undercheck() && ni->legalcnt > 6) {
+          new_under_check_cnt == 0 && ni->legalcnt > 6) {
         red++;
       }
 
@@ -436,9 +441,6 @@ static void recoverpv(MoveList *pv, int depth) {
 }
 
 static void *search_subthread(void *arg) {
-  int oldtype;
-  // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
-
   int firsttime = 1;
   int lastscore = SCORE_ILLEGAL;
 
@@ -525,9 +527,6 @@ static void *search_subthread(void *arg) {
 }
 
 static void *supervisor_subthread(void *arg) {
-  int oldtype;
-  // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
-
   clock_t start_time = clock() / CLOCKS_PER_MS;
 
   pthread_create(&search_thread, NULL, search_subthread, NULL);

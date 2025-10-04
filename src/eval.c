@@ -28,7 +28,7 @@ static const int rooksemiopenline = 100;
 static const int rookopenline = 200;
 
 int evaluate_terminalpos(int pliescnt) {
-  if (undercheck()) {
+  if (get_under_check_cnt() > 0) {
     return SCORE_CHECKMATED + pliescnt;
   } else {
     return 0;
@@ -41,7 +41,7 @@ int evaluate(int pliescnt) {
 
   MoveList pmoves;
   BitBrd pattacks;
-  genmoves(player, &pmoves, &pattacks);
+  gen_moves(player, &pmoves, &pattacks, GEN_ALL, 0);
 
   int plegal = 0;
   for (int i = 0; i < pmoves.cnt; i++) {
@@ -57,7 +57,7 @@ int evaluate(int pliescnt) {
 
   MoveList emoves;
   BitBrd eattacks;
-  genmoves(enemy, &emoves, &eattacks);
+  gen_moves(enemy, &emoves, &eattacks, GEN_ALL, 0);
 
   int pkingsqr = bbrd2sqr(g_game.pieces[player][KING]);
   int ekingsqr = bbrd2sqr(g_game.pieces[enemy][KING]);

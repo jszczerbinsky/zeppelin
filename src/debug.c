@@ -47,7 +47,7 @@ static void sendboard() {
 static void respond2getmoves() {
   MoveList movelist;
   BitBrd attacksbbrd;
-  genmoves(g_game.who2move, &movelist, &attacksbbrd);
+  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
 
   printf("[\n");
 

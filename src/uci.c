@@ -173,7 +173,7 @@ static void on_finish(const SearchInfo *si) {
 }
 
 static void respond2uci() {
-  printf("id name testengine\n");
+  printf("id name Zeppelin\n");
   printf("id author Jakub Szczerbinski\n");
 
   for (int i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
@@ -285,7 +285,7 @@ static void runperft(char *token) {
 
   MoveList movelist;
   BitBrd attacksbbrd;
-  genmoves(g_game.who2move, &movelist, &attacksbbrd);
+  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
 
   int nodes = 0;
 

@@ -1,36 +1,30 @@
 #include "main.h"
 
-#define GEN_ALL 0
-#define GEN_QUIET 1
-#define GEN_CAPT 2
-
-int sqr_attackedby(int attacker, int sqr) {
+int get_sqr_attackers_cnt(int attacker, int sqr) {
   BitBrd occ, index;
 
-  if (g_game.pieces[attacker][PAWN] & g_precomp.pawnattackmask[!attacker][sqr])
-    return 1;
+  BitBrd attackers = 0LL;
 
-  if (g_game.pieces[attacker][KNIGHT] & g_precomp.knightmask[sqr])
-    return 1;
-
-  if (g_game.pieces[attacker][KING] & g_precomp.kingmask[sqr])
-    return 1;
+  attackers |=
+      g_game.pieces[attacker][PAWN] & g_precomp.pawnattackmask[!attacker][sqr];
+  attackers |= g_game.pieces[attacker][KNIGHT] & g_precomp.knightmask[sqr];
+  attackers |= g_game.pieces[attacker][KING] & g_precomp.kingmask[sqr];
 
   occ = g_game.piecesof[ANY] & g_precomp.bishoppremask[sqr];
   index = (occ * g_precomp.bishopmagic[sqr]) >> g_precomp.bishopmagicshift[sqr];
 
-  if ((g_game.pieces[attacker][BISHOP] | g_game.pieces[attacker][QUEEN]) &
-      g_precomp.bishopmagicmoves[sqr][index])
-    return 1;
+  attackers |=
+      (g_game.pieces[attacker][BISHOP] | g_game.pieces[attacker][QUEEN]) &
+      g_precomp.bishopmagicmoves[sqr][index];
 
   occ = g_game.piecesof[ANY] & g_precomp.rookpremask[sqr];
   index = (occ * g_precomp.rookmagic[sqr]) >> g_precomp.rookmagicshift[sqr];
 
-  if ((g_game.pieces[attacker][ROOK] | g_game.pieces[attacker][QUEEN]) &
-      g_precomp.rookmagicmoves[sqr][index])
-    return 1;
+  attackers |=
+      (g_game.pieces[attacker][ROOK] | g_game.pieces[attacker][QUEEN]) &
+      g_precomp.rookmagicmoves[sqr][index];
 
-  return 0;
+  return popcnt(attackers);
 }
 
 static void gen_sliding(int player, MoveList *movelist, int piece, int type,
@@ -148,25 +142,25 @@ static void gen_king(int player, MoveList *movelist, int type,
 }
 
 static void gen_castle(int player, MoveList *movelist) {
-  if (player == WHITE && !sqr_attackedby(BLACK, W_KINGSQR)) {
+  if (player == WHITE && !get_sqr_attackers_cnt(BLACK, W_KINGSQR)) {
     if (CANCASTLE_WK(g_gamestate) && (g_game.piecesof[ANY] & 0x60ULL) == 0 &&
-        !sqr_attackedby(BLACK, W_KINGSQR + 1) &&
-        !sqr_attackedby(BLACK, W_KINGSQR + 2))
+        get_sqr_attackers_cnt(BLACK, W_KINGSQR + 1) == 0 &&
+        get_sqr_attackers_cnt(BLACK, W_KINGSQR + 2) == 0)
       pushmove(movelist, MOVE_TYPE_CASTLEWK);
     if (CANCASTLE_WQ(g_gamestate) && (g_game.piecesof[ANY] & 0xeULL) == 0 &&
-        !sqr_attackedby(BLACK, W_KINGSQR - 1) &&
-        !sqr_attackedby(BLACK, W_KINGSQR - 2))
+        get_sqr_attackers_cnt(BLACK, W_KINGSQR - 1) == 0 &&
+        get_sqr_attackers_cnt(BLACK, W_KINGSQR - 2) == 0)
       pushmove(movelist, MOVE_TYPE_CASTLEWQ);
-  } else if (player == BLACK && !sqr_attackedby(WHITE, B_KINGSQR)) {
+  } else if (player == BLACK && !get_sqr_attackers_cnt(WHITE, B_KINGSQR)) {
     if (CANCASTLE_BK(g_gamestate) &&
         (g_game.piecesof[ANY] & 0x6000000000000000ULL) == 0 &&
-        !sqr_attackedby(WHITE, B_KINGSQR + 1) &&
-        !sqr_attackedby(WHITE, B_KINGSQR + 2))
+        get_sqr_attackers_cnt(WHITE, B_KINGSQR + 1) == 0 &&
+        get_sqr_attackers_cnt(WHITE, B_KINGSQR + 2) == 0)
       pushmove(movelist, MOVE_TYPE_CASTLEBK);
     if (CANCASTLE_BQ(g_gamestate) &&
         (g_game.piecesof[ANY] & 0xe00000000000000ULL) == 0 &&
-        !sqr_attackedby(WHITE, B_KINGSQR - 1) &&
-        !sqr_attackedby(WHITE, B_KINGSQR - 2))
+        get_sqr_attackers_cnt(WHITE, B_KINGSQR - 1) == 0 &&
+        get_sqr_attackers_cnt(WHITE, B_KINGSQR - 2) == 0)
       pushmove(movelist, MOVE_TYPE_CASTLEBQ);
   }
 }
@@ -332,37 +326,24 @@ static void gen_pawnsilent(int player, MoveList *movelist) {
   }
 }
 
-void genmoves(int player, MoveList *movelist, BitBrd *attackbbrd) {
+void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int type,
+               int checks_cnt) {
   movelist->cnt = 0;
-  gen_pawnsilent(player, movelist);
-  gen_pushprom(player, movelist);
-  gen_pawncapt(player, movelist, attackbbrd);
+
   gen_king(player, movelist, GEN_ALL, attackbbrd);
-  gen_castle(player, movelist);
-  gen_knight(player, movelist, GEN_ALL, attackbbrd);
-  gen_sliding(player, movelist, ROOK, GEN_ALL, attackbbrd);
-  gen_sliding(player, movelist, BISHOP, GEN_ALL, attackbbrd);
-  gen_sliding(player, movelist, QUEEN, GEN_ALL, attackbbrd);
-}
 
-void genquiet(int player, MoveList *movelist, BitBrd *attackbbrd) {
-  movelist->cnt = 0;
-  gen_pushprom(player, movelist);
-  gen_pawnsilent(player, movelist);
-  gen_king(player, movelist, GEN_QUIET, attackbbrd);
-  gen_castle(player, movelist);
-  gen_knight(player, movelist, GEN_QUIET, attackbbrd);
-  gen_sliding(player, movelist, ROOK, GEN_QUIET, attackbbrd);
-  gen_sliding(player, movelist, BISHOP, GEN_QUIET, attackbbrd);
-  gen_sliding(player, movelist, QUEEN, GEN_QUIET, attackbbrd);
-}
-
-void gencapt(int player, MoveList *movelist, BitBrd *attackbbrd) {
-  movelist->cnt = 0;
-  gen_pawncapt(player, movelist, attackbbrd);
-  gen_king(player, movelist, GEN_CAPT, attackbbrd);
-  gen_knight(player, movelist, GEN_CAPT, attackbbrd);
-  gen_sliding(player, movelist, ROOK, GEN_CAPT, attackbbrd);
-  gen_sliding(player, movelist, BISHOP, GEN_CAPT, attackbbrd);
-  gen_sliding(player, movelist, QUEEN, GEN_CAPT, attackbbrd);
+  if (checks_cnt < 2) {
+    if (type != GEN_QUIET) {
+      gen_pawncapt(player, movelist, attackbbrd);
+    }
+    if (type != GEN_CAPT) {
+      gen_pawnsilent(player, movelist);
+      gen_pushprom(player, movelist);
+    }
+    gen_castle(player, movelist);
+    gen_knight(player, movelist, type, attackbbrd);
+    gen_sliding(player, movelist, ROOK, type, attackbbrd);
+    gen_sliding(player, movelist, BISHOP, type, attackbbrd);
+    gen_sliding(player, movelist, QUEEN, type, attackbbrd);
+  }
 }

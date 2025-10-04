@@ -181,7 +181,7 @@ void dumppos() {
 
   MoveList movelist;
   BitBrd attacksbbrd;
-  genmoves(g_game.who2move, &movelist, &attacksbbrd);
+  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
 
   fprintf(f, "\nAvailable moves:\n");
   for (int i = 0; i < movelist.cnt; i++) {

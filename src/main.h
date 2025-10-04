@@ -217,10 +217,14 @@ int getrepetitions();
 //   Move generator definitions
 // =============================
 
-void genmoves(int player, MoveList *movelist, BitBrd *attackbbrd);
-void genquiet(int player, MoveList *movelist, BitBrd *attackbbrd);
-void gencapt(int player, MoveList *movelist, BitBrd *attackbbrd);
-int sqr_attackedby(int attacker, int sqr);
+#define GEN_ALL 0
+#define GEN_QUIET 1
+#define GEN_CAPT 2
+
+// checks_cnt is optional, can use 0, but correct value will reduce time
+void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int type,
+               int checks_cnt);
+int get_sqr_attackers_cnt(int attacker, int sqr);
 
 // =============================
 //        Bitboard bits
@@ -521,17 +525,18 @@ static inline char *nexttok() { return strtok(NULL, " \n"); }
 static inline char *nexttok_untilend() { return strtok(NULL, "\n"); }
 
 static inline int lastmovelegal() {
-  return !sqr_attackedby(g_game.who2move,
-                         bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
+  return get_sqr_attackers_cnt(
+             g_game.who2move,
+             bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
 }
-static inline int undercheck() {
-  return sqr_attackedby(!g_game.who2move,
-                        bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
+static inline int get_under_check_cnt() {
+  return get_sqr_attackers_cnt(!g_game.who2move,
+                               bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
 }
 
-static inline int checking() {
-  return sqr_attackedby(g_game.who2move,
-                        bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
+static inline int giving_check_cnt() {
+  return get_sqr_attackers_cnt(g_game.who2move,
+                               bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
 static inline BitBrd rand64() { return rand() | (((BitBrd)rand()) << 32); }

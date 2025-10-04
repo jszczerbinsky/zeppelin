@@ -9,7 +9,7 @@ void perft(int depth, int *nodes, int *leafnodes) {
 
   MoveList movelist;
   BitBrd attacksbbrd;
-  genmoves(g_game.who2move, &movelist, &attacksbbrd);
+  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
 
   if (movelist.cnt == 0) {
     (*nodes)++;
