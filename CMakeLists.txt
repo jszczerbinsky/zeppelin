@@ -2,6 +2,22 @@ cmake_minimum_required(VERSION 4.0)
 
 project(zeppelin)
 
+# Determine program version
+find_package(Git)
+if(GIT_EXECUTABLE)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --tags --dirty
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	OUTPUT_VARIABLE PROGRAM_VERSION
+	RESULT_VARIABLE ERROR_CODE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endif()
+if(PROGRAM_VERSION STREQUAL "")
+	set(PROGRAM_VERSION "v0.0.0-unknown")
+endif()
+message(STATUS "Determined version: ${PROGRAM_VERSION}")
+
 # Setting target platform
 set(TARGET_PLATFORM "Linux" CACHE STRING "Target platform: Linux / Windows")
 set_property(CACHE TARGET_PLATFORM PROPERTY STRINGS "Linux" "Windows")
@@ -60,9 +76,13 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	endif()
 endif()
 
+# Defining strings
+add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
+add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
+
 # Choosing compiler flags
-set(CMAKE_C_FLAGS_DEBUG "-Wall -ggdb2 -pg -DDEBUG_INTERFACE -DTARGET_PLATFORM=${TARGET_PLATFORM}")
-set(CMAKE_C_FLAGS_RELEASE "-Wall -O3 -DTARGET_PLATFORM=${TARGET_PLATFORM}")
+set(CMAKE_C_FLAGS_DEBUG "-Wall -ggdb2 -pg -DDEBUG_INTERFACE")
+set(CMAKE_C_FLAGS_RELEASE "-Wall -O3")
 
 # Building executable
 add_executable(zeppelin ${SOURCE_FILES})

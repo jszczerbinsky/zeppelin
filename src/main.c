@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
     printhelp();
     break;
   case ARG_VER:
-    printf("Version: \n");
+    printf("Version: " PROGRAM_VERSION " for " TARGET_PLATFORM "\n");
     break;
   case ARG_DUMP_PRECOMP:
     dumpprecomp();

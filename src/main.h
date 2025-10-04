@@ -6,6 +6,14 @@
 #include <string.h>
 #include <time.h>
 
+#ifndef TARGET_PLATFORM
+#define TARGET_PLATFORM "unknown platform"
+#endif
+
+#ifndef PROGRAM_VERSION
+#define PROGRAM_VERSION "v0.0.0-unknown"
+#endif
+
 // =============================
 //         Interface
 // =============================
