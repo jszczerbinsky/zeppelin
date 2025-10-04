@@ -393,6 +393,7 @@ static const int material[] = {pawnval,   0,       knightval,
    ((score) <= -SCORE_CHECKMATE_BOUND && (score) >= -SCORE_CHECKMATE))
 
 int evaluate(int pliescnt);
+int evaluate_terminalpos(int pliescnt);
 
 // =============================
 //             Time

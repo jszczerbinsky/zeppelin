@@ -27,6 +27,14 @@ static const int rooklinewithkingval = 40;
 static const int rooksemiopenline = 100;
 static const int rookopenline = 200;
 
+int evaluate_terminalpos(int pliescnt) {
+  if (undercheck()) {
+    return SCORE_CHECKMATED + pliescnt;
+  } else {
+    return 0;
+  }
+}
+
 int evaluate(int pliescnt) {
   const int player = g_game.who2move;
   const int enemy = !player;
@@ -44,11 +52,7 @@ int evaluate(int pliescnt) {
   }
 
   if (plegal == 0) {
-    if (undercheck()) {
-      return SCORE_CHECKMATED + pliescnt;
-    } else {
-      return 0;
-    }
+    return evaluate_terminalpos(pliescnt);
   }
 
   MoveList emoves;

@@ -204,12 +204,13 @@ int quiescence(int alpha, int beta, int depthleft) {
   gencapt(g_game.who2move, &availmoves, &attackbbrd);
 
   for (int i = 0; i < availmoves.cnt; i++) {
-    if (lastmovelegal()) {
-      order(&availmoves, i, NULLMOVE);
-      Move currmove = availmoves.move[i];
+    order(&availmoves, i, NULLMOVE);
+    Move currmove = availmoves.move[i];
 
-      pushmove(&si.currline, currmove);
-      makemove(currmove);
+    pushmove(&si.currline, currmove);
+    makemove(currmove);
+
+    if (lastmovelegal()) {
       int score = -quiescence(-beta, -alpha, depthleft - 1);
       unmakemove();
       popmove(&si.currline);
@@ -219,6 +220,9 @@ int quiescence(int alpha, int beta, int depthleft) {
       }
       best = max(score, best);
       alpha = max(best, alpha);
+    } else {
+      unmakemove();
+      popmove(&si.currline);
     }
   }
   return best;
@@ -324,7 +328,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
   if (ni->legalcnt == 0) {
     ni->nodetype = NODE_GAMEFINISHED;
-    ni->score = evaluate(si.currline.cnt);
+    ni->score = evaluate_terminalpos(si.currline.cnt);
   } else {
     ni->score = score;
   }
