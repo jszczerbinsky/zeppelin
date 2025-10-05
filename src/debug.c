@@ -91,7 +91,30 @@ static void respond2getrepetitions() {
 }
 
 static void respond2eval() {
-  int score = evaluate(0);
+  MoveList movelist;
+  BitBrd attacksbbrd;
+  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
+
+  int score;
+  if (movelist.cnt == 0) {
+    score = evaluate_terminalpos(0);
+  } else {
+    int anylegal = 0;
+    for (int i = 0; i < movelist.cnt; i++) {
+      makemove(movelist.move[i]);
+      if (lastmovelegal()) {
+        anylegal = 1;
+        break;
+      }
+      unmakemove();
+    }
+    if (anylegal) {
+      score = evaluate(0);
+    } else {
+      score = evaluate_terminalpos(0);
+    }
+  }
+
   printf("{\"score\": %d}\n", score);
   finishsending();
 }

@@ -189,7 +189,17 @@ typedef struct {
 } NodeInfo;
 
 int quiescence(int alpha, int beta, int depthleft) {
-  float standpat = evaluate(si.currline.cnt);
+  MoveList availmoves;
+  BitBrd attackbbrd;
+  gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_CAPT, 0);
+
+  float standpat;
+  if (availmoves.cnt == 0) {
+    standpat = evaluate_terminalpos(si.currline.cnt);
+  } else {
+    standpat = evaluate(si.currline.cnt);
+  }
+
   int best = standpat;
   if (standpat >= beta || depthleft == 0) {
     return beta;
@@ -198,10 +208,6 @@ int quiescence(int alpha, int beta, int depthleft) {
   si.iter_visited_nodes++;
   si.search_visitednodes++;
   alpha = max(standpat, alpha);
-
-  MoveList availmoves;
-  BitBrd attackbbrd;
-  gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_CAPT, 0);
 
   for (int i = 0; i < availmoves.cnt; i++) {
     order(&availmoves, i, NULLMOVE);

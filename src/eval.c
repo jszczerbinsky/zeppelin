@@ -39,7 +39,7 @@ int evaluate(int pliescnt) {
   const int player = g_game.who2move;
   const int enemy = !player;
 
-  MoveList pmoves;
+  /*MoveList pmoves;
   BitBrd pattacks;
   gen_moves(player, &pmoves, &pattacks, GEN_ALL, 0);
 
@@ -57,14 +57,16 @@ int evaluate(int pliescnt) {
 
   MoveList emoves;
   BitBrd eattacks;
-  gen_moves(enemy, &emoves, &eattacks, GEN_ALL, 0);
+  gen_moves(enemy, &emoves, &eattacks, GEN_ALL, 0);*/
 
   int pkingsqr = bbrd2sqr(g_game.pieces[player][KING]);
   int ekingsqr = bbrd2sqr(g_game.pieces[enemy][KING]);
 
-  int value = (pmoves.cnt - emoves.cnt) * moveval;
+  int value = 0;
 
-  value += (popcnt(pattacks) - popcnt(eattacks)) * sqrattackval;
+  /*value += (pmoves.cnt - emoves.cnt) * moveval;
+
+  value += (popcnt(pattacks) - popcnt(eattacks)) * sqrattackval;*/
 
   int doubled_player = 0;
   int doubled_enemy = 0;
@@ -85,11 +87,11 @@ int evaluate(int pliescnt) {
 
   value += (doubled_player - doubled_enemy) * doubledval;
 
-  const BitBrd center = 0x1818000000ULL;
+  /*const BitBrd center = 0x1818000000ULL;
   const BitBrd excenter = 0x3c24243c0000ULL;
-  value += (popcnt(pattacks & center) - popcnt(eattacks & center)) & centerval;
-  value +=
-      (popcnt(pattacks & excenter) - popcnt(eattacks & excenter)) & excenterval;
+  value += (popcnt(pattacks & center) - popcnt(eattacks & center)) &
+  centerval; value += (popcnt(pattacks & excenter) - popcnt(eattacks &
+  excenter)) & excenterval;*/
 
   value += (popcnt(g_precomp.kingmask[pkingsqr] & g_game.piecesof[player]) -
             popcnt(g_precomp.kingmask[ekingsqr] & g_game.piecesof[enemy])) *
