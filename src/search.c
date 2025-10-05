@@ -123,6 +123,35 @@ static int iskiller(int depth, Move move) {
 
 void reset_hashtables() {}
 
+static int see(int sqr) {
+  MoveList capts;
+  BitBrd attackbbrd;
+  gen_moves(g_game.who2move, &capts, &attackbbrd, GEN_CAPT, 0);
+
+  Move lva = NULLMOVE;
+  for (int i = 0; i < capts.cnt; i++) {
+    const Move currmove = capts.move[i];
+    if (GET_DST_SQR(currmove) == sqr) {
+      if (lva == NULLMOVE) {
+        lva = currmove;
+      } else if (material[GET_MOV_PIECE(currmove)] <
+                 material[GET_MOV_PIECE(lva)]) {
+        lva = currmove;
+      }
+    }
+  }
+
+  if (lva == NULLMOVE) {
+    return 0;
+  }
+
+  makemove(lva);
+  int val = GET_CAPT_PIECE(lva) - see(sqr);
+  unmakemove();
+
+  return val > 0 ? val : 0;
+}
+
 static int get_priority(Move move, Move ttbest) {
 
   const int pvpriority = 1000000;
@@ -148,7 +177,11 @@ static int get_priority(Move move, Move ttbest) {
 
   int diff = 0;
   if (IS_CAPT(move)) {
-    diff = material[GET_CAPT_PIECE(move)] - material[GET_MOV_PIECE(move)];
+    int sqr = GET_DST_SQR(move);
+    diff = material[GET_CAPT_PIECE(move)];
+    makemove(move);
+    diff -= see(sqr);
+    unmakemove();
     isnormal = 0;
   }
 
