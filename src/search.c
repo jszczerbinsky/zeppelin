@@ -146,7 +146,10 @@ static int see(int sqr) {
   }
 
   makemove(lva);
-  int val = GET_CAPT_PIECE(lva) - see(sqr);
+  int val = 0;
+  if (lastmovelegal()) {
+    val = GET_CAPT_PIECE(lva) - see(sqr);
+  }
   unmakemove();
 
   return val > 0 ? val : 0;
@@ -180,7 +183,9 @@ static int get_priority(Move move, Move ttbest) {
     int sqr = GET_DST_SQR(move);
     diff = material[GET_CAPT_PIECE(move)];
     makemove(move);
-    diff -= see(sqr);
+    if (lastmovelegal()) {
+      diff -= see(sqr);
+    }
     unmakemove();
     isnormal = 0;
   }
