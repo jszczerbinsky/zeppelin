@@ -131,12 +131,15 @@ static int see(int sqr) {
   Move lva = NULLMOVE;
   for (int i = 0; i < capts.cnt; i++) {
     const Move currmove = capts.move[i];
+
     if (GET_DST_SQR(currmove) == sqr) {
-      if (lva == NULLMOVE) {
-        lva = currmove;
-      } else if (material[GET_MOV_PIECE(currmove)] <
-                 material[GET_MOV_PIECE(lva)]) {
-        lva = currmove;
+      if (lva == NULLMOVE ||
+          material[GET_MOV_PIECE(currmove)] < material[GET_MOV_PIECE(lva)]) {
+        makemove(currmove);
+        if (lastmovelegal()) {
+          lva = currmove;
+        }
+        unmakemove();
       }
     }
   }
@@ -146,10 +149,7 @@ static int see(int sqr) {
   }
 
   makemove(lva);
-  int val = 0;
-  if (lastmovelegal()) {
-    val = GET_CAPT_PIECE(lva) - see(sqr);
-  }
+  int val = GET_CAPT_PIECE(lva) - see(sqr);
   unmakemove();
 
   return val > 0 ? val : 0;
@@ -181,10 +181,10 @@ static int get_priority(Move move, Move ttbest) {
   int diff = 0;
   if (IS_CAPT(move)) {
     int sqr = GET_DST_SQR(move);
-    diff = material[GET_CAPT_PIECE(move)];
+    diff = 0;
     makemove(move);
     if (lastmovelegal()) {
-      diff -= see(sqr);
+      diff = material[GET_CAPT_PIECE(move)] - see(sqr);
     }
     unmakemove();
     isnormal = 0;

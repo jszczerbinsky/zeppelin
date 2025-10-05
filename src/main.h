@@ -525,6 +525,10 @@ static inline char *nexttok() { return strtok(NULL, " \n"); }
 static inline char *nexttok_untilend() { return strtok(NULL, "\n"); }
 
 static inline int lastmovelegal() {
+  if (GET_CAPT_PIECE(g_game.movelist.move[g_game.movelist.cnt - 1]) == KING) {
+    return 0;
+  }
+
   return get_sqr_attackers_cnt(
              g_game.who2move,
              bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
