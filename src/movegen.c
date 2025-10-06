@@ -3,7 +3,7 @@
 int get_sqr_attackers_cnt(int attacker, int sqr) {
   BitBrd occ, index;
 
-  BitBrd attackers = 0LL;
+  BitBrd attackers = 0ULL;
 
   attackers |=
       g_game.pieces[attacker][PAWN] & g_precomp.pawnattackmask[!attacker][sqr];

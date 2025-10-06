@@ -104,6 +104,7 @@ static void respond2eval() {
       makemove(movelist.move[i]);
       if (lastmovelegal()) {
         anylegal = 1;
+        unmakemove();
         break;
       }
       unmakemove();
