@@ -168,7 +168,7 @@ static void on_move(const SearchInfo *si, long ttused, long ttsize, int score) {
 static void on_finish(const SearchInfo *si) {
   char buff[6];
   move2str(buff, si->prev_iter_pv.move[0]);
-  printf("\nbestmove %s\n", buff);
+  printf("bestmove %s\n", buff);
   fflush(stdout);
 }
 

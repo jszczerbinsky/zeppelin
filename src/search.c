@@ -484,6 +484,46 @@ static void recoverpv(MoveList *pv, int depth) {
   }
 }
 
+static void try_recoverpv(MoveList *pv, int depth) {
+  recoverpv(pv, depth);
+
+  if (pv->cnt > 0) {
+    return;
+  }
+
+  PRINTDBG("couldnt recover from pv!");
+  fflush(stdout);
+
+  if (si.iter_bestmove != NULLMOVE) {
+    pv->cnt = 1;
+    pv->move[0] = si.iter_bestmove;
+    return;
+  }
+
+  PRINTDBG("couldnt recover from iter bestmove!");
+  BitBrd attackbbrd;
+  MoveList movelist;
+  gen_moves(g_game.who2move, &movelist, &attackbbrd, GEN_ALL, 0);
+
+  for (int i = 0; i < movelist.cnt; i++) {
+    makemove(movelist.move[i]);
+    if (lastmovelegal()) {
+      pv->cnt = 1;
+      pv->move[0] = movelist.move[i];
+      unmakemove();
+      PRINTDBG("found first legal move");
+      fflush(stdout);
+      return;
+    }
+    unmakemove();
+  }
+
+  PRINTDBG("couldnt find any legal move!");
+  fflush(stdout);
+  pv->cnt = 1;
+  pv->move[0] = NULLMOVE;
+}
+
 static void *search_subthread(void *arg) {
   int firsttime = 1;
   int lastscore = SCORE_ILLEGAL;
@@ -550,13 +590,7 @@ static void *search_subthread(void *arg) {
     lastscore = score;
 
     MoveList pv = {0};
-    recoverpv(&pv, depth);
-    if (pv.cnt == 0) {
-      PRINTDBG("couldnt recover from pv!");
-      fflush(stdout);
-      pv.cnt = 1;
-      pv.move[0] = si.iter_bestmove;
-    }
+    try_recoverpv(&pv, depth);
 
     memcpy(&si.prev_iter_pv, &pv, sizeof(MoveList));
     ON_ITERFINISH(score);
@@ -579,17 +613,18 @@ static void *supervisor_subthread(void *arg) {
     if (si.finished) {
       break;
     }
+    // todo PRINTDBG needs lock
     if (ss.timelimit != TIME_FOREVER &&
         difftime(clock() / CLOCKS_PER_MS, start_time) >= ss.timelimit) {
-      PRINTDBG("cancelling on time");
+      // PRINTDBG("cancelling on time");
       break;
     }
     if (ss.nodeslimit != 0 && si.iter_visited_nodes >= ss.nodeslimit) {
-      PRINTDBG("canceling on nodes limit");
+      // PRINTDBG("canceling on nodes limit");
       break;
     }
     if (manualstop) {
-      PRINTDBG("canceling on time");
+      // PRINTDBG("canceling on time");
       break;
     }
 

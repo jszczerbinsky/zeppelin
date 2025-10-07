@@ -1,12 +1,13 @@
 import json
 import subprocess
 import sys 
+from enum import Enum
 
 class Engine:
-
     def __init__(self, exepath):
         self.subproc = subprocess.Popen(exepath, text=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         self.send_nores("debug\n")
+        self.loadfen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
 
     def send_nores(self, cmd):
         self.subproc.stdin.write(cmd + '\n')
@@ -53,6 +54,12 @@ class Engine:
 
     def eval(self):
         return self.send('eval')['score']
+
+    def setweight(self, index, value):
+        res = self.send('setweight ' + str(index) + " " + str(value))
+        if res['status'] != 'ok':
+            raise Exception("Couldn't set weight " +str(index)+": " + res['status'])
+            
 
     def getscoreinfo(self, score):
         return self.send('getscoreinfo ' + str(score))['type']

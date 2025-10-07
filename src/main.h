@@ -286,6 +286,8 @@ int get_sqr_attackers_cnt(int attacker, int sqr);
 #define ADIAG_14 0x8000000000000000ULL
 
 #define CENTER ((FILE_D | FILE_E) & (RANK_4 | RANK_5))
+#define CENTER16                                                               \
+  ((FILE_C | FILE_D | FILE_E | FILE_F) & (RANK_3 | RANK_4 | RANK_5 | RANK_6))
 
 #define W_KINGSQR 4
 #define B_KINGSQR 60
@@ -376,6 +378,11 @@ BitBrd gethash();
 // =============================
 //          Evaluation
 // =============================
+
+#define PATTERNS_SIZE 426
+extern int eval_weights[PATTERNS_SIZE];
+
+int loadweights();
 
 static const int pawnval = 100;
 static const int knightval = 300;
@@ -494,11 +501,19 @@ static inline int sqr2diag(int sqr) { return (sqr / 8) - (sqr % 8) + 7; }
 
 static inline int sqr2antidiag(int sqr) { return (sqr / 8) + (sqr % 8); }
 
+#define bbrdflipv(bbrd) (__builtin_bswap64(bbrd))
+
 static inline int equals(const char *s1, const char *s2) {
   return strcmp(s1, s2) == 0;
 }
 
 #define popcnt(bbrd) (__builtin_popcountl(bbrd))
+
+#define nearby(bbrd)                                                           \
+  ((bbrd << 8) | (bbrd >> 8) | ((bbrd & ~FILE_H) << 1) |                       \
+   ((bbrd & ~FILE_A) >> 1) | ((bbrd & ~FILE_H) << 9) |                         \
+   ((bbrd & ~FILE_H) >> 7) | ((bbrd & ~FILE_A) << 7) |                         \
+   ((bbrd & ~FILE_A) >> 9))
 
 /*static inline int popcnt(BitBrd bbrd) {
   int cnt = 0;
