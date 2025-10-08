@@ -16,7 +16,7 @@ import cairosvg
 import io
 import shutil
 
-from Engine import Engine
+from Zeppelin import ZeppelinWithDebug
 
 WEIGHTS_SIZE = 426
 LEARNING_RATE = 10
@@ -25,7 +25,7 @@ class Instance:
     def __init__(self) -> None:
         self.weights = [0 for x in range(WEIGHTS_SIZE)]
         self.dir = dir
-        self.engine = Engine("../build/zeppelin")
+        self.engine = ZeppelinWithDebug()
         self.last_mutation = None
 
     def randomize_one(self):
@@ -121,7 +121,7 @@ inst.load()
 inst.save_weights()
 
 # by dataset
-DATASET_MAX_ROWS = 100000
+DATASET_MAX_ROWS = 200000
 
 supervising_engine = chess.engine.SimpleEngine.popen_uci(sys.argv[1])
 
