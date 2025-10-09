@@ -16,18 +16,19 @@ import cairosvg
 import io
 import shutil
 from tqdm import tqdm 
+from concurrent.futures import ThreadPoolExecutor
 
 from Zeppelin import ZeppelinWithDebug
 
 WEIGHTS_SIZE = 468
 LEARNING_RATE = 10
+THREADS_MAX = 8
 
 class Instance:
     def __init__(self) -> None:
         self.weights = [0 for x in range(WEIGHTS_SIZE)]
         self.dir = dir
         self.engine = ZeppelinWithDebug()
-        self.last_mutation = None
 
     def randomize_one(self):
         self.weights[random.randint(0, WEIGHTS_SIZE - 1)] = random.randint(-400, 400)
@@ -74,34 +75,23 @@ class Instance:
         self.weights[index] = value
         self.engine.setweight(index, value)
 
-    def mutate(self, count, last_time_worked):
-        mutation_to_do = None
-        if last_time_worked:
-            mutation_to_do = self.last_mutation
-            count = 1
-
-        self.last_mutation = []
+    def mutate(self, count):
         for i in range(count):
-            if mutation_to_do is not None:
-                index = mutation_to_do[0][0]
-                value = mutation_to_do[0][1]
+            if len(self.potential_uninitialized) > 0:
+                index = random.choice(self.potential_uninitialized)
+                self.potential_uninitialized.remove(index)
             else:
-                if len(self.potential_uninitialized) > 0:
-                    index = random.choice(self.potential_uninitialized)
-                    self.potential_uninitialized.remove(index)
-                else:
-                    index = random.randint(0, WEIGHTS_SIZE - 1)
-                add = random.randint(-LEARNING_RATE, LEARNING_RATE)
-                if add == 0:
-                    add = random.choice([-1,1])
-                value = self.weights[index] + add 
-                if value > 1000:
-                    value = 1000
-                elif value < -1000:
-                    value = -1000
+                index = random.randint(0, WEIGHTS_SIZE - 1)
+            add = random.randint(-LEARNING_RATE, LEARNING_RATE)
+            if add == 0:
+                add = random.choice([-1,1])
+            value = self.weights[index] + add 
+            if value > 1000:
+                value = 1000
+            elif value < -1000:
+                value = -1000
 
             self.set_weight(index, value)
-            self.last_mutation.append((index, value))
 
     def scale_all(self):
         factor = random.uniform(0.95,1.05)
@@ -117,9 +107,9 @@ class Instance:
         return Y_pred
 
 
-inst = Instance()
-inst.load()
-inst.save_weights()
+best_inst = Instance()
+best_inst.load()
+best_inst.save_weights()
 
 # by dataset
 DATASET_MAX_ROWS = 200000
@@ -158,47 +148,46 @@ with open('dataset.csv', newline='') as csvfile:
 
 print('dataset ready')
 
-Y_pred = inst.eval(X)
+Y_pred = best_inst.eval(X)
 best_mae = 0
 for i in range(DATASET_MAX_ROWS):
     diff = Y[i] - Y_pred[i]
     best_mae += abs(diff / Y[i])
 best_mae = best_mae * 100 / DATASET_MAX_ROWS
 
-new_inst = Instance()
+new_insts = [Instance() for x in range(THREADS_MAX)]
 
-last_time_worked = False
-
-while True:
-    scaled = False
-    new_inst.copyfrom(inst)
+def get_inst_results(inst: Instance):
+    inst.copyfrom(best_inst)
     if random.randint(0,3) == 1:
-        new_inst.scale_all()
-        scaled = True
-    new_inst.mutate(random.randint(1, 3), last_time_worked)
+        inst.scale_all()
+    inst.mutate(random.randint(1, 3))
 
-    Y_pred = new_inst.eval(X)
+    Y_pred = inst.eval(X)
     mae = 0
     for i in range(DATASET_MAX_ROWS):
         diff = Y[i] - Y_pred[i]
         mae += abs(diff / Y[i])
     mae = mae * 100 / DATASET_MAX_ROWS
 
-    if mae < best_mae:
-        mut_str = ""
-        if last_time_worked:
-            mut_str = "by repeating the previous mutation"
-            if scaled:
-                mut_str += " and scaling"
-        elif scaled:
-            mut_str = "by scaling"
-        print("Found new mae: " + str(mae) + "% " + mut_str)
-        inst.copyfrom(new_inst)
-        inst.save_weights()
-        best_mae = mae
-        last_time_worked = True
-    else:
-        last_time_worked = False
+    return (inst, mae)
+
+
+while True:
+    with ThreadPoolExecutor(max_workers=THREADS_MAX) as exec:
+        results = list(exec.map(get_inst_results, new_insts))
+
+    best_result = None
+
+    for result in results:
+        if result[1] < best_mae:
+            best_mae = result[1]
+            best_result = result
+        
+    if best_result is not None:
+        print("Found new best mae: " + str(best_result[1]) + "%")
+        best_inst.copyfrom(best_result[0])
+        best_inst.save_weights()
 
     sys.stdout.flush()
 
