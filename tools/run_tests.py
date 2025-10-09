@@ -188,10 +188,19 @@ try:
     EvalTest(engine, '4k3/8/8/8/8/8/5PPP/2r3K1 w - - 0 1', 'mated')
     EvalTest(engine, '3R4/8/8/8/6B1/4N2K/2qqq3/2qkq3 b - - 0 1', 'mated')
     #EvalTest(engine, '4k3/8/8/8/8/8/5PPP/6K1 w - - 0 1', 'advantage')
-    EvalTest(engine, 'k6R/ppp5/8/8/8/1r6/r7/3K4 b - - 2 1 ', 'mated')
+    EvalTest(engine, 'k6R/ppp5/8/8/8/1r6/r7/3K4 b - - 2 1', 'mated')
     #EvalTest(engine, '8/3PP1P1/2K5/8/3p4/1p2k3/8/8 w - - 0 1', 'advantage')
     #EvalTest(engine, '4k3/8/8/8/8/8/8/6K1 w - - 0 1', 'draw') #todo
     #EvalTest(engine, '8/3n4/2K5/4k3/6N1/8/8/8 w - - 0 1', 'draw') #todo
+
+    EvalSymmetryTest(engine, '8/3PP1P1/2K5/8/3p4/1p2k3/8/8 w - - 0 1')
+    EvalSymmetryTest(engine, 'r3k1nr/pp3p1p/2npbbp1/q1p1p3/2B1Q3/3PPN2/PPP2PPP/RNB2RK1 b kq - 4 11')
+    EvalSymmetryTest(engine, 'K5k1/8/8/8/8/8/b7/8 w - - 0 1')
+    EvalSymmetryTest(engine, '8/P4pk1/PBp5/1q4P1/p3b1K1/n2p4/p7/1BN5 w - - 0 1')
+    EvalSymmetryTest(engine, 'r3k2r/1b4bq/8/8/8/8/7B/R2K3R b kq - 1 1')
+    EvalSymmetryTest(engine, '1K6/8/7r/6P1/7b/1Bk2pP1/8/8 w - - 0 1')
+    EvalSymmetryTest(engine, '2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1')
+    EvalSymmetryTest(engine, 'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0')
     
     PerftTest(engine, '4k3/8/8/8/8/8/5PPP/2r3K1 w - - 0 1', [0])
     PerftTest(engine, 'r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2', [8])

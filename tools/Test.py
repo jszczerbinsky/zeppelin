@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import override
 
 from Zeppelin import ZeppelinWithDebug
+from FEN import FENBuilder
 
 
 class TestFailedException(Exception):
@@ -140,6 +141,25 @@ class EvalTest(AbstractTest):
             return False
 
         return True
+
+class EvalSymmetryTest(AbstractTest):
+    def __init__(self, engine: ZeppelinWithDebug, fen: str):
+        super().__init__(engine, "Eval Symmetry", fen)
+        self.fen = fen
+        self.ready()
+
+    @override
+    def perform_test(self) -> bool:
+        self.engine.loadfen(self.fen)
+        eval1 = self.engine.eval()
+        fen2 = FENBuilder(self.fen).switch_player().get()
+        self.engine.loadfen(fen2)
+        eval2 = self.engine.eval()
+        if eval1 != -eval2:
+            self.set_failinfo("eval2", str(-eval1), str(eval2))
+            return False
+        return True
+
 
 class PerftTest(AbstractTest):
     def __init__(self, engine, fen, exp_counts):
