@@ -379,7 +379,7 @@ BitBrd gethash();
 //          Evaluation
 // =============================
 
-#define PATTERNS_SIZE 426
+#define PATTERNS_SIZE 468
 extern int eval_weights[PATTERNS_SIZE];
 
 int loadweights();

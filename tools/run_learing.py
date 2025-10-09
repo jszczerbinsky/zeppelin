@@ -15,10 +15,11 @@ import tkinter as tk
 import cairosvg
 import io
 import shutil
+from tqdm import tqdm 
 
 from Zeppelin import ZeppelinWithDebug
 
-WEIGHTS_SIZE = 426
+WEIGHTS_SIZE = 468
 LEARNING_RATE = 10
 
 class Instance:
@@ -131,28 +132,29 @@ loaded_rows = 0
 with open('dataset.csv', newline='') as csvfile:
     reader = csv.reader(csvfile, delimiter=',')
     next(reader)
-    for row in reader:
-        if loaded_rows >= DATASET_MAX_ROWS:
-            break
-        if row[1].startswith("#"):
-            continue
-        if abs(int(row[1])) < 10:
-            continue
+    with tqdm(total=DATASET_MAX_ROWS, desc='Loading dataset', unit='rows') as progress:
+        for row in reader:
+            if loaded_rows >= DATASET_MAX_ROWS:
+                break
+            if row[1].startswith("#"):
+                continue
+            if abs(int(row[1])) < 10:
+                continue
 
-        board = chess.Board(row[0])
-        eval = supervising_engine.analyse(board, chess.engine.Limit(depth=1))['score']
-        if board.turn == chess.WHITE:
-            eval = eval.white().score()
-        else:
-            eval = eval.black().score()
-        if eval is None:
-            continue
-        if abs(eval) < 10:
-            continue
-        X.append(row[0])
-        Y.append(eval)
-        loaded_rows += 1
-        print("Loading dataset " + str(loaded_rows) + "/" + str(DATASET_MAX_ROWS))
+            board = chess.Board(row[0])
+            eval = supervising_engine.analyse(board, chess.engine.Limit(depth=1))['score']
+            if board.turn == chess.WHITE:
+                eval = eval.white().score()
+            else:
+                eval = eval.black().score()
+            if eval is None:
+                continue
+            if abs(eval) < 10:
+                continue
+            X.append(row[0])
+            Y.append(eval)
+            loaded_rows += 1
+            progress.update(1)
 
 print('dataset ready')
 
