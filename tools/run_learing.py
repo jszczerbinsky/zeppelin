@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from Zeppelin import ZeppelinWithDebug
 
-WEIGHTS_SIZE = 468
+WEIGHTS_SIZE = 3 * 468
 LEARNING_RATE = 10
 THREADS_MAX = 8
 
@@ -112,7 +112,7 @@ best_inst.load()
 best_inst.save_weights()
 
 # by dataset
-DATASET_MAX_ROWS = 200000
+DATASET_MAX_ROWS = 100000
 
 supervising_engine = chess.engine.SimpleEngine.popen_uci(sys.argv[1])
 

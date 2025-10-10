@@ -2,7 +2,8 @@
 
 #include "main.h"
 
-int eval_weights[PATTERNS_SIZE] = {0};
+// every 3 rows: opening, middlegame, endgame
+int eval_weights[PATTERNS_SIZE * 3] = {0};
 
 static BitBrd _patterns[PATTERNS_SIZE];
 
@@ -30,13 +31,11 @@ typedef struct {
   // player
   const BitBrd *ppieces;
   const BitBrd pallpieces;
-  const MoveList *pmoves;
   const BitBrd pattacks;
 
   // enemy
   const BitBrd *epieces;
   const BitBrd eallpieces;
-  const MoveList *emoves;
   const BitBrd eattacks;
 } EvalSideArgs;
 
@@ -166,9 +165,19 @@ static int _eval_side(const EvalSideArgs *args) {
   // undefended pieces not under attack [1]
   _patterns[x++] = (~args->pattacks) & args->pallpieces & (~args->eattacks);
 
+  int offset;
+  switch (g_gamestate->phase) {
+  case PHASE_OPENING:
+    offset = 0;
+  case PHASE_MIDDLEGAME:
+    offset = 1;
+  case PHASE_ENDGAME:
+    offset = 2;
+  }
+
   int sum = 0;
   for (int i = 0; i < PATTERNS_SIZE; i++) {
-    sum += popcnt(_patterns[i]) * eval_weights[i];
+    sum += popcnt(_patterns[i]) * eval_weights[3 * i + offset];
   }
 
   return sum;
@@ -177,43 +186,41 @@ static int _eval_side(const EvalSideArgs *args) {
 int evaluate(int pliescnt) {
   int value = 0;
 
-  BitBrd flipped_piece[PIECE_MAX];
-  BitBrd flipped;
-  BitBrd eflipped_piece[PIECE_MAX];
-  BitBrd eflipped;
-  flipped = bbrdflipv(g_game.piecesof[BLACK]);
-  eflipped = bbrdflipv(g_game.piecesof[WHITE]);
-  for (int i = 0; i < PIECE_MAX; i++) {
-    flipped_piece[i] = bbrdflipv(g_game.pieces[BLACK][i]);
-    eflipped_piece[i] = bbrdflipv(g_game.pieces[WHITE][i]);
-  }
-
   BitBrd wattacks, battacks;
   MoveList wmoves, bmoves;
   gen_moves(WHITE, &wmoves, &wattacks, GEN_ALL, 0);
   gen_moves(BLACK, &bmoves, &battacks, GEN_ALL, 0);
 
+  BitBrd bflipped_piece[PIECE_MAX];
+  BitBrd bflipped;
+  BitBrd wflipped_piece[PIECE_MAX];
+  BitBrd wflipped;
+  BitBrd wattacks_flipped = bbrdflipv(wattacks);
+  BitBrd battacks_flipped = bbrdflipv(battacks);
+  bflipped = bbrdflipv(g_game.piecesof[BLACK]);
+  wflipped = bbrdflipv(g_game.piecesof[WHITE]);
+  for (int i = 0; i < PIECE_MAX; i++) {
+    bflipped_piece[i] = bbrdflipv(g_game.pieces[BLACK][i]);
+    wflipped_piece[i] = bbrdflipv(g_game.pieces[WHITE][i]);
+  }
+
   EvalSideArgs wargs = {
       .pcolor = WHITE,
       .ppieces = g_game.pieces[WHITE],
       .pallpieces = g_game.piecesof[WHITE],
-      .pmoves = &wmoves,
       .pattacks = wattacks,
       .epieces = g_game.pieces[BLACK],
       .eallpieces = g_game.piecesof[BLACK],
-      .emoves = &bmoves,
       .eattacks = battacks,
   };
   EvalSideArgs bargs = {
       .pcolor = BLACK,
-      .ppieces = flipped_piece,
-      .pallpieces = flipped,
-      .pmoves = &bmoves,
-      .pattacks = battacks,
-      .epieces = eflipped_piece,
-      .eallpieces = eflipped,
-      .emoves = &wmoves,
-      .eattacks = wattacks,
+      .ppieces = bflipped_piece,
+      .pallpieces = bflipped,
+      .pattacks = battacks_flipped,
+      .epieces = wflipped_piece,
+      .eallpieces = wflipped,
+      .eattacks = wattacks_flipped,
   };
 
   value += _eval_side(&wargs) - _eval_side(&bargs);
@@ -240,7 +247,7 @@ int loadweights() {
   if (!in)
     return 0;
 
-  fread(eval_weights, sizeof(int), PATTERNS_SIZE, in);
+  fread(eval_weights, sizeof(int), PATTERNS_SIZE * 3, in);
 
   fclose(in);
 

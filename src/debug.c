@@ -123,7 +123,7 @@ static void respond2eval() {
 static void respond2setweight(char *index, char *value) {
   int i = atoi(index);
 
-  if (i < 0 || i >= PATTERNS_SIZE) {
+  if (i < 0 || i >= PATTERNS_SIZE * 3) {
     printf("{\"status\": \"Weight index out of range\"}\n");
     finishsending();
     return;

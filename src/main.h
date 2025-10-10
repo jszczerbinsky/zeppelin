@@ -182,13 +182,17 @@ static inline int containsmove(const MoveList *moves, Move m) {
 
 #define FEN_STR_MAX 59
 
+#define PHASE_OPENING 0
+#define PHASE_MIDDLEGAME 1
+#define PHASE_ENDGAME 2
+
 typedef struct {
   int halfmove;
   int fullmove;
   uint8_t flags;
   BitBrd epbbrd;
   BitBrd hash;
-  int isendgame;
+  int phase;
 } GameState;
 
 typedef struct {
@@ -380,7 +384,7 @@ BitBrd gethash();
 // =============================
 
 #define PATTERNS_SIZE 468
-extern int eval_weights[PATTERNS_SIZE];
+extern int eval_weights[PATTERNS_SIZE * 3];
 
 int loadweights();
 

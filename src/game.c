@@ -61,7 +61,7 @@ void reset_game() {
 
   init_bbrds();
   g_gamestate->hash = gethash();
-  g_gamestate->isendgame = 0;
+  g_gamestate->phase = PHASE_OPENING;
 }
 
 char *parsefen(char *fen) {
@@ -215,11 +215,13 @@ char *parsefen(char *fen) {
   g_gamestate->fullmove = fullmov;
   g_gamestate->hash = gethash();
 
-  g_gamestate->isendgame =
-      0 == g_game.pieces[WHITE][BISHOP] + g_game.pieces[BLACK][BISHOP] +
-               g_game.pieces[WHITE][KNIGHT] + g_game.pieces[BLACK][KNIGHT] +
-               g_game.pieces[WHITE][ROOK] + g_game.pieces[BLACK][ROOK] +
-               g_game.pieces[WHITE][QUEEN] + g_game.pieces[BLACK][QUEEN];
+  if (popcnt(g_game.piecesof[ANY]) <= 6) {
+    g_gamestate->phase = PHASE_ENDGAME;
+  } else if (g_gamestate->fullmove <= 10) {
+    g_gamestate->phase = PHASE_OPENING;
+  } else {
+    g_gamestate->phase = PHASE_MIDDLEGAME;
+  }
 
   init_bbrds();
 
@@ -659,13 +661,13 @@ void makemove(Move move) {
     break;
   }
 
-  /*newgamestate->isendgame =
-      0 == g_game.pieces[WHITE][BISHOP] + g_game.pieces[BLACK][BISHOP] +
-               g_game.pieces[WHITE][KNIGHT] + g_game.pieces[BLACK][KNIGHT] +
-               g_game.pieces[WHITE][ROOK] + g_game.pieces[BLACK][ROOK] +
-               g_game.pieces[WHITE][QUEEN] + g_game.pieces[BLACK][QUEEN];*/
-
-  newgamestate->isendgame = popcnt(g_game.piecesof[ANY]) <= 6;
+  if (popcnt(g_game.piecesof[ANY]) <= 6) {
+    newgamestate->phase = PHASE_ENDGAME;
+  } else if (newgamestate->fullmove <= 10) {
+    newgamestate->phase = PHASE_OPENING;
+  } else {
+    newgamestate->phase = PHASE_MIDDLEGAME;
+  }
 
   g_game.movelist.move[g_game.movelist.cnt] = move;
   g_game.movelist.cnt++;

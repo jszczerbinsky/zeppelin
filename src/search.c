@@ -331,7 +331,8 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       si.currext += ext;
       int movescore;
-      int pvsallowed = i > 0 && !g_set.disbl_pvs && !g_gamestate->isendgame;
+      int pvsallowed =
+          i > 0 && !g_set.disbl_pvs && g_gamestate->phase != PHASE_ENDGAME;
       if (pvsallowed) {
         movescore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - red - 1);
       }
