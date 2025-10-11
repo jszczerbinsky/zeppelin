@@ -110,7 +110,7 @@ static void respond2eval() {
       unmakemove();
     }
     if (anylegal) {
-      score = evaluate(0);
+      score = evaluate();
     } else {
       score = evaluate_terminalpos(0);
     }
@@ -228,7 +228,7 @@ void debug_start() {
   int quit = 0;
 
   while (!quit) {
-    if (fgets(buff, buffsize, stdin) == NULL)
+    if (fgets(buff, (int)buffsize, stdin) == NULL)
       quit = 1;
     else
       quit = next_cmd(buff);

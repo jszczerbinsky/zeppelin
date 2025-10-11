@@ -99,8 +99,9 @@ add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
 add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
 
 # Choosing compiler flags
-set(CMAKE_C_FLAGS_DEBUG "-Wall -ggdb2 -pg -DDEBUG_INTERFACE")
-set(CMAKE_C_FLAGS_RELEASE "-Wall -O3")
+set(WARN_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
+set(CMAKE_C_FLAGS_DEBUG "${WARN_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE")
+set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3")
 
 # Building executable
 add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ})

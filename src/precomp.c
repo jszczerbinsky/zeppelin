@@ -48,11 +48,11 @@ static void savefile() {
   fwrite(&g_precomp.bishopmagic, sizeof(BitBrd), 64, out);
 
   for (int i = 0; i < 64; i++) {
-    int cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
+    size_t cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
     fwrite(g_precomp.rookmagicmoves[i], sizeof(BitBrd), cnt, out);
   }
   for (int i = 0; i < 64; i++) {
-    int cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
+    size_t cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
     fwrite(g_precomp.bishopmagicmoves[i], sizeof(BitBrd), cnt, out);
   }
 
@@ -324,7 +324,7 @@ static void update_magicmoves_for(int piece, int sqr) {
   BitBrd premask =
       piece == ROOK ? g_precomp.rookpremask[sqr] : g_precomp.bishoppremask[sqr];
 
-  int arrsize = 1 << (64 - shift);
+  size_t arrsize = 1 << (64 - shift);
 
   if (piece == ROOK) {
     if (file_loaded)
@@ -437,7 +437,7 @@ static void gen_magic() {
 void usemagic(const char *numstr) {
   file_loaded = 1;
 
-  BitBrd num = strtoll(numstr, NULL, 16);
+  BitBrd num = (BitBrd)strtoll(numstr, NULL, 16);
 
   if (num == 0) {
     fprintf(stderr, "Specified number format is incorrect\n");
@@ -534,7 +534,7 @@ int loadprecomp() {
   ptr += sizeof(BitBrd) * 64;
 
   for (int i = 0; i < 64; i++) {
-    int cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
+    size_t cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
 
     g_precomp.rookmagicmoves[i] = malloc(cnt * sizeof(BitBrd));
 
@@ -542,7 +542,7 @@ int loadprecomp() {
     ptr += sizeof(BitBrd) * cnt;
   }
   for (int i = 0; i < 64; i++) {
-    int cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
+    size_t cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
 
     g_precomp.bishopmagicmoves[i] = malloc(cnt * sizeof(BitBrd));
 

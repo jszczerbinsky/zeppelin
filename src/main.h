@@ -30,9 +30,9 @@ void uci_start();
 #ifdef DEBUG_INTERFACE
 void debug_start();
 extern void (*g_printdbg)(const char *format, ...);
-#define PRINTDBG(args...) (g_printdbg ? (*g_printdbg)(args) : "")
+#define PRINTDBG(...) (g_printdbg ? (*g_printdbg)(__VA_ARGS__) : (void)0)
 #else
-#define PRINTDBG(args...)
+#define PRINTDBG(...)
 #endif
 
 typedef struct {
@@ -44,7 +44,7 @@ typedef struct {
 
   int print_currline;
 
-  long ttbytes;
+  size_t ttbytes;
 } Settings;
 
 extern Settings g_set;
@@ -98,7 +98,7 @@ typedef uint32_t Move;
 #define MOVE_TYPE_DOUBLEPUSH 0b00000001001000000000000000000000UL
 #define MOVE_TYPE_NORMAL 0b00000001010000000000000000000000UL
 
-#define NULLMOVE 0
+#define NULLMOVE 0U
 
 #define GET_SRC_SQR(m) ((int)((m) & MOVE_SRC_SQR_MASK))
 #define GET_DST_SQR(m) (((int)((m) & MOVE_DST_SQR_MASK) >> 6))
@@ -166,10 +166,10 @@ static inline int containsmove(const MoveList *moves, Move m) {
 #define BLACK 1
 #define ANY 2
 
-#define GAME_F_CANCASTLE_WK 1
-#define GAME_F_CANCASTLE_WQ 2
-#define GAME_F_CANCASTLE_BK 4
-#define GAME_F_CANCASTLE_BQ 8
+#define GAME_F_CANCASTLE_WK 1U
+#define GAME_F_CANCASTLE_WQ 2U
+#define GAME_F_CANCASTLE_BK 4U
+#define GAME_F_CANCASTLE_BQ 8U
 
 #define GAME_F_DEFAULT                                                         \
   (GAME_F_CANCASTLE_WK | GAME_F_CANCASTLE_WQ | GAME_F_CANCASTLE_BK |           \
@@ -407,7 +407,7 @@ static const int material[] = {pawnval,   0,       knightval,
   (((score) >= SCORE_CHECKMATE_BOUND && (score) <= SCORE_CHECKMATE) ||         \
    ((score) <= -SCORE_CHECKMATE_BOUND && (score) >= -SCORE_CHECKMATE))
 
-int evaluate(int pliescnt);
+int evaluate();
 int evaluate_terminalpos(int pliescnt);
 
 // =============================
@@ -458,11 +458,11 @@ typedef struct {
   int nodeslimit;
   MoveList specificmoves;
   void (*on_finish)(const SearchInfo *si);
-  void (*on_rootmove)(const SearchInfo *si, long ttused, long ttsize,
+  void (*on_rootmove)(const SearchInfo *si, size_t ttused, size_t ttsize,
                       int score);
-  void (*on_nonrootmove)(const SearchInfo *si, long ttused, long ttsize,
+  void (*on_nonrootmove)(const SearchInfo *si, size_t ttused, size_t ttsize,
                          int score);
-  void (*on_iterfinish)(const SearchInfo *si, long ttused, long ttsize,
+  void (*on_iterfinish)(const SearchInfo *si, size_t ttused, size_t ttsize,
                         int score);
 } SearchSettings;
 
@@ -472,12 +472,9 @@ typedef struct {
 
 #define NODES_INF 0
 
-#define STOP_MANUAL 0
-#define STOP_TIME 1
-
 void reset_hashtables();
 void search(const SearchSettings *ss);
-void stop(int origin);
+void stop();
 int calcnps();
 
 // =============================
@@ -497,7 +494,7 @@ void perft(int depth, int *nodes, int *leafnodes);
 //           Utils
 // =============================
 
-#define bbrd2sqr(bbrd) (__builtin_ffsll(bbrd) - 1)
+#define bbrd2sqr(bbrd) (__builtin_ffsll((long long)bbrd) - 1)
 
 #define sqr2bbrd(sqr) (1ULL << (BitBrd)(sqr))
 
@@ -511,7 +508,7 @@ static inline int equals(const char *s1, const char *s2) {
   return strcmp(s1, s2) == 0;
 }
 
-#define popcnt(bbrd) (__builtin_popcountl(bbrd))
+#define popcnt(bbrd) (__builtin_popcountll(bbrd))
 
 #define nearby(bbrd)                                                           \
   ((bbrd << 8) | (bbrd >> 8) | ((bbrd & ~FILE_H) << 1) |                       \
@@ -562,6 +559,8 @@ static inline int giving_check_cnt() {
                                bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
-static inline BitBrd rand64() { return rand() | (((BitBrd)rand()) << 32); }
+static inline BitBrd rand64() {
+  return (BitBrd)rand() | (((BitBrd)rand()) << 32);
+}
 
 #endif

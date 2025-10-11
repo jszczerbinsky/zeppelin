@@ -1,7 +1,8 @@
 #include "main.h"
 
-long getsearchtime(long wtime, long btime, long winc, long binc) {
-  int ptime;
+long getsearchtime(long wtime, long btime, long winc __attribute__((unused)),
+                   long binc __attribute__((unused))) {
+  long ptime;
 
   if (g_game.who2move == WHITE) {
     ptime = wtime;

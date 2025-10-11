@@ -169,10 +169,13 @@ static int _eval_side(const EvalSideArgs *args) {
   switch (g_gamestate->phase) {
   case PHASE_OPENING:
     offset = 0;
+    break;
   case PHASE_MIDDLEGAME:
     offset = 1;
+    break;
   case PHASE_ENDGAME:
     offset = 2;
+    break;
   }
 
   int sum = 0;
@@ -183,7 +186,7 @@ static int _eval_side(const EvalSideArgs *args) {
   return sum;
 }
 
-int evaluate(int pliescnt) {
+int evaluate() {
   int value = 0;
 
   BitBrd wattacks, battacks;

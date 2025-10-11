@@ -5,13 +5,14 @@
 
 #include "main.h"
 
-#define ON_FINISH() (ss.on_finish ? (*ss.on_finish)(&si) : "")
+#define ON_FINISH() (ss.on_finish ? (*ss.on_finish)(&si) : (void)0)
 #define ON_ROOTMOVE(score)                                                     \
-  (ss.on_rootmove ? (*ss.on_rootmove)(&si, ttused, ttsize, score) : "")
+  (ss.on_rootmove ? (*ss.on_rootmove)(&si, ttused, ttsize, score) : (void)0)
 #define ON_NONROOTMOVE(score)                                                  \
-  (ss.on_nonrootmove ? (*ss.on_nonrootmove)(&si, ttused, ttsize, score) : "")
+  (ss.on_nonrootmove ? (*ss.on_nonrootmove)(&si, ttused, ttsize, score)        \
+                     : (void)0)
 #define ON_ITERFINISH(score)                                                   \
-  (ss.on_iterfinish ? (*ss.on_iterfinish)(&si, ttused, ttsize, score) : "")
+  (ss.on_iterfinish ? (*ss.on_iterfinish)(&si, ttused, ttsize, score) : (void)0)
 
 #define MIN_PRIORITY (-99999)
 
@@ -34,8 +35,8 @@ typedef struct {
 } TT;
 
 static TT *tt = NULL;
-static int ttsize;
-static int ttused = 0;
+static size_t ttsize;
+static size_t ttused = 0;
 
 static SearchInfo si;
 static SearchSettings ss;
@@ -92,10 +93,10 @@ int min(int a, int b) {
 int calcnps() {
   clock_t now = clock();
 
-  double seconds = (now - si.nps_lastcalc) / (double)CLOCKS_PER_SEC;
-  int nodesdiff = si.search_visitednodes; //- si.nps_lastnodes;
+  double seconds = (double)(now - si.nps_lastcalc) / (double)CLOCKS_PER_SEC;
+  long nodesdiff = si.search_visitednodes; //- si.nps_lastnodes;
 
-  int nps = nodesdiff / seconds;
+  int nps = (int)((double)nodesdiff / seconds);
 
   // si.nps_lastnodes = si.search_visitednodes;
   // si.nps_lastcalc = clock();
@@ -227,15 +228,18 @@ typedef struct {
 } NodeInfo;
 
 int quiescence(int alpha, int beta, int depthleft) {
+  si.iter_visited_nodes++;
+  si.search_visitednodes++;
+
   MoveList availmoves;
   BitBrd attackbbrd;
   gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_CAPT, 0);
 
-  float standpat;
+  int standpat;
   if (availmoves.cnt == 0) {
     standpat = evaluate_terminalpos(si.currline.cnt);
   } else {
-    standpat = evaluate(si.currline.cnt);
+    standpat = evaluate();
   }
 
   int best = standpat;
@@ -243,8 +247,6 @@ int quiescence(int alpha, int beta, int depthleft) {
     return beta;
   }
 
-  si.iter_visited_nodes++;
-  si.search_visitednodes++;
   alpha = max(standpat, alpha);
 
   for (int i = 0; i < availmoves.cnt; i++) {
@@ -284,8 +286,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   int under_check_cnt = get_under_check_cnt();
 
   if (!g_set.disbl_nmp && under_check_cnt == 0 && si.currline.cnt > 3 &&
-      si.currline.move[si.currline.cnt - 1] != NULLMOVE &&
-      evaluate(si.currline.cnt) >= beta) {
+      si.currline.move[si.currline.cnt - 1] != NULLMOVE && evaluate() >= beta) {
     makemove(NULLMOVE);
     pushmove(&si.currline, NULLMOVE);
     int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3);
@@ -385,6 +386,9 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 }
 
 int negamax(int alpha, int beta, int depthleft) {
+  si.iter_visited_nodes++;
+  si.search_visitednodes++;
+
   const BitBrd hash = g_gamestate->hash;
 
   if (abort_search) {
@@ -428,9 +432,6 @@ int negamax(int alpha, int beta, int depthleft) {
     return quiescence(alpha, beta, 4);
   }
 
-  si.iter_visited_nodes++;
-  si.search_visitednodes++;
-
   NodeInfo ni;
   analyze_node(&ni, depthleft, &alpha, beta, ttbest);
 
@@ -472,11 +473,11 @@ static void search_finish() {
 }
 
 static void recoverpv(MoveList *pv, int depth) {
-  const TT *tt = ttread(g_gamestate->hash, depth);
+  const TT *ttentry = ttread(g_gamestate->hash, depth);
 
-  if (tt && tt->bestmove != NULLMOVE) {
-    pushmove(pv, tt->bestmove);
-    makemove(tt->bestmove);
+  if (ttentry && ttentry->bestmove != NULLMOVE) {
+    pushmove(pv, ttentry->bestmove);
+    makemove(ttentry->bestmove);
 
     if (getrepetitions() < 3) {
       recoverpv(pv, depth - 1);
@@ -525,7 +526,7 @@ static void try_recoverpv(MoveList *pv, int depth) {
   pv->move[0] = NULLMOVE;
 }
 
-static void *search_subthread(void *arg) {
+static void *search_subthread(void *arg __attribute__((unused))) {
   int firsttime = 1;
   int lastscore = SCORE_ILLEGAL;
 
@@ -605,7 +606,7 @@ static void *search_subthread(void *arg) {
   return 0;
 }
 
-static void *supervisor_subthread(void *arg) {
+static void *supervisor_subthread(void *arg __attribute__((unused))) {
   clock_t start_time = clock() / CLOCKS_PER_MS;
 
   pthread_create(&search_thread, NULL, search_subthread, NULL);
@@ -656,7 +657,7 @@ void search(const SearchSettings *settings) {
   pthread_create(&supervisor_thread, NULL, supervisor_subthread, NULL);
 }
 
-void stop(int origin) {
+void stop() {
   PRINTDBG("canceling manually");
   fflush(stdout);
   manualstop = 1;
