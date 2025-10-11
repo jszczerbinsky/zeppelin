@@ -174,7 +174,7 @@ static void on_finish(const SearchInfo *si) {
 }
 
 static void respond2uci() {
-  printf("id name Zeppelin\n");
+  printf("id name Zeppelin " PROGRAM_VERSION "\n");
   printf("id author Jakub Szczerbinski\n");
 
   for (size_t i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
