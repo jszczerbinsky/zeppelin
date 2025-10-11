@@ -94,7 +94,11 @@ int calcnps() {
   clock_t now = clock();
 
   double seconds = (double)(now - si.nps_lastcalc) / (double)CLOCKS_PER_SEC;
-  long nodesdiff = si.search_visitednodes; //- si.nps_lastnodes;
+  long nodesdiff = si.iter_visited_nodes; //- si.nps_lastnodes;
+                                          //
+  if (seconds < 0.001 || nodesdiff < 1) {
+    return 0;
+  }
 
   int nps = (int)((double)nodesdiff / seconds);
 
@@ -228,9 +232,6 @@ typedef struct {
 } NodeInfo;
 
 int quiescence(int alpha, int beta, int depthleft) {
-  si.iter_visited_nodes++;
-  si.search_visitednodes++;
-
   MoveList availmoves;
   BitBrd attackbbrd;
   gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_CAPT, 0);
@@ -246,6 +247,9 @@ int quiescence(int alpha, int beta, int depthleft) {
   if (standpat >= beta || depthleft == 0) {
     return beta;
   }
+
+  si.iter_visited_nodes++;
+  si.search_visitednodes++;
 
   alpha = max(standpat, alpha);
 
@@ -386,9 +390,6 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 }
 
 int negamax(int alpha, int beta, int depthleft) {
-  si.iter_visited_nodes++;
-  si.search_visitednodes++;
-
   const BitBrd hash = g_gamestate->hash;
 
   if (abort_search) {
@@ -423,6 +424,9 @@ int negamax(int alpha, int beta, int depthleft) {
       }
     }
   }
+
+  si.iter_visited_nodes++;
+  si.search_visitednodes++;
 
   if (si.currline.cnt > si.iter_highest_depth) {
     si.iter_highest_depth = si.currline.cnt;
