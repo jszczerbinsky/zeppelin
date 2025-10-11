@@ -60,6 +60,24 @@ endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 
+# Embedding binary files
+set(EMBEDDED_PRECOMPUTED_FILE precomputed.bin)
+set(EMBEDDED_PRECOMPUTED_OBJ ${CMAKE_CURRENT_BINARY_DIR}/precomputed.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_PRECOMPUTED_OBJ}
+	COMMAND ld -r -b binary ${EMBEDDED_PRECOMPUTED_FILE} -o ${EMBEDDED_PRECOMPUTED_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+
+set(EMBEDDED_WEIGHTS_FILE weights.bin)
+set(EMBEDDED_WEIGHTS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/weights.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_WEIGHTS_OBJ}
+	COMMAND ld -r -b binary ${EMBEDDED_WEIGHTS_FILE} -o ${EMBEDDED_WEIGHTS_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+
+
 # Choosing (cross) compiler 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	if(TARGET_PLATFORM STREQUAL "Linux")
@@ -81,11 +99,12 @@ add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
 add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
 
 # Choosing compiler flags
-set(CMAKE_C_FLAGS_DEBUG "-Wall -ggdb2 -pg -DDEBUG_INTERFACE")
-set(CMAKE_C_FLAGS_RELEASE "-Wall -O3")
+set(WARN_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
+set(CMAKE_C_FLAGS_DEBUG "${WARN_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE")
+set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3")
 
 # Building executable
-add_executable(zeppelin ${SOURCE_FILES})
+add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ})
 
 # Unit tests
 find_package(Python3 REQUIRED)
@@ -93,6 +112,6 @@ find_package(Python3 REQUIRED)
 enable_testing()
 
 add_test(
-	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/run_tests.py ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/zeppelin${CMAKE_EXECUTABLE_SUFFIX}
-	WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/run_tests.py
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tools/
 )

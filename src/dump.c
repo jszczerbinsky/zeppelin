@@ -50,7 +50,7 @@ static void printbrd(FILE *f, const char str[64][2]) {
 static void printsection(FILE *f, const char *name) {
   fprintf(f, "==============================\n");
 
-  int namelen = strlen(name);
+  int namelen = (int)strlen(name);
   int leftpad = 30 / 2 - namelen / 2;
 
   for (int i = 0; i < leftpad; i++)
@@ -96,7 +96,7 @@ static void dumpprecomp_magic(FILE *f, BitBrd magic[64], int shift[64],
     do {
       subset = nextsubset(subset, premask[sqr]);
 
-      int index = (subset * magic[sqr]) >> shift[sqr];
+      int index = (int)((subset * magic[sqr]) >> shift[sqr]);
 
       for (int i = 0; i < 64; i++) {
         if (i == sqr) {

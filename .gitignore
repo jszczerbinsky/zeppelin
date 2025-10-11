@@ -2,6 +2,10 @@ build/*
 *.out
 *.log
 *.bin
+!/res/*.bin
+*.o
+*.csv
+.~lock*
 dump-*
 tags
 *.taghl

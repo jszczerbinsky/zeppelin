@@ -134,11 +134,11 @@ static void printscore(int score) {
   }
 }
 
-static void on_iterfinish(const SearchInfo *si, long ttused, long ttsize,
+static void on_iterfinish(const SearchInfo *si, size_t ttused, size_t ttsize,
                           int score) {
-  long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
+  size_t hashfull = (ttused * 1000UL) / ttsize;
 
-  printf("info depth %d seldepth %d nps %d tbhits %d hashfull %ld nodes %ld ",
+  printf("info depth %d seldepth %d nps %d tbhits %d hashfull %zu nodes %ld ",
          si->iter_depth, si->iter_highest_depth, calcnps(), si->iter_tbhits,
          hashfull, si->iter_visited_nodes);
   printscore(score);
@@ -148,7 +148,8 @@ static void on_iterfinish(const SearchInfo *si, long ttused, long ttsize,
   fflush(stdout);
 }
 
-static void on_move(const SearchInfo *si, long ttused, long ttsize, int score) {
+static void on_move(const SearchInfo *si, size_t ttused, size_t ttsize,
+                    int score) {
   long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
 
   printf("info nodes %ld currmove %s currmovenumber %d nps %d hashfull %ld ",
@@ -168,15 +169,15 @@ static void on_move(const SearchInfo *si, long ttused, long ttsize, int score) {
 static void on_finish(const SearchInfo *si) {
   char buff[6];
   move2str(buff, si->prev_iter_pv.move[0]);
-  printf("\nbestmove %s\n", buff);
+  printf("bestmove %s\n", buff);
   fflush(stdout);
 }
 
 static void respond2uci() {
-  printf("id name Zeppelin\n");
+  printf("id name Zeppelin " PROGRAM_VERSION "\n");
   printf("id author Jakub Szczerbinski\n");
 
-  for (int i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
+  for (size_t i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
     const UciOpt *opt = opts + i;
 
     switch (opt->opttype) {
@@ -202,7 +203,7 @@ static void respond2setoption(char *token) {
 
   token = nexttok();
 
-  for (int i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
+  for (size_t i = 0; i < sizeof(opts) / sizeof(UciOpt); i++) {
     const UciOpt *opt = opts + i;
 
     if (equals(token, opt->optname)) {
@@ -274,7 +275,7 @@ static void respond2isready() {
   fflush(stdout);
 }
 
-static void respond2stop() { stop(STOP_MANUAL); }
+static void respond2stop() { stop(); }
 
 static void runperft(char *token) {
   if (!token) {
@@ -307,7 +308,8 @@ static void runperft(char *token) {
 
 static void respond2go(char *token) {
   if (token && equals(token, "perft")) {
-    return runperft(nexttok());
+    runperft(nexttok());
+    return;
   }
 
   SearchSettings ss;
@@ -326,7 +328,7 @@ static void respond2go(char *token) {
 
   int depth = DEPTH_INF;
   int nodes = 0;
-  int ponder = 0;
+  // int ponder = 0;
 
   int readingmoves = 0;
   while (token) {
@@ -455,7 +457,7 @@ void uci_start() {
   int quit = 0;
 
   while (!quit) {
-    if (fgets(buff, buffsize, stdin) == NULL)
+    if (fgets(buff, (int)buffsize, stdin) == NULL)
       quit = 1;
     else {
       // todo check if all string fit in the buff

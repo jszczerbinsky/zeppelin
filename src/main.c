@@ -91,7 +91,7 @@ static void choose_protocol() {
   int quit = 0;
 
   while (!quit) {
-    char *res = fgets(buff, buffsize, stdin);
+    char *res = fgets(buff, (int)buffsize, stdin);
 
     if (res == NULL) {
       quit = 1;
@@ -127,12 +127,16 @@ static int getarg(const char *argv) {
 }
 
 int main(int argc, char **argv) {
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
   inithash();
   reset_hashtables();
   if (argc == 1) {
     if (!loadprecomp()) {
       fprintf(stderr, "ERROR precomp file not found, aborting...\n");
+      return 1;
+    }
+    if (!loadweights()) {
+      fprintf(stderr, "ERROR weights file not found, aborting...\n");
       return 1;
     }
 

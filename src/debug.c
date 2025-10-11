@@ -104,18 +104,33 @@ static void respond2eval() {
       makemove(movelist.move[i]);
       if (lastmovelegal()) {
         anylegal = 1;
+        unmakemove();
         break;
       }
       unmakemove();
     }
     if (anylegal) {
-      score = evaluate(0);
+      score = evaluate();
     } else {
       score = evaluate_terminalpos(0);
     }
   }
 
   printf("{\"score\": %d}\n", score);
+  finishsending();
+}
+
+static void respond2setweight(char *index, char *value) {
+  int i = atoi(index);
+
+  if (i < 0 || i >= PATTERNS_SIZE * 3) {
+    printf("{\"status\": \"Weight index out of range\"}\n");
+    finishsending();
+    return;
+  }
+
+  eval_weights[i] = atoi(value);
+  printf("{\"status\": \"ok\"}\n");
   finishsending();
 }
 
@@ -166,7 +181,11 @@ static int next_cmd(char *buff) {
     respond2getrepetitions();
   else if (equals(token, "perft"))
     respond2perft(nexttok());
-  else if (equals(token, "eval"))
+  else if (equals(token, "setweight")) {
+    char *arg1 = nexttok();
+    char *arg2 = nexttok();
+    respond2setweight(arg1, arg2);
+  } else if (equals(token, "eval"))
     respond2eval();
   else if (equals(token, "getscoreinfo"))
     respond2getscoreinfo(atoi(nexttok()));
@@ -209,7 +228,7 @@ void debug_start() {
   int quit = 0;
 
   while (!quit) {
-    if (fgets(buff, buffsize, stdin) == NULL)
+    if (fgets(buff, (int)buffsize, stdin) == NULL)
       quit = 1;
     else
       quit = next_cmd(buff);
