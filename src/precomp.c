@@ -4,6 +4,9 @@
 
 #include "main.h"
 
+extern const unsigned char _binary_precomputed_bin_start[];
+extern const unsigned char _binary_precomputed_bin_end[];
+
 #define GEN_NORMAL 0
 #define GEN_HUNT 1
 
@@ -498,42 +501,54 @@ void huntmagic() {
 }
 
 int loadprecomp() {
-  FILE *in = fopen("precomputed.bin", "rb");
-  if (!in)
-    return 0;
+  const unsigned char *ptr = _binary_precomputed_bin_start;
 
-  fread(&g_precomp.knightmask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.kingmask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.bishoppremask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.bishoppostmask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.rookpremask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.rookpostmask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.queenpremask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.queenpostmask, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.pawnattackmask[WHITE], sizeof(BitBrd), 64, in);
-  fread(&g_precomp.pawnattackmask[BLACK], sizeof(BitBrd), 64, in);
+  memcpy(&g_precomp.knightmask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.kingmask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.bishoppremask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.bishoppostmask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.rookpremask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.rookpostmask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.queenpremask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.queenpostmask, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.pawnattackmask[WHITE], ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.pawnattackmask[BLACK], ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
 
-  fread(&g_precomp.rookmagicshift, sizeof(int), 64, in);
-  fread(&g_precomp.bishopmagicshift, sizeof(int), 64, in);
-  fread(&g_precomp.rookmagic, sizeof(BitBrd), 64, in);
-  fread(&g_precomp.bishopmagic, sizeof(BitBrd), 64, in);
+  memcpy(&g_precomp.rookmagicshift, ptr, sizeof(int) * 64);
+  ptr += sizeof(int) * 64;
+  memcpy(&g_precomp.bishopmagicshift, ptr, sizeof(int) * 64);
+  ptr += sizeof(int) * 64;
+  memcpy(&g_precomp.rookmagic, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
+  memcpy(&g_precomp.bishopmagic, ptr, sizeof(BitBrd) * 64);
+  ptr += sizeof(BitBrd) * 64;
 
   for (int i = 0; i < 64; i++) {
     int cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
 
     g_precomp.rookmagicmoves[i] = malloc(cnt * sizeof(BitBrd));
 
-    fread(g_precomp.rookmagicmoves[i], sizeof(BitBrd), cnt, in);
+    memcpy(g_precomp.rookmagicmoves[i], ptr, sizeof(BitBrd) * cnt);
+    ptr += sizeof(BitBrd) * cnt;
   }
   for (int i = 0; i < 64; i++) {
     int cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
 
     g_precomp.bishopmagicmoves[i] = malloc(cnt * sizeof(BitBrd));
 
-    fread(g_precomp.bishopmagicmoves[i], sizeof(BitBrd), cnt, in);
+    memcpy(g_precomp.bishopmagicmoves[i], ptr, sizeof(BitBrd) * cnt);
+    ptr += sizeof(BitBrd) * cnt;
   }
-
-  fclose(in);
 
   return 1;
 }

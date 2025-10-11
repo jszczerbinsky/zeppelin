@@ -1,6 +1,6 @@
-#include <stdio.h>
-
 #include "main.h"
+
+extern const unsigned char _binary_weights_bin_start[];
 
 // every 3 rows: opening, middlegame, endgame
 int eval_weights[PATTERNS_SIZE * 3] = {0};
@@ -243,13 +243,9 @@ int evaluate_terminalpos(int pliescnt) {
 }
 
 int loadweights() {
-  FILE *in = fopen("weights.bin", "rb");
-  if (!in)
-    return 0;
 
-  fread(eval_weights, sizeof(int), PATTERNS_SIZE * 3, in);
-
-  fclose(in);
+  memcpy(eval_weights, _binary_weights_bin_start,
+         sizeof(int) * PATTERNS_SIZE * 3);
 
   return 1;
 }
