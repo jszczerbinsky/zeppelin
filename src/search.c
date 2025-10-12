@@ -1,3 +1,4 @@
+#include <math.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
@@ -330,25 +331,32 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       int new_under_check_cnt = get_under_check_cnt();
 
       int ext = 0;
-      if (si.currext < 3 && depthleft == 1 && new_under_check_cnt > 0)
-        ext++;
-      int red = 0;
-      if (!g_set.disbl_lmr && si.currline.cnt > 3 && !IS_CAPT(currmove) &&
-          new_under_check_cnt == 0 && ni->legalcnt > 6) {
-        red++;
+      if (depthleft == 1 && new_under_check_cnt > 0) {
+        ext += 1;
       }
 
-      si.currext += ext;
+      if (!g_set.disbl_lmr && ext == 0 && depthleft > 3 && !IS_CAPT(currmove) &&
+          ni->legalcnt > 4) {
+        if (IS_SILENT(currmove)) {
+          ext -= (int)(0.8 + (log(depthleft) * log(ni->legalcnt - 3) / 2));
+        } else {
+          ext -= (int)(0.2 + (log(depthleft) * log(ni->legalcnt - 3) / 4));
+        }
+      }
+
       int movescore;
       int pvsallowed =
           i > 0 && !g_set.disbl_pvs && g_gamestate->phase != PHASE_ENDGAME;
       if (pvsallowed) {
-        movescore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - red - 1);
+        movescore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1);
       }
       if (!pvsallowed || (movescore > *alpha && movescore < beta)) {
-        movescore = -negamax(-beta, -*alpha, depthleft + ext - red - 1);
+        movescore = -negamax(-beta, -*alpha, depthleft + ext - 1);
       }
-      si.currext -= ext;
+
+      if (ext < 0 && movescore > *alpha) {
+        movescore = -negamax(-beta, -*alpha, depthleft - 1);
+      }
 
       if (si.currline.cnt == 1) {
         move2str(si.rootmove_str, ni->availmoves.move[i]);
@@ -369,7 +377,6 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
         }
 
         ni->nodetype = NODE_FAILH;
-        // ni->score = beta;
         ni->score = score;
         return;
       }
@@ -547,7 +554,6 @@ static void *search_subthread(void *arg __attribute__((unused))) {
     si.nps_lastnodes = 0;
     si.nps_lastcalc = clock();
     si.rootmove_n = 0;
-    si.currext = 0;
     si.iter_depth = depth;
     memset(&si.iter_killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
 

@@ -432,7 +432,6 @@ typedef struct {
   int root_nodetype;
 
   MoveList currline;
-  int currext;
 
   long search_visitednodes;
 
