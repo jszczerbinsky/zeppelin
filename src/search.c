@@ -634,12 +634,12 @@ static void *supervisor_subthread(void *arg __attribute__((unused))) {
       break;
     }
 
-    usleep(10);
+    usleep(1000);
   }
   fflush(stdout);
 
   while (si.prev_iter_pv.cnt == 0) {
-    usleep(10);
+    usleep(1000);
   }
 
   // pthread_cancel(search_thread);
