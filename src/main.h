@@ -549,6 +549,12 @@ static inline int lastmovelegal() {
              g_game.who2move,
              bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
 }
+
+static inline int possible_zugzwang() {
+  return (g_game.piecesof[ANY] & ~g_game.pieces[ANY][PAWN] &
+          ~g_game.pieces[ANY][KING]) > 0ULL;
+}
+
 static inline int get_under_check_cnt() {
   return get_sqr_attackers_cnt(!g_game.who2move,
                                bbrd2sqr(g_game.pieces[g_game.who2move][KING]));

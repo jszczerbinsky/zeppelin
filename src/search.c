@@ -20,6 +20,7 @@
 #define NODE_FAILH 1
 #define NODE_FAILL 2
 #define NODE_GAMEFINISHED 3
+#define NODE_SELECTIVELY_PRUNED 4
 
 #define TT_EXACT 0
 #define TT_LOWERBOUND 1
@@ -287,18 +288,21 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   ni->bestmove = NULLMOVE;
   int score = SCORE_ILLEGAL;
 
+  int stat_eval = evaluate();
   int under_check_cnt = get_under_check_cnt();
+  Move last_move = si.currline.move[si.currline.cnt - 1];
 
-  if (!g_set.disbl_nmp && under_check_cnt == 0 && si.currline.cnt > 3 &&
-      si.currline.move[si.currline.cnt - 1] != NULLMOVE && evaluate() >= beta) {
+  if (!g_set.disbl_nmp && g_gamestate->phase != PHASE_ENDGAME &&
+      !possible_zugzwang() && under_check_cnt == 0 && si.currline.cnt != 0 &&
+      depthleft > 3 && last_move != NULLMOVE && stat_eval >= beta) {
     makemove(NULLMOVE);
     pushmove(&si.currline, NULLMOVE);
-    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 3);
+    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 2);
     popmove(&si.currline);
     unmakemove();
 
     if (nmpscore >= beta) {
-      ni->nodetype = 17;
+      ni->nodetype = NODE_SELECTIVELY_PRUNED;
       ni->score = beta;
       return;
     }
@@ -634,12 +638,12 @@ static void *supervisor_subthread(void *arg __attribute__((unused))) {
       break;
     }
 
-    usleep(10);
+    usleep(1000);
   }
   fflush(stdout);
 
   while (si.prev_iter_pv.cnt == 0) {
-    usleep(10);
+    usleep(1000);
   }
 
   // pthread_cancel(search_thread);
