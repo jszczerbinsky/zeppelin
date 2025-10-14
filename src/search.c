@@ -236,7 +236,7 @@ typedef struct {
 int quiescence(int alpha, int beta, int depthleft) {
   MoveList availmoves;
   BitBrd attackbbrd;
-  gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_CAPT, 0);
+  gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_ALL, 0);
 
   int standpat;
   if (availmoves.cnt == 0) {
@@ -258,6 +258,10 @@ int quiescence(int alpha, int beta, int depthleft) {
   for (int i = 0; i < availmoves.cnt; i++) {
     order(&availmoves, i, NULLMOVE);
     Move currmove = availmoves.move[i];
+
+    if (!IS_CAPT(currmove)) {
+      continue;
+    }
 
     pushmove(&si.currline, currmove);
     makemove(currmove);

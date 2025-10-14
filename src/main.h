@@ -226,7 +226,7 @@ int getrepetitions();
 #define GEN_CAPT 2
 
 // checks_cnt is optional, can use 0, but correct value will reduce time
-void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int type,
+void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int movetype,
                int checks_cnt);
 int get_sqr_attackers_cnt(int attacker, int sqr);
 

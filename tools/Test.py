@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import override
+import chess
 
 from Zeppelin import ZeppelinWithDebug
 from FEN import FENBuilder
@@ -108,7 +109,7 @@ class UnmakeMoveTest(AbstractTest):
     @override
     def perform_test(self) -> bool:
         self.engine.loadfen(self.fen)
-        moves = self.engine.getmoves()
+        moves = self.engine.getmoves('all')
 
         for move in moves:
             before = self.engine.getboard()
@@ -207,4 +208,36 @@ class RepetitionDetectionTest(AbstractTest):
 
         return True
 
+class GenMovesTest(AbstractTest):
+    def __init__(self, engine: ZeppelinWithDebug, fen: str):
+        super().__init__(engine, "Gen Moves", fen)
+        self.fen = fen
+        self.ready()
+
+    def _check_same(self, moves: list, board_moves: list, name: str):
+        if(sorted(moves) != sorted(board_moves)):
+            self.set_failinfo(name, sorted(board_moves), sorted(moves))
+            return False
+        return True
+
+    def perform_test(self) -> bool:
+        self.engine.loadfen(self.fen)
+        all = self.engine.getmoves('all')
+        capts = self.engine.getmoves('captures')
+        quiet = self.engine.getmoves('quiet')
+
+        board = chess.Board(self.fen)
+
+        board_all = [str(m) for m in list(board.generate_legal_moves())]
+        board_capts = [str(m) for m in list(board.generate_legal_captures())]
+        board_quiet = [m for m in board_all if m not in board_capts]
+
+        if not self._check_same(all, board_all, "all"):
+            return False
+        if not self._check_same(capts, board_capts, "captures"):
+            return False
+        if not self._check_same(quiet, board_quiet, "quiet"):
+            return False
+
+        return True
 

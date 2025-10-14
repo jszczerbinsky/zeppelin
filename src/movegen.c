@@ -132,9 +132,11 @@ static void gen_king(int player, MoveList *movelist, int type,
         move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
         pushmove(movelist, move);
       }
-    } else if (type != GEN_CAPT) {
-      move |= MOVE_TYPE_NORMAL;
-      pushmove(movelist, move);
+    } else {
+      if (type != GEN_CAPT) {
+        move |= MOVE_TYPE_NORMAL;
+        pushmove(movelist, move);
+      }
     }
 
     poss_dstbbrd &= ~dstbbrd;
@@ -326,24 +328,25 @@ static void gen_pawnsilent(int player, MoveList *movelist) {
   }
 }
 
-void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int type,
+void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int movetype,
                int checks_cnt) {
   movelist->cnt = 0;
+  *attackbbrd = 0;
 
-  gen_king(player, movelist, GEN_ALL, attackbbrd);
+  gen_king(player, movelist, movetype, attackbbrd);
 
   if (checks_cnt < 2) {
-    if (type != GEN_QUIET) {
+    if (movetype != GEN_QUIET) {
       gen_pawncapt(player, movelist, attackbbrd);
     }
-    if (type != GEN_CAPT) {
+    if (movetype != GEN_CAPT) {
       gen_pawnsilent(player, movelist);
       gen_pushprom(player, movelist);
+      gen_castle(player, movelist);
     }
-    gen_castle(player, movelist);
-    gen_knight(player, movelist, type, attackbbrd);
-    gen_sliding(player, movelist, ROOK, type, attackbbrd);
-    gen_sliding(player, movelist, BISHOP, type, attackbbrd);
-    gen_sliding(player, movelist, QUEEN, type, attackbbrd);
+    gen_knight(player, movelist, movetype, attackbbrd);
+    gen_sliding(player, movelist, ROOK, movetype, attackbbrd);
+    gen_sliding(player, movelist, BISHOP, movetype, attackbbrd);
+    gen_sliding(player, movelist, QUEEN, movetype, attackbbrd);
   }
 }
