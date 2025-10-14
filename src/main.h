@@ -409,6 +409,7 @@ static const int material[] = {pawnval,   0,       knightval,
 
 int evaluate();
 int evaluate_terminalpos(int pliescnt);
+int evaluate_material();
 
 // =============================
 //             Time

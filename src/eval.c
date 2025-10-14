@@ -245,6 +245,16 @@ int evaluate_terminalpos(int pliescnt) {
   }
 }
 
+int evaluate_material() {
+  int value = 0;
+  for (int p = 0; p < PIECE_MAX; p++) {
+    value += (popcnt(g_game.pieces[g_game.who2move][p]) -
+              popcnt(g_game.pieces[!g_game.who2move][p])) *
+             material[p];
+  }
+  return value;
+}
+
 int loadweights() {
 
   memcpy(eval_weights, _binary_weights_bin_start,

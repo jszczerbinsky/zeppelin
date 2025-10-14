@@ -245,7 +245,6 @@ int quiescence(int alpha, int beta, int depthleft) {
     standpat = evaluate();
   }
 
-  int best = standpat;
   if (standpat >= beta || depthleft == 0) {
     return beta;
   }
@@ -274,14 +273,13 @@ int quiescence(int alpha, int beta, int depthleft) {
       if (score >= beta) {
         return beta;
       }
-      best = max(score, best);
-      alpha = max(best, alpha);
+      alpha = max(score, alpha);
     } else {
       unmakemove();
       popmove(&si.currline);
     }
   }
-  return best;
+  return alpha;
 }
 
 int negamax(int alpha, int beta, int depthleft);
@@ -332,13 +330,22 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
     if (lastmovelegal()) {
       ni->legalcnt++;
 
+      int movescore = 0;
+      int fullsearch = 1;
       int new_under_check_cnt = get_under_check_cnt();
 
+      int pvsallowed =
+          i > 0 && !g_set.disbl_pvs && g_gamestate->phase != PHASE_ENDGAME;
+      int fpallowed =
+          depthleft == 1 && !IS_CAPT(currmove) && new_under_check_cnt == 0;
+
+      // Extensions
       int ext = 0;
       if (depthleft == 1 && new_under_check_cnt > 0) {
         ext += 1;
       }
 
+      // LMR
       if (!g_set.disbl_lmr && ext == 0 && depthleft > 3 && !IS_CAPT(currmove) &&
           ni->legalcnt > 4) {
         if (IS_SILENT(currmove)) {
@@ -348,18 +355,34 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
         }
       }
 
-      int movescore;
-      int pvsallowed =
-          i > 0 && !g_set.disbl_pvs && g_gamestate->phase != PHASE_ENDGAME;
-      if (pvsallowed) {
-        movescore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1);
-      }
-      if (!pvsallowed || (movescore > *alpha && movescore < beta)) {
-        movescore = -negamax(-beta, -*alpha, depthleft + ext - 1);
+      // Futility Pruning
+      if (fpallowed && ext <= 0) {
+        if (-evaluate_material() < *alpha - 100) {
+          movescore = *alpha;
+          pvsallowed = 0;
+          fullsearch = 0;
+        }
       }
 
-      if (ext < 0 && movescore > *alpha) {
-        movescore = -negamax(-beta, -*alpha, depthleft - 1);
+      // PVS
+      if (pvsallowed) {
+        int pvsscore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1);
+
+        if (pvsscore <= *alpha) {
+          fullsearch = 0;
+          movescore = pvsscore;
+        }
+      }
+
+      // Full search if required
+      if (fullsearch) {
+        movescore = -negamax(-beta, -*alpha, depthleft + ext - 1);
+
+        if (ext < 0 && movescore > *alpha) {
+          // reduced move raised alpha
+          // re-search without reductions
+          movescore = -negamax(-beta, -*alpha, depthleft - 1);
+        }
       }
 
       if (si.currline.cnt == 1) {
