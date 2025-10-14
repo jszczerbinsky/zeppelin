@@ -412,7 +412,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   int rep = getrepetitions();
-  if (rep >= 2) {
+  if (rep >= 1) {
     return 0;
   }
 
@@ -495,10 +495,9 @@ static void recoverpv(MoveList *pv, int depth) {
   const TT *ttentry = ttread(g_gamestate->hash, depth);
 
   if (ttentry && ttentry->bestmove != NULLMOVE) {
-    pushmove(pv, ttentry->bestmove);
     makemove(ttentry->bestmove);
-
-    if (getrepetitions() < 3) {
+    if (getrepetitions() < 2) {
+      pushmove(pv, ttentry->bestmove);
       recoverpv(pv, depth - 1);
     }
     unmakemove();
