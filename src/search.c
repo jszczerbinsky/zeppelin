@@ -156,7 +156,10 @@ static int see(int sqr) {
   }
 
   makemove(lva);
-  int val = GET_CAPT_PIECE(lva) - see(sqr);
+  int val = material[GET_CAPT_PIECE(lva)] - see(sqr);
+  if (IS_PROM(lva)) {
+    val += material[GET_PROM_PIECE(lva)] - 1;
+  }
   unmakemove();
 
   return val > 0 ? val : 0;
@@ -183,8 +186,6 @@ static int get_priority(Move move, Move ttbest) {
     return killerpriority;
   }
 
-  int isnormal = 1;
-
   int diff = 0;
   if (IS_CAPT(move)) {
     int sqr = GET_DST_SQR(move);
@@ -192,21 +193,20 @@ static int get_priority(Move move, Move ttbest) {
     makemove(move);
     if (lastmovelegal()) {
       diff = material[GET_CAPT_PIECE(move)] - see(sqr);
+      if (IS_PROM(move)) {
+        diff += material[GET_PROM_PIECE(move)] - 1;
+      }
     }
     unmakemove();
-    isnormal = 0;
+    return captpriority + diff;
   }
 
   if (IS_PROM(move)) {
     diff += material[GET_PROM_PIECE(move)];
-    isnormal = 0;
+    return captpriority + diff;
   }
 
-  if (isnormal) {
-    return normalpriority;
-  }
-
-  return captpriority + diff;
+  return normalpriority;
 }
 
 static void order(MoveList *movelist, int curr, Move ttbest) {
