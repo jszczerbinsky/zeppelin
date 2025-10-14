@@ -233,7 +233,7 @@ typedef struct {
   int score;
 } NodeInfo;
 
-int quiescence(int alpha, int beta, int depthleft) {
+int quiescence(int alpha, int beta) {
   MoveList availmoves;
   BitBrd attackbbrd;
   gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_ALL, 0);
@@ -245,8 +245,17 @@ int quiescence(int alpha, int beta, int depthleft) {
     standpat = evaluate();
   }
 
-  if (standpat >= beta || depthleft == 0) {
+  if (standpat >= beta) {
     return beta;
+  }
+
+  int deltaallowed = g_gamestate->phase != PHASE_ENDGAME;
+
+  if (deltaallowed) {
+    int delta = material[QUEEN];
+    if (standpat < alpha - delta) {
+      return alpha;
+    }
   }
 
   si.iter_visited_nodes++;
@@ -266,7 +275,7 @@ int quiescence(int alpha, int beta, int depthleft) {
     makemove(currmove);
 
     if (lastmovelegal()) {
-      int score = -quiescence(-beta, -alpha, depthleft - 1);
+      int score = -quiescence(-beta, -alpha);
       unmakemove();
       popmove(&si.currline);
 
@@ -471,7 +480,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   if (depthleft <= 0) {
-    return quiescence(alpha, beta, 4);
+    return quiescence(alpha, beta);
   }
 
   NodeInfo ni;
