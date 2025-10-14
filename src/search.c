@@ -412,7 +412,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   int rep = getrepetitions();
-  if (rep >= 1) {
+  if (rep >= 1 || g_gamestate->halfmove >= 100) {
     return 0;
   }
 
@@ -496,7 +496,7 @@ static void recoverpv(MoveList *pv, int depth) {
 
   if (ttentry && ttentry->bestmove != NULLMOVE) {
     makemove(ttentry->bestmove);
-    if (getrepetitions() < 2) {
+    if (g_gamestate->halfmove < 100 && getrepetitions() < 2) {
       pushmove(pv, ttentry->bestmove);
       recoverpv(pv, depth - 1);
     }
