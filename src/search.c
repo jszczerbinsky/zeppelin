@@ -346,7 +346,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       int pvsallowed =
           i > 0 && !g_set.disbl_pvs && g_gamestate->phase != PHASE_ENDGAME;
       int fpallowed =
-          depthleft == 1 && !IS_CAPT(currmove) && new_under_check_cnt == 0;
+          depthleft <= 2 && !IS_CAPT(currmove) && new_under_check_cnt == 0;
 
       // Extensions
       int ext = 0;
@@ -366,7 +366,8 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       // Futility Pruning
       if (fpallowed && ext <= 0) {
-        if (-evaluate_material() < *alpha - 100) {
+        if (-evaluate_material() <
+            *alpha - 100 * depthleft + 50 * (depthleft - 1)) {
           movescore = *alpha;
           pvsallowed = 0;
           fullsearch = 0;
