@@ -352,8 +352,8 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       int fullsearch = 1;
       int new_under_check_cnt = get_under_check_cnt();
 
-      int pvsallowed =
-          i > 0 && !g_set.disbl_pvs && g_gamestate->phase != PHASE_ENDGAME;
+      int pvsallowed = ni->legalcnt > 1 && !g_set.disbl_pvs &&
+                       g_gamestate->phase != PHASE_ENDGAME;
       int fpallowed =
           depthleft <= 2 && !IS_CAPT(currmove) && new_under_check_cnt == 0;
 
