@@ -34,6 +34,7 @@ typedef struct {
   int value;
   int depth;
   Move bestmove;
+  int searchid;
 } TT;
 
 static TT *tt = NULL;
@@ -48,6 +49,8 @@ static pthread_t supervisor_thread;
 static int manualstop = 0;
 static int abort_search = 0;
 
+static int searchid = 0;
+
 void ttinit() {
   ttsize = g_set.ttbytes / sizeof(TT);
   ttused = 0;
@@ -59,6 +62,7 @@ void ttfree() { free(tt); }
 static const TT *ttread(BitBrd hash, int depth) {
   TT *ttentry = tt + (hash % ttsize);
   if (ttentry->used && ttentry->hash == hash && ttentry->depth >= depth) {
+    ttentry->searchid = searchid;
     return ttentry;
   }
   return NULL;
@@ -70,6 +74,10 @@ static void ttwrite(BitBrd hash, int type, int depth, int value,
 
   if (!ttentry->used) {
     ttused++;
+  } else if (ttentry->depth > 5 && depth + 2 <= ttentry->depth) {
+    if (searchid - ttentry->searchid < 2) {
+      return;
+    }
   }
 
   ttentry->used = 1;
@@ -78,6 +86,7 @@ static void ttwrite(BitBrd hash, int type, int depth, int value,
   ttentry->depth = depth;
   ttentry->value = value;
   ttentry->bestmove = bestmove;
+  ttentry->searchid = searchid;
 }
 
 int max(int a, int b) {
@@ -291,10 +300,10 @@ int quiescence(int alpha, int beta) {
   return alpha;
 }
 
-int negamax(int alpha, int beta, int depthleft);
+int negamax(int alpha, int beta, int depthleft, MoveList *pvdest);
 
 void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
-                  Move ttbest) {
+                  Move ttbest, MoveList *pvdest) {
   ni->legalcnt = 0;
   ni->nodetype = NODE_FAILL;
   ni->bestmove = NULLMOVE;
@@ -309,7 +318,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       depthleft > 3 && last_move != NULLMOVE && stat_eval >= beta) {
     makemove(NULLMOVE);
     pushmove(&si.currline, NULLMOVE);
-    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 2);
+    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 2, NULL);
     popmove(&si.currline);
     unmakemove();
 
@@ -376,7 +385,8 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       // PVS
       if (pvsallowed) {
-        int pvsscore = -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1);
+        int pvsscore =
+            -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1, NULL);
 
         if (pvsscore <= *alpha) {
           fullsearch = 0;
@@ -384,14 +394,17 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
         }
       }
 
+      MoveList subpv = {0};
+
       // Full search if required
       if (fullsearch) {
-        movescore = -negamax(-beta, -*alpha, depthleft + ext - 1);
+        movescore = -negamax(-beta, -*alpha, depthleft + ext - 1, &subpv);
 
         if (ext < 0 && movescore > *alpha) {
           // reduced move raised alpha
           // re-search without reductions
-          movescore = -negamax(-beta, -*alpha, depthleft - 1);
+          subpv.cnt = 0;
+          movescore = -negamax(-beta, -*alpha, depthleft - 1, &subpv);
         }
       }
 
@@ -421,6 +434,16 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       if (score > *alpha) {
         ni->nodetype = NODE_INSIDEWND;
         ni->bestmove = currmove;
+        if (pvdest != NULL) {
+          pvdest->cnt = 1;
+          pvdest->move[0] = currmove;
+          for (int m = 0; m < subpv.cnt; m++) {
+            if (subpv.move[m] == NULLMOVE) {
+              break;
+            }
+            pushmove(pvdest, subpv.move[m]);
+          }
+        }
         *alpha = score;
       }
     }
@@ -437,15 +460,27 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   }
 }
 
-int negamax(int alpha, int beta, int depthleft) {
+int negamax(int alpha, int beta, int depthleft, MoveList *pvdest) {
+  if (pvdest)
+    pvdest->cnt = 0;
+
   const BitBrd hash = g_gamestate->hash;
 
   if (abort_search) {
     return SCORE_ILLEGAL;
   }
 
-  int rep = getrepetitions();
-  if (rep >= 1 || g_gamestate->halfmove >= 100) {
+  if (si.root_repetitions >= 3) {
+    return 0;
+  }
+
+  if (si.currline.cnt > 0) {
+    int rep = getrepetitions();
+    if (rep > 0)
+      return 0;
+  }
+
+  if (g_gamestate->halfmove >= 100) {
     return 0;
   }
 
@@ -485,7 +520,7 @@ int negamax(int alpha, int beta, int depthleft) {
   }
 
   NodeInfo ni;
-  analyze_node(&ni, depthleft, &alpha, beta, ttbest);
+  analyze_node(&ni, depthleft, &alpha, beta, ttbest, pvdest);
 
   if (si.currline.cnt == 0) {
     si.iter_bestmove = ni.bestmove;
@@ -524,57 +559,28 @@ static void search_finish() {
   si.finished = 1;
 }
 
-static void recoverpv(MoveList *pv, int depth) {
-  const TT *ttentry = ttread(g_gamestate->hash, depth);
+static void recoverpv(MoveList *pv) {
+  int pvcnt = pv->cnt;
 
-  if (ttentry && ttentry->bestmove != NULLMOVE) {
+  for (int i = 0; i < pvcnt; i++) {
+    makemove(pv->move[i]);
+  }
+
+  const TT *ttentry = ttread(g_gamestate->hash, 1);
+
+  if (ttentry && ttentry->hash == g_gamestate->hash &&
+      ttentry->bestmove != NULLMOVE) {
     makemove(ttentry->bestmove);
-    if (g_gamestate->halfmove < 100 && getrepetitions() < 2) {
+    if (g_gamestate->halfmove < 100 && getrepetitions() < 3) {
       pushmove(pv, ttentry->bestmove);
-      recoverpv(pv, depth - 1);
-    }
-    unmakemove();
-  }
-}
-
-static void try_recoverpv(MoveList *pv, int depth) {
-  recoverpv(pv, depth);
-
-  if (pv->cnt > 0) {
-    return;
-  }
-
-  PRINTDBG("couldnt recover from pv!");
-  fflush(stdout);
-
-  if (si.iter_bestmove != NULLMOVE) {
-    pv->cnt = 1;
-    pv->move[0] = si.iter_bestmove;
-    return;
-  }
-
-  PRINTDBG("couldnt recover from iter bestmove!");
-  BitBrd attackbbrd;
-  MoveList movelist;
-  gen_moves(g_game.who2move, &movelist, &attackbbrd, GEN_ALL, 0);
-
-  for (int i = 0; i < movelist.cnt; i++) {
-    makemove(movelist.move[i]);
-    if (lastmovelegal()) {
-      pv->cnt = 1;
-      pv->move[0] = movelist.move[i];
-      unmakemove();
-      PRINTDBG("found first legal move");
-      fflush(stdout);
-      return;
+      recoverpv(pv);
     }
     unmakemove();
   }
 
-  PRINTDBG("couldnt find any legal move!");
-  fflush(stdout);
-  pv->cnt = 1;
-  pv->move[0] = NULLMOVE;
+  for (int i = 0; i < pvcnt; i++) {
+    unmakemove();
+  }
 }
 
 static void *search_subthread(void *arg __attribute__((unused))) {
@@ -583,6 +589,8 @@ static void *search_subthread(void *arg __attribute__((unused))) {
 
   si.search_visitednodes = 0;
   for (int depth = ss.startdepth; depth <= ss.depthlimit; depth++) {
+    searchid++;
+    si.root_repetitions = getrepetitions();
     si.iter_highest_depth = 0;
     si.currline.cnt = 0;
     si.iter_tbhits = 0;
@@ -593,9 +601,10 @@ static void *search_subthread(void *arg __attribute__((unused))) {
     si.iter_depth = depth;
     memset(&si.iter_killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
 
+    MoveList pv = {0};
     int score;
     if (g_set.disbl_aspwnd || firsttime || IS_CHECKMATE(lastscore)) {
-      score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth);
+      score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
       firsttime = 0;
 
       if (abort_search) {
@@ -623,7 +632,7 @@ static void *search_subthread(void *arg __attribute__((unused))) {
           beta = -SCORE_ILLEGAL;
         }
 
-        score = negamax(alpha, beta, depth);
+        score = negamax(alpha, beta, depth, &pv);
 
         if (abort_search) {
           return 0;
@@ -640,9 +649,7 @@ static void *search_subthread(void *arg __attribute__((unused))) {
     }
 
     lastscore = score;
-
-    MoveList pv = {0};
-    try_recoverpv(&pv, depth);
+    // recoverpv(&pv);
 
     memcpy(&si.prev_iter_pv, &pv, sizeof(MoveList));
     ON_ITERFINISH(score);

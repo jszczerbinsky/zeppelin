@@ -431,6 +431,7 @@ typedef struct {
   int rootmove_n;
   char rootmove_str[6];
   int root_nodetype;
+  int root_repetitions;
 
   MoveList currline;
 
