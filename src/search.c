@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -14,8 +15,6 @@
                      : (void)0)
 #define ON_ITERFINISH(score)                                                   \
   (ss.on_iterfinish ? (*ss.on_iterfinish)(&si, ttused, ttsize, score) : (void)0)
-
-#define MIN_PRIORITY (-99999)
 
 #define NODE_INSIDEWND 0
 #define NODE_FAILH 1
@@ -51,7 +50,11 @@ static int abort_search = 0;
 
 static int searchid = 0;
 
+static int historyoverflow = 0;
+static int history[2][64][64] = {0};
+
 void ttinit() {
+  memset(history, 0, 2 * 64 * 64 * sizeof(int));
   ttsize = g_set.ttbytes / sizeof(TT);
   ttused = 0;
   tt = calloc(ttsize, sizeof(TT));
@@ -99,6 +102,27 @@ int min(int a, int b) {
   if (a < b)
     return a;
   return b;
+}
+
+static void addhistory(int player, Move m, int diff) {
+  history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] += diff;
+  history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] =
+      min(history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)], 100000000 - 1);
+
+  if (history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] == 100000000 - 1) {
+    historyoverflow = 1;
+  }
+}
+
+static void normalizehistory() {
+  for (int p = 0; p < 2; p++) {
+    for (int x = 0; x < 64; x++) {
+      for (int y = 0; y < 64; y++) {
+        history[p][x][y] /= 2;
+      }
+    }
+  }
+  historyoverflow = 0;
 }
 
 int calcnps() {
@@ -176,10 +200,10 @@ static int see(int sqr) {
 
 static int get_priority(Move move, Move ttbest) {
 
-  const int pvpriority = 1000000;
-  const int ttpriority = 100000;
-  const int captpriority = 10000;
-  const int killerpriority = 1;
+  const int pvpriority = INT_MAX;
+  const int ttpriority = INT_MAX - 1;
+  const int captpriority = 1000000000;
+  const int killerpriority = 100000000;
   const int normalpriority = 0;
 
   if (move == ttbest) {
@@ -215,12 +239,16 @@ static int get_priority(Move move, Move ttbest) {
     return captpriority + diff;
   }
 
-  return normalpriority;
+  if (IS_CASTLE(move))
+    return normalpriority;
+
+  return normalpriority +
+         history[g_game.who2move][GET_SRC_SQR(move)][GET_DST_SQR(move)];
 }
 
 static void order(MoveList *movelist, int curr, Move ttbest) {
   int best_i = -1;
-  int best_priority = MIN_PRIORITY;
+  int best_priority = INT_MIN;
 
   for (int i = curr; i < movelist->cnt; i++) {
     int priority = get_priority(movelist->move[i], ttbest);
@@ -418,17 +446,22 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       score = max(score, movescore);
 
-      if (!g_set.disbl_ab && score >= beta) {
-        unmakemove();
-        popmove(&si.currline);
+      if (!g_set.disbl_ab) {
+        if (score >= beta) {
+          unmakemove();
+          popmove(&si.currline);
+          if (IS_SILENT(currmove)) {
+            if (!g_set.disbl_killer) {
+              addkiller(si.currline.cnt, currmove);
+            }
+            addhistory(g_game.who2move, currmove, 1);
+          }
 
-        if (!g_set.disbl_killer && IS_SILENT(currmove)) {
-          addkiller(si.currline.cnt, currmove);
+          ni->nodetype = NODE_FAILH;
+          ni->score = score;
+          return;
+        } else {
         }
-
-        ni->nodetype = NODE_FAILH;
-        ni->score = score;
-        return;
       }
 
       if (score > *alpha) {
@@ -612,6 +645,10 @@ static void *search_subthread(void *arg __attribute__((unused))) {
     si.rootmove_n = 0;
     si.iter_depth = depth;
     memset(&si.iter_killers, 0, sizeof(Move) * KILLER_MAX * MAX_PLY_PER_GAME);
+
+    if (historyoverflow) {
+      normalizehistory();
+    }
 
     MoveList pv = {0};
     int score;
