@@ -191,7 +191,7 @@ static int get_priority(Move move, Move ttbest) {
     return pvpriority;
   }
 
-  if (iskiller(ply, move)) {
+  if (!g_set.disbl_killer && iskiller(ply, move)) {
     return killerpriority;
   }
 
@@ -254,11 +254,11 @@ int quiescence(int alpha, int beta) {
     standpat = evaluate();
   }
 
-  if (standpat >= beta) {
+  if (!g_set.disbl_ab && standpat >= beta) {
     return beta;
   }
 
-  int deltaallowed = g_gamestate->phase != PHASE_ENDGAME;
+  int deltaallowed = !g_set.disbl_delta && g_gamestate->phase != PHASE_ENDGAME;
 
   if (deltaallowed) {
     int delta = material[QUEEN];
@@ -288,7 +288,7 @@ int quiescence(int alpha, int beta) {
       unmakemove();
       popmove(&si.currline);
 
-      if (score >= beta) {
+      if (!g_set.disbl_ab && score >= beta) {
         return beta;
       }
       alpha = max(score, alpha);
@@ -352,10 +352,10 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       int fullsearch = 1;
       int new_under_check_cnt = get_under_check_cnt();
 
-      int pvsallowed = ni->legalcnt > 1 && !g_set.disbl_pvs &&
+      int pvsallowed = !g_set.disbl_pvs && ni->legalcnt > 1 &&
                        g_gamestate->phase != PHASE_ENDGAME;
-      int fpallowed =
-          depthleft <= 2 && !IS_CAPT(currmove) && new_under_check_cnt == 0;
+      int fpallowed = !g_set.disbl_fp && depthleft <= 2 && !IS_CAPT(currmove) &&
+                      new_under_check_cnt == 0;
 
       // Extensions
       int ext = 0;
@@ -418,11 +418,11 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       score = max(score, movescore);
 
-      if (score >= beta) {
+      if (!g_set.disbl_ab && score >= beta) {
         unmakemove();
         popmove(&si.currline);
 
-        if (IS_SILENT(currmove)) {
+        if (!g_set.disbl_killer && IS_SILENT(currmove)) {
           addkiller(si.currline.cnt, currmove);
         }
 
@@ -516,7 +516,19 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pvdest) {
   }
 
   if (depthleft <= 0) {
-    return quiescence(alpha, beta);
+    if (!g_set.disbl_quiescence) {
+      return quiescence(alpha, beta);
+    } else {
+      MoveList availmoves;
+      BitBrd attackbbrd;
+      gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_ALL, 0);
+
+      if (availmoves.cnt == 0) {
+        return evaluate_terminalpos(si.currline.cnt);
+      } else {
+        return evaluate();
+      }
+    }
   }
 
   NodeInfo ni;

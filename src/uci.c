@@ -29,6 +29,27 @@ void onhashchange() {
 const UciOpt opts[] = {
     {
         .opttype = OPT_CHECK,
+        .optname = "Debug_DisableAlphaBeta",
+        .valptr = &g_set.disbl_ab,
+        .defstr = "false",
+        .onchange = NULL,
+    },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableQuiescence",
+        .valptr = &g_set.disbl_quiescence,
+        .defstr = "false",
+        .onchange = NULL,
+    },
+    {
+        .opttype = OPT_CHECK,
+        .optname = "Debug_DisableKiller",
+        .valptr = &g_set.disbl_killer,
+        .defstr = "false",
+        .onchange = NULL,
+    },
+    {
+        .opttype = OPT_CHECK,
         .optname = "Debug_DisableNMP",
         .valptr = &g_set.disbl_nmp,
         .defstr = "false",
@@ -64,15 +85,15 @@ const UciOpt opts[] = {
     },
     {
         .opttype = OPT_CHECK,
-        .optname = "Debug_DisableAspWnd",
-        .valptr = &g_set.disbl_aspwnd,
+        .optname = "Debug_DisableFutility",
+        .valptr = &g_set.disbl_fp,
         .defstr = "false",
         .onchange = NULL,
     },
     {
         .opttype = OPT_CHECK,
-        .optname = "Debug_DisableAspWnd",
-        .valptr = &g_set.disbl_aspwnd,
+        .optname = "Debug_DisableDelta",
+        .valptr = &g_set.disbl_delta,
         .defstr = "false",
         .onchange = NULL,
     },
