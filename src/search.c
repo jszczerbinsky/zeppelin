@@ -198,7 +198,7 @@ static int see(int sqr) {
   return val > 0 ? val : 0;
 }
 
-static int get_priority(Move move, Move ttbest) {
+static int get_priority(Move move, Move ttbest, int ispv) {
 
   const int pvpriority = INT_MAX;
   const int ttpriority = INT_MAX - 1;
@@ -206,13 +206,15 @@ static int get_priority(Move move, Move ttbest) {
   const int killerpriority = 100000000;
   const int normalpriority = 0;
 
-  if (move == ttbest) {
-    return ttpriority;
+  // ordering before making move, thus ply=cnt
+  int ply = si.currline.cnt;
+
+  if (ispv && ply < si.prev_iter_pv.cnt && move == si.prev_iter_pv.move[ply]) {
+    return pvpriority;
   }
 
-  int ply = si.currline.cnt;
-  if (ply < si.prev_iter_pv.cnt && move == si.prev_iter_pv.move[ply]) {
-    return pvpriority;
+  if (move == ttbest) {
+    return ttpriority;
   }
 
   if (!g_set.disbl_killer && iskiller(ply, move)) {
@@ -246,12 +248,12 @@ static int get_priority(Move move, Move ttbest) {
          history[g_game.who2move][GET_SRC_SQR(move)][GET_DST_SQR(move)];
 }
 
-static void order(MoveList *movelist, int curr, Move ttbest) {
+static void order(MoveList *movelist, int curr, Move ttbest, int ispv) {
   int best_i = -1;
   int best_priority = INT_MIN;
 
   for (int i = curr; i < movelist->cnt; i++) {
-    int priority = get_priority(movelist->move[i], ttbest);
+    int priority = get_priority(movelist->move[i], ttbest, ispv);
     if (priority > best_priority) {
       best_i = i;
       best_priority = priority;
@@ -301,7 +303,7 @@ int quiescence(int alpha, int beta) {
   alpha = max(standpat, alpha);
 
   for (int i = 0; i < availmoves.cnt; i++) {
-    order(&availmoves, i, NULLMOVE);
+    order(&availmoves, i, NULLMOVE, 0);
     Move currmove = availmoves.move[i];
 
     if (!IS_CAPT(currmove)) {
@@ -328,10 +330,10 @@ int quiescence(int alpha, int beta) {
   return alpha;
 }
 
-int negamax(int alpha, int beta, int depthleft, MoveList *pvdest);
+int negamax(int alpha, int beta, int depthleft, MoveList *pvdest, int ispv);
 
 void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
-                  Move ttbest, MoveList *pvdest) {
+                  Move ttbest, MoveList *pvdest, int ispv) {
   ni->legalcnt = 0;
   ni->nodetype = NODE_FAILL;
   ni->bestmove = NULLMOVE;
@@ -346,7 +348,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       depthleft > 3 && last_move != NULLMOVE && stat_eval >= beta) {
     makemove(NULLMOVE);
     pushmove(&si.currline, NULLMOVE);
-    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 2, NULL);
+    int nmpscore = -negamax(-beta, -beta + 1, depthleft - 1 - 2, NULL, 0);
     popmove(&si.currline);
     unmakemove();
 
@@ -362,7 +364,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
             under_check_cnt);
 
   for (int i = 0; i < ni->availmoves.cnt; i++) {
-    order(&ni->availmoves, i, ttbest);
+    order(&ni->availmoves, i, ttbest, ispv);
     Move currmove = ni->availmoves.move[i];
 
     if (si.currline.cnt == 0 && ss.specificmoves.cnt > 0 &&
@@ -376,14 +378,15 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
     if (lastmovelegal()) {
       ni->legalcnt++;
 
+      int subispv = ispv && ni->legalcnt == 1;
+
       int movescore = 0;
       int fullsearch = 1;
       int new_under_check_cnt = get_under_check_cnt();
 
-      int pvsallowed = !g_set.disbl_pvs && ni->legalcnt > 1 &&
-                       g_gamestate->phase != PHASE_ENDGAME;
-      int fpallowed = !g_set.disbl_fp && depthleft <= 2 && !IS_CAPT(currmove) &&
-                      new_under_check_cnt == 0;
+      int pvsallowed = !g_set.disbl_pvs && ni->legalcnt > 1;
+      int fpallowed = !g_set.disbl_fp && !ispv && depthleft <= 2 &&
+                      !IS_CAPT(currmove) && new_under_check_cnt == 0;
 
       // Extensions
       int ext = 0;
@@ -414,7 +417,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
       // PVS
       if (pvsallowed) {
         int pvsscore =
-            -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1, NULL);
+            -negamax(-*alpha - 1, -*alpha, depthleft + ext - 1, NULL, subispv);
 
         if (pvsscore <= *alpha) {
           fullsearch = 0;
@@ -426,13 +429,14 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
 
       // Full search if required
       if (fullsearch) {
-        movescore = -negamax(-beta, -*alpha, depthleft + ext - 1, &subpv);
+        movescore =
+            -negamax(-beta, -*alpha, depthleft + ext - 1, &subpv, subispv);
 
         if (ext < 0 && movescore > *alpha) {
           // reduced move raised alpha
           // re-search without reductions
           subpv.cnt = 0;
-          movescore = -negamax(-beta, -*alpha, depthleft - 1, &subpv);
+          movescore = -negamax(-beta, -*alpha, depthleft - 1, &subpv, subispv);
         }
       }
 
@@ -493,7 +497,7 @@ void analyze_node(NodeInfo *ni, int depthleft, int *alpha, int beta,
   }
 }
 
-int negamax(int alpha, int beta, int depthleft, MoveList *pvdest) {
+int negamax(int alpha, int beta, int depthleft, MoveList *pvdest, int ispv) {
   if (pvdest)
     pvdest->cnt = 0;
 
@@ -565,7 +569,7 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pvdest) {
   }
 
   NodeInfo ni;
-  analyze_node(&ni, depthleft, &alpha, beta, ttbest, pvdest);
+  analyze_node(&ni, depthleft, &alpha, beta, ttbest, pvdest, ispv);
 
   if (si.currline.cnt == 0) {
     si.iter_bestmove = ni.bestmove;
@@ -653,7 +657,7 @@ static void *search_subthread(void *arg __attribute__((unused))) {
     MoveList pv = {0};
     int score;
     if (g_set.disbl_aspwnd || firsttime || IS_CHECKMATE(lastscore)) {
-      score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv);
+      score = negamax(SCORE_ILLEGAL, -SCORE_ILLEGAL, depth, &pv, 1);
       firsttime = 0;
 
       if (abort_search) {
@@ -681,7 +685,7 @@ static void *search_subthread(void *arg __attribute__((unused))) {
           beta = -SCORE_ILLEGAL;
         }
 
-        score = negamax(alpha, beta, depth, &pv);
+        score = negamax(alpha, beta, depth, &pv, 1);
 
         if (abort_search) {
           return 0;
