@@ -105,6 +105,7 @@ set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3")
 
 # Building executable
 add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ})
+target_link_libraries(zeppelin m)
 
 # Unit tests
 find_package(Python3 REQUIRED)

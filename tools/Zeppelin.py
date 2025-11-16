@@ -21,11 +21,16 @@ def find_exe_path() -> str:
 
 
 class ZeppelinFeature(Enum):
-    TT = 'tt'
+    AB = 'ab'
+    QUIESCENCE = 'quiescence'
     NMP = 'nmp'
+    TT = 'tt'
+    KILLER = 'killer'
     PVS = 'pvs'
     LMR = 'lmr'
     ASPWND = 'aspwnd'
+    DELTA = 'delta'
+    FP = 'fp'
 
 
 class UnexpectedResponseException(Exception):
@@ -88,8 +93,8 @@ class ZeppelinWithDebug:
             raise UnexpectedResponseException(res)
         return res['nodes']
 
-    def getmoves(self) -> list[str]:
-        res = self._send('getmoves')
+    def getmoves(self, type: str) -> list[str]:
+        res = self._send('getmoves ' + type)
         if not isinstance(res, list):
             raise UnexpectedResponseException(res)
         return res
@@ -144,4 +149,10 @@ class ZeppelinWithDebug:
 
     def disable_feature(self, feature: ZeppelinFeature):
         self._send_nores(feature.value + 'active 0')
+
+    def enable_all_features(self):
+        [self.enable_feature(f) for f in ZeppelinFeature]
+
+    def disable_all_features(self):
+        [self.disable_feature(f) for f in ZeppelinFeature]
 

@@ -36,11 +36,16 @@ extern void (*g_printdbg)(const char *format, ...);
 #endif
 
 typedef struct {
+  int disbl_ab;
+  int disbl_quiescence;
   int disbl_nmp;
   int disbl_tt;
+  int disbl_killer;
   int disbl_pvs;
   int disbl_lmr;
   int disbl_aspwnd;
+  int disbl_delta;
+  int disbl_fp;
 
   int print_currline;
 
@@ -226,7 +231,7 @@ int getrepetitions();
 #define GEN_CAPT 2
 
 // checks_cnt is optional, can use 0, but correct value will reduce time
-void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int type,
+void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int movetype,
                int checks_cnt);
 int get_sqr_attackers_cnt(int attacker, int sqr);
 
@@ -409,6 +414,7 @@ static const int material[] = {pawnval,   0,       knightval,
 
 int evaluate();
 int evaluate_terminalpos(int pliescnt);
+int evaluate_material();
 
 // =============================
 //             Time
@@ -430,9 +436,9 @@ typedef struct {
   int rootmove_n;
   char rootmove_str[6];
   int root_nodetype;
+  int root_repetitions;
 
   MoveList currline;
-  int currext;
 
   long search_visitednodes;
 
@@ -549,6 +555,12 @@ static inline int lastmovelegal() {
              g_game.who2move,
              bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
 }
+
+static inline int possible_zugzwang() {
+  return (g_game.piecesof[ANY] & ~g_game.pieces[ANY][PAWN] &
+          ~g_game.pieces[ANY][KING]) > 0ULL;
+}
+
 static inline int get_under_check_cnt() {
   return get_sqr_attackers_cnt(!g_game.who2move,
                                bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
