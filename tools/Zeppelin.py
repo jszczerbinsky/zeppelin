@@ -144,6 +144,19 @@ class ZeppelinWithDebug:
             raise UnexpectedResponseException(res)
         return res['type']
 
+    def getnnueinput(self) -> dict[str, list[int]]:
+        res = self._send('getnnueinput')
+        if (
+            not isinstance(res, dict)
+            or 'white_perspective' not in res
+            or 'black_perspective' not in res
+            or not isinstance(res['white_perspective'], list)
+            or not isinstance(res['black_perspective'], list)
+        ):
+            raise UnexpectedResponseException(res)
+        return res
+
+
     def enable_feature(self, feature: ZeppelinFeature):
         self._send_nores(feature.value + 'active 1')
 

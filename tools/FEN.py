@@ -6,6 +6,12 @@ STARTPOS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 _FEN_REGEX_STRT = r'([pkrnbqPKRNBQ12345678\/]+)\s([b|w])\s([KQkq-]+)\s([-abcdefgh12345678]+)\s([0-9]+)\s([0-9]+)'
 _FEN_PATTERN = re.compile(_FEN_REGEX_STRT)
 
+def get_side_to_move(fen: str) -> str:
+    if 'w' in fen:
+        return 'w'
+    else:
+        return 'b'
+
 class FENBuilder:
     def __init__(self, fen: str) -> None:
         fen_parts = _FEN_PATTERN.match(fen) 
@@ -27,9 +33,34 @@ class FENBuilder:
             str(self.fullmoves)
         ])
 
+    def get_material_diff(self, perspective: str) -> int:
+        pieces_str = self.pieces_part
+
+        wp = pieces_str.count('P')
+        bp = pieces_str.count('p')
+        wn = pieces_str.count('N')
+        bn = pieces_str.count('n')
+        wb = pieces_str.count('B')
+        bb = pieces_str.count('b')
+        wr = pieces_str.count('R')
+        br = pieces_str.count('r')
+        wq = pieces_str.count('Q')
+        bq = pieces_str.count('q')
+
+        diff = (wp - bp)
+        diff += (wn - bn) * 3
+        diff += (wb - bb) * 3
+        diff += (wr - br) * 5
+        diff += (wq - bq) * 8
+
+        if perspective == 'b':
+            return -diff
+        return diff
+
     def switch_player(self) -> Self:
         if self.player_color == 'w':
             self.player_color = 'b'
         else:
             self.player_color = 'w'
         return self
+

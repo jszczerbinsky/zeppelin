@@ -164,6 +164,25 @@ static inline int containsmove(const MoveList *moves, Move m) {
 }
 
 // =============================
+//			  NNUE
+// =============================
+
+#define NNUE_IN_SIZE 64 * 2 * PIECE_MAX
+#define NNUE_H1_SIZE 2048
+#define NNUE_H2_SIZE 512
+
+typedef struct {
+  int8_t in[2][64 * 2 * PIECE_MAX];
+
+  // todo: h1 też w,b
+  int32_t h1[NNUE_H1_SIZE];
+  int32_t h2[NNUE_H2_SIZE];
+  int32_t out;
+} NNUE;
+
+void nnue_load_in(NNUE *nnue);
+
+// =============================
 //        Game definitions
 // =============================
 
@@ -198,6 +217,7 @@ typedef struct {
   BitBrd epbbrd;
   BitBrd hash;
   int phase;
+  NNUE nnue;
 } GameState;
 
 typedef struct {

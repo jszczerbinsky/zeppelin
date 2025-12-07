@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import override
 import chess
+import NNUE
 
 from Zeppelin import ZeppelinWithDebug
 from FEN import FENBuilder
@@ -241,3 +242,30 @@ class GenMovesTest(AbstractTest):
 
         return True
 
+class NNUEInputTest(AbstractTest):
+    def __init__(self, engine: ZeppelinWithDebug, fen: str):
+        super().__init__(engine, "NNUE input", fen)
+        self.fen = fen
+        self.ready()
+
+    def perform_test(self) -> bool:
+        self.engine.loadfen(self.fen)
+        engine_inputs = self.engine.getnnueinput()
+        python_inputs = NNUE.input_from_fen(self.fen)
+
+        if len(engine_inputs['white_perspective']) != len(python_inputs['w']):
+            self.set_failinfo('white perspective length', len(python_inputs['w']), len(engine_inputs['white_perspective']))
+            return False
+        if len(engine_inputs['black_perspective']) != len(python_inputs['b']):
+            self.set_failinfo('black perspective length', len(python_inputs['b']), len(engine_inputs['black_perspective']))
+            return False
+
+        for i in range(len(engine_inputs['white_perspective'])):
+            if engine_inputs['white_perspective'][i] != python_inputs['w'][i]:
+                self.set_failinfo('white perspective', python_inputs['w'], engine_inputs['white_perspective'])
+                return False
+            if engine_inputs['black_perspective'][i] != python_inputs['b'][i]:
+                self.set_failinfo('black perspective', python_inputs['b'], engine_inputs['black_perspective'])
+                return False
+
+        return True 

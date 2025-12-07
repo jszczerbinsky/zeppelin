@@ -170,6 +170,28 @@ static void respond2getscoreinfo(int score) {
   finishsending();
 }
 
+static void respond2getnnueinput() {
+  NNUE nnue;
+  nnue_load_in(&nnue);
+
+  printf("{\"white_perspective\": [");
+  for (int i = 0; i < NNUE_IN_SIZE; i++) {
+    if (i != 0) {
+      putchar(',');
+    }
+    printf("%d", nnue.in[WHITE][i]);
+  }
+  printf("], \"black_perspective\": [");
+  for (int i = 0; i < NNUE_IN_SIZE; i++) {
+    if (i != 0) {
+      putchar(',');
+    }
+    printf("%d", nnue.in[BLACK][i]);
+  }
+  printf("]}\n");
+  finishsending();
+}
+
 static int next_cmd(char *buff) {
   char *token = strtok(buff, " \n");
   if (!token)
@@ -197,6 +219,8 @@ static int next_cmd(char *buff) {
     respond2eval();
   else if (equals(token, "getscoreinfo"))
     respond2getscoreinfo(atoi(nexttok()));
+  else if (equals(token, "getnnueinput"))
+    respond2getnnueinput();
   else if (equals(token, "ttactive"))
     g_set.disbl_tt = !atoi(nexttok());
   else if (equals(token, "nmpactive"))

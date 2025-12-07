@@ -49,6 +49,7 @@ set(SOURCE_FILES
 	src/zobrist.c
 	src/eval.c
 	src/time.c
+	src/nnue.c
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
