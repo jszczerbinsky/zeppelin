@@ -8,14 +8,23 @@ import math
 import json
 import matplotlib.pyplot as plt
 import pandas as pd
+import random
+import hashlib
 
 import NNUE
 import FEN
 
-N_EPOCHS = 1000
-DATASET_MAX_ROWS = 300000
+N_EPOCHS = 5000
+DATASET_MAX_ROWS = 500#1000000 #30
 
 NNUE_MODEL_DIRECTORY = 'models/nnue/'
+
+SEED = int(hashlib.sha256(FEN.STARTPOS.encode()).hexdigest(), 16) % (2**32)
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
 
 os.makedirs(NNUE_MODEL_DIRECTORY, exist_ok=True)
 
@@ -23,9 +32,9 @@ class NNUEDataset(torch.utils.data.Dataset):
     def __init__(self, path: str, limit: int = 500000) -> None:
         self.path = path
         self.csvdata = pd.read_csv(self.path)
+        self.csvdata = self.csvdata[np.abs(self.csvdata.iloc[:, 1].astype(np.int32)) < 1500]
 
-        with open(path, newline='') as csvfile:
-            self.length = sum(1 for line in csvfile) - 1
+        self.length = len(self.csvdata)
         
         if self.length > limit:
             self.length = limit
@@ -70,13 +79,19 @@ def plot_loss(loss_name: str, filename: str, train_loss: list[float], test_loss:
     plt.savefig(f'{NNUE_MODEL_DIRECTORY}/{filename}.png', dpi=200)
     plt.close()
 
-
+"""
 if torch.accelerator.is_available():
     dev = torch.accelerator.current_accelerator()
     print(f"Using {dev}")
 else:
     print("Using CPU")
-
+"""
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+    print("using GPU ", torch.cuda.get_device_name(0))
+else:
+    device = torch.device("cpu")
+    print("using CPU")
 
 dataset = NNUEDataset(f'{NNUE_MODEL_DIRECTORY}/dataset.csv', limit=DATASET_MAX_ROWS)
 
@@ -85,61 +100,70 @@ test_size = len(dataset) - train_size
 
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
-train_loader = DataLoader(train_dataset, batch_size=4096, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=4096, shuffle=True)
+g = torch.Generator()
+g.manual_seed(SEED)
 
-best_mse_no = np.inf
-best_mse_cp = np.inf
-best_weights = None
+#train_loader = DataLoader(train_dataset, 1024 * 8, shuffle=True)
+#test_loader = DataLoader(test_dataset, 1024 * 8, shuffle=True)
+train_loader = DataLoader(train_dataset, 1024, shuffle=True, worker_init_fn=lambda worker_id: np.random.seed(SEED + worker_id), generator = g)
+test_loader = DataLoader(test_dataset, 1024, shuffle=True, worker_init_fn=lambda worker_id: np.random.seed(SEED + worker_id), generator = g)
 
-loss_fn = torch.nn.MSELoss()
+
+best_mae_no = np.inf
+best_mae_cp = np.inf
+
+loss_fn = torch.nn.L1Loss()
 
 nnue = NNUE.NNUEModel()
-history_test_mse = []
+nnue.cuda()
+history_test_mae = []
 history_test_r2 = []
-history_train_mse = []
+history_train_mae = []
 history_train_r2 = []
 
 if os.path.exists(f'{NNUE_MODEL_DIRECTORY}/last.pt'):
     with open(f'{NNUE_MODEL_DIRECTORY}/history.json', 'r') as f:
-        history_train_mse, history_test_mse, history_train_r2, history_test_r2 = json.load(f)
+        history_train_mae, history_test_mae, history_train_r2, history_test_r2 = json.load(f)
 
-    print(f'Found existing model, it has been trained for {len(history_test_mse)} epochs')
+    print(f'Found existing model, it has been trained for {len(history_test_mae)} epochs')
     nnue.load_state_dict(torch.load(f'{NNUE_MODEL_DIRECTORY}/last.pt', weights_only=True))
     nnue.eval()
     with torch.no_grad():
-        best_mse_no = 0
-        best_mse_cp = 0
+        best_mae_no = 0
+        best_mae_cp = 0
         for x, y_cp in test_loader:
             y_no = torch.tanh(y_cp/500)
 
-            y_pred_cp = nnue(x)
-            y_pred_no = torch.tanh(y_pred_cp/500)
+            y_pred_cp = nnue(x.cuda())
+            y_pred_no = torch.tanh(y_pred_cp.cuda()/500)
 
-            best_mse_cp += loss_fn(y_pred_cp, y_cp).item()
-            best_mse_no += loss_fn(y_pred_no, y_no).item()
-        best_mse_no /= len(test_loader)
-        best_mse_cp /= len(test_loader)
+            best_mae_cp += loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
+            best_mae_no += loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
+        best_mae_no /= len(test_loader)
+        best_mae_cp /= len(test_loader)
 
-        best_weights = copy.deepcopy(nnue.state_dict())
         print(f'Current model:')
-        print(f'MSE    ={best_mse_no}')
-        print(f'RMSE[cp]={int(math.sqrt(best_mse_cp))}')
+        print(f'MAE    ={best_mae_no}')
+        print(f'MAE[cp]={best_mae_cp}')
     nnue.train()
 else:
     print('Saved model not found, initializing with random parameters')
     with torch.no_grad():
         nnue.init_parameters()
 
-optimizer = torch.optim.AdamW(nnue.parameters(), lr=0.001, weight_decay=1e-3)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, cooldown=10)
+optimizer = torch.optim.AdamW(nnue.parameters(), lr=0.001, weight_decay=1e-4, betas=(.95, 0.999), eps=1e-5)
+#optimizer = torch.optim.SGD(nnue.parameters(), lr=0.001, weight_decay=1e-4, momentum=0.5)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, cooldown=20, min_lr=1e-6)
 
-for epoch in range(len(history_test_mse) + 1, N_EPOCHS+1):
-    if best_mse_cp < 50:
+if os.path.exists(f'{NNUE_MODEL_DIRECTORY}/last.pt'):
+    scheduler.load_state_dict(torch.load(f'{NNUE_MODEL_DIRECTORY}/lastoptim.pt'))
+
+for epoch in range(len(history_test_mae) + 1, N_EPOCHS+1):
+    if best_mae_cp < 50:
         break
     nnue.train()
-    mse_cp = 0
-    mse_no = 0
+    mae_cp = 0
+    mae_no = 0
     r2_cp = 0
     r2_cp_num = 0
     r2_cp_den = 0
@@ -148,90 +172,89 @@ for epoch in range(len(history_test_mse) + 1, N_EPOCHS+1):
     for x, y_cp in bar:
         y_no = torch.tanh(y_cp/500)
 
-        y_pred_cp = nnue(x)
+        y_pred_cp = nnue(x.cuda())
         y_pred_no = torch.tanh(y_pred_cp / 500)
 
-        loss_no = loss_fn(y_pred_no, y_no)
-        loss_cp = loss_fn(y_pred_cp, y_cp)
+        loss_no = loss_fn(y_pred_no.cuda(), y_no.cuda())
+        loss_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda())
 
         optimizer.zero_grad()
         loss_no.backward()
         #torch.nn.utils.clip_grad_norm_(nnue.parameters(), max_norm=3.0)
 
         optimizer.step()
-        #scheduler.step(loss_no.item())
 
-        pos_mse_no = loss_no.item()
-        pos_mse_cp = loss_cp.item()
+        pos_mae_no = loss_no.item()
+        pos_mae_cp = loss_cp.item()
 
-        mse_no += pos_mse_no
-        mse_cp += pos_mse_cp
-        r2_cp_num += torch.sum((y_cp - y_pred_cp) ** 2).item()
-        r2_cp_den += torch.sum((y_cp - torch.mean(y_cp)) ** 2).item()
+        mae_no += pos_mae_no
+        mae_cp += pos_mae_cp
+        r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
+        r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
         r2_cp = 1 - r2_cp_num / r2_cp_den
 
         items += 1
         bar.set_postfix({
             'lr': optimizer.param_groups[0]['lr'],
-            'train-MSE': mse_no / items,
-            'train-RMSE[cp]': int(math.sqrt(mse_cp / items)),
-            'train-R²:': r2_cp / items
+            'train-MAE': mae_no / items,
+            'train-MAE[cp]': int(mae_cp / items),
+            'train-R²:': r2_cp
         })
-    mse_no /= items
-    mse_cp /= items
-    history_train_mse.append(mse_cp) 
+    mae_no /= items
+    mae_cp /= items
+    history_train_mae.append(mae_cp) 
     history_train_r2.append(r2_cp) 
+    scheduler.step(mae_cp)
 
 
     nnue.eval()
     with torch.no_grad():
-        mse_no = 0
-        mse_cp = 0
+        mae_no = 0
+        mae_cp = 0
         r2_cp_num = 0
         r2_cp_den = 0
         for x, y_cp in test_loader:
             y_no = torch.tanh(y_cp/ 500)
 
-            y_pred_cp = nnue(x)
-            y_pred_no = torch.tanh(y_pred_cp /  500)
+            y_pred_cp = nnue(x.cuda())
+            y_pred_no = torch.tanh(y_pred_cp.cuda() /  500)
 
-            pos_mse_no = loss_fn(y_pred_no, y_no).item()
-            pos_mse_cp = loss_fn(y_pred_cp, y_cp).item()
+            pos_mae_no = loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
+            pos_mae_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
 
-            mse_no += pos_mse_no
-            mse_cp += pos_mse_cp
-            r2_cp_num += torch.sum((y_cp - y_pred_cp) ** 2).item()
-            r2_cp_den += torch.sum((y_cp - torch.mean(y_cp)) ** 2).item()
+            mae_no += pos_mae_no
+            mae_cp += pos_mae_cp
+            r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
+            r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
 
-        mse_no /= len(test_loader)
-        mse_cp /= len(test_loader)
+        mae_no /= len(test_loader)
+        mae_cp /= len(test_loader)
         r2_cp = 1 - r2_cp_num / r2_cp_den
 
 
-        history_test_mse.append(mse_cp)
+        history_test_mae.append(mae_cp)
         history_test_r2.append(r2_cp)
         print()
-        print(f'test MSE    : {mse_no}')
-        print(f'test RMSE[cp]: {int(math.sqrt(mse_cp))}')
+        print(f'test MAE    : {mae_no}')
+        print(f'test MAE[cp]: {int(mae_cp)}')
         print(f'test R²: {r2_cp}')
         print()
-        if mse_no < best_mse_no:
-            best_mse_no = mse_no 
-            best_weights = copy.deepcopy(nnue.state_dict())
+        if mae_no < best_mae_no:
+            best_mae_no = mae_no 
             torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/best.pt')
+            torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/bestoptim.pt')
+
+        #scheduler.step(best_mae_no)
 
         with open(f'{NNUE_MODEL_DIRECTORY}/history.json', 'w') as f:
-            json.dump([history_train_mse, history_test_mse, history_train_r2, history_test_r2], f)
+            json.dump([history_train_mae, history_test_mae, history_train_r2, history_test_r2], f)
 
         torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/last.pt')
+        torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/lastoptim.pt')
 
-        plot_loss('MSE [cp]', 'mse', 
-                  history_train_mse, 
-                  history_test_mse
-        )
-        plot_loss('RMSE [cp]', 'rmse', 
-                  [math.sqrt(v) for v in history_train_mse], 
-                  [math.sqrt(v) for v in history_test_mse]
+        plot_loss('MAE [cp]', 'mae', 
+                  history_train_mae, 
+                  history_test_mae
         )
         plot_loss('R²', 'r2', 
                   history_train_r2,

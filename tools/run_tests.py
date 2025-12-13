@@ -179,6 +179,8 @@ try:
     UnmakeMoveTest(engine, 'r3k2r/1b4bq/8/8/8/8/7B/R2K3R b kq - 1 1')
     UnmakeMoveTest(engine, 'r3k2r/1b5q/8/8/8/2b5/7B/R2K3R w kq - 2 2')
 
+    NNUEIndexing()
+
     NNUEInputTest(engine, 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1')
     NNUEInputTest(engine, '2r2rk1/4qp1p/2p2np1/3p2N1/1P6/P2QP1P1/1P3PP1/1K1R3R w - - 3 23')
     NNUEInputTest(engine, '8/8/8/3K4/2N5/3k4/1Q5P/8 b - - 4 48')

@@ -64,3 +64,24 @@ class FENBuilder:
             self.player_color = 'w'
         return self
 
+    def reverse(self) -> Self:
+        x = self.pieces_part
+
+        x = x.replace('p', '{p}')
+        x = x.replace('b', '{b}')
+        x = x.replace('n', '{n}')
+        x = x.replace('r', '{r}')
+        x = x.replace('q', '{q}')
+        x = x.replace('k', '{k}')
+
+        x = x.lower()
+
+        x = x.replace('{p}', 'p')
+        x = x.replace('{b}', 'b')
+        x = x.replace('{n}', 'n')
+        x = x.replace('{r}', 'r')
+        x = x.replace('{q}', 'q')
+        x = x.replace('{k}', 'k')
+
+        self.pieces_part = x
+        return self 

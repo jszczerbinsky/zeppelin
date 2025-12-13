@@ -1,8 +1,9 @@
-from os import wait
+import numpy as np
 import torch
 from torch import nn
 import chess
 import math
+from typing import Union
 
 INT8_MIN = -128
 INT8_MAX = 127
@@ -14,14 +15,14 @@ INT32_MIN = -2 ** 31
 INT32_MAX = 2 ** 31 - 1
 
 IN_SIZE = 64 * 2 * 6
-H1_SIZE = 2048
+H1_SIZE = 1024
 H2_SIZE = 64
 H3_SIZE = 32 
 
-def _get_input_idx(player: bool, sqr: int, piece: str, perspective: str):
+def get_input_idx(player: str, sqr: int, piece: str, perspective: str):
     players = {
-        True: 0,
-        False: 1
+        'w': 0,
+        'b': 1
     }
 
     pieces = {
@@ -33,10 +34,15 @@ def _get_input_idx(player: bool, sqr: int, piece: str, perspective: str):
         'Q': 5
     }
 
+    if player == 'w':
+        opp = 'b'
+    else:
+        opp = 'w'
+
     if perspective == 'w':
         return 6 * 64 * players[player] + 6 * sqr + pieces[piece]
     else:
-        return 6 * 64 * players[not player] + 6 * (63-sqr) + pieces[piece]
+        return 6 * 64 * players[opp] + 6 * (63-sqr) + pieces[piece]
 
 def input_from_fen(fen: str):
     board = chess.Board(fen)
@@ -44,12 +50,17 @@ def input_from_fen(fen: str):
     arrw = [0] * 64 * 2 * 6
     arrb = [0] * 64 * 2 * 6
 
+    colorstr = {
+        True: 'w',
+        False: 'b'
+    }
+
     for sqr in range(64):
         color = board.color_at(sqr)
         if color is not None: 
             piece = board.piece_at(sqr)
-            idxw = _get_input_idx(color, sqr, str(piece).upper(), 'w')
-            idxb = _get_input_idx(color, sqr, str(piece).upper(), 'b')
+            idxw = get_input_idx(colorstr[color], sqr, str(piece).upper(), 'w')
+            idxb = get_input_idx(colorstr[color], sqr, str(piece).upper(), 'b')
 
             arrw[idxw] = 1
             arrb[idxb] = 1
@@ -57,6 +68,15 @@ def input_from_fen(fen: str):
         'w': arrw,
         'b': arrb
     }
+
+
+def derivative_floor(x):
+    return 1 - torch.cos(2 * math.pi * (x - 0.3))
+
+
+def derivative_round(x):
+    return 1 - torch.cos(2 * math.pi * x)
+    #return 2 * torch.abs(torch.sin(math.pi * x))
 
 
 class QuantParam(torch.autograd.Function):
@@ -77,38 +97,18 @@ class QuantParam(torch.autograd.Function):
         unclamped = input * scale + zero
 
         mask = (unclamped >= int_min) & (unclamped <= int_max)
-        mask = mask.masked_fill(mask == False, 0.0001)
+        mask = mask.masked_fill(mask == True, 1) 
+        mask = mask.masked_fill(mask == False, 0.000001)
 
-        grad_input = grad_output * scale * mask
-        grad_scale = grad_output * input 
-        grad_zero = grad_output.clone() 
+        grad_input = scale
+        grad_input = grad_input * derivative_round(unclamped)
 
-        return grad_input, grad_scale, grad_zero, None, None
+        grad_scale = input
+        grad_scale = grad_scale * derivative_round(unclamped) 
 
+        grad_zero = derivative_round(unclamped)
 
-
-class QuantData(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input, rshift, int_min, int_max):
-        divider = 2 ** rshift
-        input_quant = (input / divider).floor().clamp(int_min, int_max)
-
-        ctx.save_for_backward(input, torch.tensor(divider), torch.tensor(int_min), torch.tensor(int_max))
-        
-        return input_quant
-    
-    @staticmethod
-    def backward(ctx, *grad_outputs):
-        grad_output = grad_outputs[0]
-
-        input, divider, int_min, int_max = ctx.saved_tensors
-
-        unclamped = input / divider
-
-        mask = (unclamped >= int_min) & (unclamped <= int_max)
-        mask = mask.masked_fill(mask == False, 0.0001)
-        
-        return grad_output.clone() * mask / divider, None, None, None
+        return grad_input * grad_output * mask, grad_scale * grad_output, grad_zero * grad_output, None, None
 
 
 class QuantDataSmoothed(torch.autograd.Function):
@@ -130,9 +130,11 @@ class QuantDataSmoothed(torch.autograd.Function):
         unclamped = input / divider
 
         mask = (unclamped >= int_min) & (unclamped <= int_max)
-        mask = mask.masked_fill(mask == False, 0.0001)
+        mask = mask.masked_fill(mask == True, 1)
+        mask = mask.masked_fill(mask == False, 0.000001)
 
-        input_grad = 1 - torch.cos(2 * math.pi * input / divider) / divider
+        input_grad = 1 / divider
+        input_grad = input_grad * derivative_floor(input / divider)
         
         return input_grad * grad_output * mask, None, None, None
 
@@ -142,8 +144,7 @@ class QuantLeakyReLU(torch.autograd.Function):
     def forward(ctx, input):
         ctx.save_for_backward(input)
 
-        quant_input = input.floor()
-        quant_input = torch.where(quant_input < 0, quant_input * 0.01, quant_input).floor()
+        quant_input = torch.where(input < 0, input * 0.01, input).floor()
 
         return quant_input
 
@@ -154,10 +155,13 @@ class QuantLeakyReLU(torch.autograd.Function):
 
         input, = ctx.saved_tensors
 
-        input_grad = torch.where(input < 0, 0.01, 1)
+        input_grad = torch.where(
+                input < 0, 
+                0.01 * derivative_floor(input),
+                derivative_floor(input)
+        )
 
-        return input_grad * grad_output
-
+        return input_grad * grad_output 
 
 class QuantLinear(nn.Module):
     def __init__(self, in_features, out_features) -> None:
@@ -176,7 +180,8 @@ class QuantLinear(nn.Module):
 
     def forward(self, x):
         weight = QuantParam.apply(self.weight, self.w_scale, self.w_zero, INT8_MIN, INT8_MAX)
-        bias = QuantParam.apply(self.bias, self.b_scale, self.b_zero, INT32_MIN, INT32_MAX)
+        bias = QuantParam.apply(self.bias, self.w_scale, self.w_zero, INT32_MIN, INT32_MAX)
+        bias = self.bias
         x = x.matmul(weight.t())
         x = x + bias
         return x
@@ -200,7 +205,7 @@ class QuantLinear(nn.Module):
         zero = torch.tensor([f_min, f_max]).mean()
         zero.round_().clamp_(q_min, q_max)
 
-        return scale/2, zero + 1
+        return scale/2, zero
 
 
     def init_scale_and_zero(self):
@@ -213,14 +218,27 @@ class QuantLinear(nn.Module):
         self.w_scale.data.fill_(scale)
         self.w_zero.data.fill_(zero)
 
-        bq_min = INT32_MIN
-        bq_max = INT32_MAX
+        bq_min = INT16_MIN
+        bq_max = INT16_MAX
         bf_min = self.bias.min().item()
         bf_max = self.bias.max().item()
         scale, zero = self.__get_scale_and_zero(bf_min, bf_max, bq_min, bq_max)
 
         self.b_scale.data.fill_(scale)
         self.b_zero.data.fill_(zero)
+
+    def extract_parameters(self):
+        w = QuantParam.apply(self.weight, self.w_scale, self.w_zero, INT8_MIN, INT8_MAX)
+        w = w.detach().numpy()
+        assert np.all(w == w.astype(np.int8))
+        w = w.astype(np.int8)
+
+        b = QuantParam.apply(self.bias, self.b_scale, self.b_zero, INT32_MIN, INT32_MAX)
+        b = b.detach().numpy()
+        assert np.all(b == b.astype(np.int32))
+        b = b.astype(np.int32)
+
+        return w.flatten(), b.flatten()
 
 
 class NNUEModel(nn.Module):
@@ -242,10 +260,10 @@ class NNUEModel(nn.Module):
         nn.init.kaiming_normal_(self.l3.weight, nonlinearity='relu')
         nn.init.kaiming_normal_(self.l4.weight, nonlinearity='relu')
 
-        self.l1.bias.fill_(0)
-        self.l2.bias.fill_(0)
-        self.l3.bias.fill_(0)
-        self.l4.bias.fill_(0)
+        self.l1.bias.fill_(1)
+        self.l2.bias.fill_(1)
+        self.l3.bias.fill_(1)
+        self.l4.bias.fill_(1)
 
         self.l1.init_scale_and_zero()
         self.l2.init_scale_and_zero()
@@ -270,10 +288,14 @@ class NNUEModel(nn.Module):
         x = QuantDataSmoothed.apply(x, 5, INT32_MIN, INT32_MAX)
 
         return torch.squeeze(x, 1)
-    
+
     def extract_parameters(self):
-        ...
-        
+        w1, b1 = self.l1.extract_parameters()
+        w2, b2 = self.l2.extract_parameters()
+        w3, b3 = self.l3.extract_parameters()
+        w4, b4 = self.l4.extract_parameters()
+
+        return w1, w2, w3, w4, b1, b2, b3, b4 
 
 
 class xNNUEModel(nn.Module):
