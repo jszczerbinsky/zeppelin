@@ -1,43 +1,36 @@
+from datetime import datetime
 import torch
+from typing import Tuple, Any
 import numpy as np
 import os
+from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 import tqdm
-import copy
-import math
-import json
 import matplotlib.pyplot as plt
 import pandas as pd
 import random
 import hashlib
+import argparse
 
 import NNUE
 import FEN
 
-N_EPOCHS = 5000
-DATASET_MAX_ROWS = 500#1000000 #30
 
-NNUE_MODEL_DIRECTORY = 'models/nnue/'
+MODELS_DIRECTORY = 'models/'
 
-SEED = int(hashlib.sha256(FEN.STARTPOS.encode()).hexdigest(), 16) % (2**32)
-
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed_all(SEED)
-
-os.makedirs(NNUE_MODEL_DIRECTORY, exist_ok=True)
 
 class NNUEDataset(torch.utils.data.Dataset):
-    def __init__(self, path: str, limit: int = 500000) -> None:
+    def __init__(self, path: str, limit: int, skip_material: bool) -> None:
         self.path = path
         self.csvdata = pd.read_csv(self.path)
         self.csvdata = self.csvdata[np.abs(self.csvdata.iloc[:, 1].astype(np.int32)) < 1500]
 
+        self.skip_material = skip_material
+
         self.length = len(self.csvdata)
         
         if self.length > limit:
-            self.length = limit
+            self.length = int(limit)
 
     def __len__(self) -> int:
         return self.length
@@ -47,18 +40,152 @@ class NNUEDataset(torch.utils.data.Dataset):
 
         val = float(row[1])
         if FEN.get_side_to_move(row[0]) == 'w':
-            val -= FEN.FENBuilder(row[0]).get_material_diff('w') * 100
+            if self.skip_material:
+                val -= FEN.FENBuilder(row[0]).get_material_diff('w') * 100
             x = NNUE.input_from_fen(row[0])['w']
             y = val
         else:
             val = -val
-            val -= FEN.FENBuilder(row[0]).get_material_diff('b') * 100
+            if self.skip_material:
+                val -= FEN.FENBuilder(row[0]).get_material_diff('b') * 100
             x = NNUE.input_from_fen(row[0])['b']
             y = val
         return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
 
 
-def plot_loss(loss_name: str, filename: str, train_loss: list[float], test_loss: list[float]):
+class ModelStats:
+    def __init__(self) -> None:
+        self.epochs = 0
+
+        self.train_mae = []
+        self.train_r2 = []
+        self.test_mae = []
+        self.test_r2 = []
+
+    def state_dict(self) -> dict[str, Any]:
+        return {
+            'epochs': self.epochs,
+            'train_mae': self.train_mae,
+            'train_r2': self.train_r2,
+            'test_mae': self.test_mae,
+            'test_r2': self.test_r2
+        }
+
+    def load_state_dict(self, state_dict: dict[str, Any]):
+        self.epochs = state_dict['epochs']
+        self.train_mae = state_dict['train_mae']
+        self.train_r2 = state_dict['train_r2']
+        self.test_mae = state_dict['test_mae']
+        self.test_r2 = state_dict['test_r2']
+
+
+def get_startup_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--name", help="Model name", nargs='?', type=str, default='nnue')
+    parser.add_argument("--seed", help="Randomness seed", nargs='?', type=int, default=0)
+    parser.add_argument("-c", "--cont", help="Continue previous training (keep scheduler and epochs)", nargs='?', type=bool, default=False)
+    parser.add_argument("-e", "--epochs", help="Target epochs count", nargs='?', type=int, default=100)
+
+    parser.add_argument("-r", "--datasetrows", help="Limit dataset rows", nargs='?', type=int, default=1e+6)
+    parser.add_argument("-b", "--batchsize", help="Batch size", nargs='?', type=int, default=16*1024)
+
+    parser.add_argument("--l1size", help="Size of first layer", nargs='?', type=int)
+    parser.add_argument("--l2size", help="Size of second layer", nargs='?', type=int)
+    parser.add_argument("--l3size", help="Size of third layer", nargs='?', type=int)
+    parser.add_argument("--rshift", help="Right shift in quantization", nargs='?', type=int)
+    parser.add_argument("--dropout", help="Dropout probability or -1 if no dropout", nargs='?', type=float)
+    parser.add_argument("--nomaterial", help="Skip material in training", nargs='?', type=bool)
+
+    parser.add_argument("--lr", help="Start learning rate", nargs='?', type=float)
+    parser.add_argument("--endlr", help="End learning rate", nargs='?', type=float)
+    parser.add_argument("--weightdecay", help="Weight decay", nargs='?', type=float)
+    a = parser.parse_args()
+
+    if a.cont:
+        if (a.l1size or a.l2size or a.l3size or a.rshift or a.dropout or a.nomaterial):
+            print('Cannot specify NNUE structure with --cont')
+            exit(1)
+        if (a.lr or a.endlr or a.weightdecay):
+            print('Cannot specify learning parameters with --cont')
+            exit(1)
+    else:
+        a.l1size = a.l1size or 1024
+        a.l2size = a.l2size or 32
+        a.l3size = a.l3size or 32
+        a.rshift = a.rshift or 5
+        a.dropout = a.dropout or -1
+        a.nomaterial = False if a.nomaterial is None else a.nomaterial
+        a.lr = a.lr or 0.005
+        a.endlr = a.endlr or 0.0005
+        a.weightdecay = a.weightdecay or 1e-4
+
+    return a
+
+
+def setup_rand_seed(rand_seed: int) -> None:
+    random.seed(rand_seed)
+    np.random.seed(rand_seed)
+    torch.manual_seed(rand_seed)
+    torch.cuda.manual_seed_all(rand_seed)
+
+
+def setup_loaders(max_rows: int, skip_material: bool, batch_size: int, rand_seed: int) -> Tuple[DataLoader, DataLoader]:
+    dataset = NNUEDataset(f'{MODELS_DIRECTORY}/dataset.csv', max_rows, skip_material)
+
+    train_size = int(0.8 * len(dataset))
+    test_size = len(dataset) - train_size
+
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+    g = torch.Generator()
+    g.manual_seed(rand_seed)
+
+    train_loader = DataLoader(train_dataset, batch_size, shuffle=True, worker_init_fn=lambda worker_id: np.random.seed(rand_seed + worker_id), generator = g)
+    test_loader = DataLoader(test_dataset, batch_size, shuffle=True, worker_init_fn=lambda worker_id: np.random.seed(rand_seed + worker_id), generator = g)
+
+    return train_loader, test_loader
+
+
+def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUEModel, ModelStats, Optimizer]:
+    model_path = f'{MODELS_DIRECTORY}/{name}/last.pt'
+
+    if args.dropout < 0:
+        allow_dropout = False
+        dropout = 0
+    else:
+        allow_dropout = True
+        dropout = args.dropout
+    
+    nnue = NNUE.NNUEModel(
+            l1_size=args.l1size, 
+            l2_size=args.l2size, 
+            l3_size=args.l3size, 
+            rshift=args.rshift, 
+            allow_dropout=allow_dropout, 
+            dropout_prob=dropout)
+    stats = ModelStats()
+    optimizer = torch.optim.AdamW(nnue.parameters(), lr=args.lr, weight_decay=args.weightdecay, betas=(.95, 0.999), eps=1e-5)
+
+    nnue.cuda()
+
+    if os.path.exists(model_path):
+        state_dict = torch.load(model_path)
+        nnue.load_state_dict(state_dict['nnue'])
+        if args.cont:
+            stats.load_state_dict(state_dict['stats'])
+            optimizer.load_state_dict(state_dict['optim'])
+            print(f'Continuing the training, the model has been trained for {stats.epochs} epochs')
+        else:
+            print('Loaded existing model, will be training from this point with specified parameters')
+    else:
+        print(f'Creating a new model with name {args.name}')
+        with torch.no_grad():
+            nnue.init_parameters()
+
+    return nnue, stats, optimizer
+
+
+def plot_loss(model_name: str, loss_name: str, filename: str, train_loss: list[float], test_loss: list[float]):
     test_last = test_loss[-1]
     train_last = train_loss[-1]
 
@@ -76,209 +203,159 @@ def plot_loss(loss_name: str, filename: str, train_loss: list[float], test_loss:
     plt.xlabel("Epoch")
     plt.ylabel(loss_name)
     plt.legend()
-    plt.savefig(f'{NNUE_MODEL_DIRECTORY}/{filename}.png', dpi=200)
+    plt.savefig(f'{MODELS_DIRECTORY}/{model_name}/{datetime.now()}_{filename}.png', dpi=200)
     plt.close()
 
-"""
-if torch.accelerator.is_available():
-    dev = torch.accelerator.current_accelerator()
-    print(f"Using {dev}")
-else:
-    print("Using CPU")
-"""
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    print("using GPU ", torch.cuda.get_device_name(0))
-else:
-    device = torch.device("cpu")
-    print("using CPU")
 
-dataset = NNUEDataset(f'{NNUE_MODEL_DIRECTORY}/dataset.csv', limit=DATASET_MAX_ROWS)
+def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEModel, stats: ModelStats, optimizer: Optimizer, scheduler, args):
+    best_mae_no = np.inf
+    best_mae_cp = np.inf
 
-train_size = int(0.8 * len(dataset))
-test_size = len(dataset) - train_size
+    loss_fn = torch.nn.L1Loss()
 
-train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+    for epoch in range(stats.epochs + 1, args.epochs + 1):
+        stats.epochs += 1
 
-g = torch.Generator()
-g.manual_seed(SEED)
-
-#train_loader = DataLoader(train_dataset, 1024 * 8, shuffle=True)
-#test_loader = DataLoader(test_dataset, 1024 * 8, shuffle=True)
-train_loader = DataLoader(train_dataset, 1024, shuffle=True, worker_init_fn=lambda worker_id: np.random.seed(SEED + worker_id), generator = g)
-test_loader = DataLoader(test_dataset, 1024, shuffle=True, worker_init_fn=lambda worker_id: np.random.seed(SEED + worker_id), generator = g)
-
-
-best_mae_no = np.inf
-best_mae_cp = np.inf
-
-loss_fn = torch.nn.L1Loss()
-
-nnue = NNUE.NNUEModel()
-nnue.cuda()
-history_test_mae = []
-history_test_r2 = []
-history_train_mae = []
-history_train_r2 = []
-
-if os.path.exists(f'{NNUE_MODEL_DIRECTORY}/last.pt'):
-    with open(f'{NNUE_MODEL_DIRECTORY}/history.json', 'r') as f:
-        history_train_mae, history_test_mae, history_train_r2, history_test_r2 = json.load(f)
-
-    print(f'Found existing model, it has been trained for {len(history_test_mae)} epochs')
-    nnue.load_state_dict(torch.load(f'{NNUE_MODEL_DIRECTORY}/last.pt', weights_only=True))
-    nnue.eval()
-    with torch.no_grad():
-        best_mae_no = 0
-        best_mae_cp = 0
-        for x, y_cp in test_loader:
+        nnue.train()
+        mae_cp = 0
+        mae_no = 0
+        r2_cp = 0
+        r2_cp_num = 0
+        r2_cp_den = 0
+        items = 0
+        bar = tqdm.tqdm(train_loader, desc=f'Epoch {epoch}')
+        for x, y_cp in bar:
             y_no = torch.tanh(y_cp/500)
 
             y_pred_cp = nnue(x.cuda())
-            y_pred_no = torch.tanh(y_pred_cp.cuda()/500)
+            y_pred_no = torch.tanh(y_pred_cp / 500)
 
-            best_mae_cp += loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
-            best_mae_no += loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
-        best_mae_no /= len(test_loader)
-        best_mae_cp /= len(test_loader)
+            loss_no = loss_fn(y_pred_no.cuda(), y_no.cuda())
+            loss_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda())
 
-        print(f'Current model:')
-        print(f'MAE    ={best_mae_no}')
-        print(f'MAE[cp]={best_mae_cp}')
-    nnue.train()
-else:
-    print('Saved model not found, initializing with random parameters')
-    with torch.no_grad():
-        nnue.init_parameters()
+            optimizer.zero_grad()
+            loss_no.backward()
 
-optimizer = torch.optim.AdamW(nnue.parameters(), lr=0.001, weight_decay=1e-4, betas=(.95, 0.999), eps=1e-5)
-#optimizer = torch.optim.SGD(nnue.parameters(), lr=0.001, weight_decay=1e-4, momentum=0.5)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, cooldown=20, min_lr=1e-6)
+            optimizer.step()
 
-if os.path.exists(f'{NNUE_MODEL_DIRECTORY}/last.pt'):
-    scheduler.load_state_dict(torch.load(f'{NNUE_MODEL_DIRECTORY}/lastoptim.pt'))
-
-for epoch in range(len(history_test_mae) + 1, N_EPOCHS+1):
-    if best_mae_cp < 50:
-        break
-    nnue.train()
-    mae_cp = 0
-    mae_no = 0
-    r2_cp = 0
-    r2_cp_num = 0
-    r2_cp_den = 0
-    items = 0
-    bar = tqdm.tqdm(train_loader, desc=f'Epoch {epoch}')
-    for x, y_cp in bar:
-        y_no = torch.tanh(y_cp/500)
-
-        y_pred_cp = nnue(x.cuda())
-        y_pred_no = torch.tanh(y_pred_cp / 500)
-
-        loss_no = loss_fn(y_pred_no.cuda(), y_no.cuda())
-        loss_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda())
-
-        optimizer.zero_grad()
-        loss_no.backward()
-        #torch.nn.utils.clip_grad_norm_(nnue.parameters(), max_norm=3.0)
-
-        optimizer.step()
-
-        pos_mae_no = loss_no.item()
-        pos_mae_cp = loss_cp.item()
-
-        mae_no += pos_mae_no
-        mae_cp += pos_mae_cp
-        r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
-        r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
-        r2_cp = 1 - r2_cp_num / r2_cp_den
-
-        items += 1
-        bar.set_postfix({
-            'lr': optimizer.param_groups[0]['lr'],
-            'train-MAE': mae_no / items,
-            'train-MAE[cp]': int(mae_cp / items),
-            'train-R²:': r2_cp
-        })
-    mae_no /= items
-    mae_cp /= items
-    history_train_mae.append(mae_cp) 
-    history_train_r2.append(r2_cp) 
-    scheduler.step(mae_cp)
-
-
-    nnue.eval()
-    with torch.no_grad():
-        mae_no = 0
-        mae_cp = 0
-        r2_cp_num = 0
-        r2_cp_den = 0
-        for x, y_cp in test_loader:
-            y_no = torch.tanh(y_cp/ 500)
-
-            y_pred_cp = nnue(x.cuda())
-            y_pred_no = torch.tanh(y_pred_cp.cuda() /  500)
-
-            pos_mae_no = loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
-            pos_mae_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
+            pos_mae_no = loss_no.item()
+            pos_mae_cp = loss_cp.item()
 
             mae_no += pos_mae_no
             mae_cp += pos_mae_cp
             r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
             r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
+            r2_cp = 1 - r2_cp_num / r2_cp_den
 
-        mae_no /= len(test_loader)
-        mae_cp /= len(test_loader)
-        r2_cp = 1 - r2_cp_num / r2_cp_den
+            items += 1
+            bar.set_postfix({
+                'lr': optimizer.param_groups[0]['lr'],
+                'train-MAE': mae_no / items,
+                'train-MAE[cp]': int(mae_cp / items),
+                'train-R²:': r2_cp
+            })
+        mae_no /= items
+        mae_cp /= items
+        stats.train_mae.append(mae_cp) 
+        stats.train_r2.append(r2_cp) 
+
+        nnue.eval()
+        with torch.no_grad():
+            mae_no = 0
+            mae_cp = 0
+            r2_cp_num = 0
+            r2_cp_den = 0
+            for x, y_cp in test_loader:
+                y_no = torch.tanh(y_cp/ 500)
+
+                y_pred_cp = nnue(x.cuda())
+                y_pred_no = torch.tanh(y_pred_cp.cuda() /  500)
+
+                pos_mae_no = loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
+                pos_mae_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
+
+                mae_no += pos_mae_no
+                mae_cp += pos_mae_cp
+                r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
+                r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
+
+            mae_no /= len(test_loader)
+            mae_cp /= len(test_loader)
+            r2_cp = 1 - r2_cp_num / r2_cp_den
 
 
-        history_test_mae.append(mae_cp)
-        history_test_r2.append(r2_cp)
-        print()
-        print(f'test MAE    : {mae_no}')
-        print(f'test MAE[cp]: {int(mae_cp)}')
-        print(f'test R²: {r2_cp}')
-        print()
-        if mae_no < best_mae_no:
-            best_mae_no = mae_no 
-            torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/best.pt')
-            torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/bestoptim.pt')
+            stats.test_mae.append(mae_cp)
+            stats.test_r2.append(r2_cp)
+            print()
+            print(f'test MAE    : {mae_no}')
+            print(f'test MAE[cp]: {int(mae_cp)}')
+            print(f'test R²: {r2_cp}')
+            print()
+            state_dict = {
+                'nnue': nnue.state_dict(),
+                'optim': optimizer.state_dict(),
+                'stats': stats.state_dict()
+            }
 
-        #scheduler.step(best_mae_no)
+            if mae_no < best_mae_no:
+                best_mae_no = mae_no 
+                torch.save(state_dict, f'{MODELS_DIRECTORY}/{args.name}/best.pt')
+            torch.save(state_dict, f'{MODELS_DIRECTORY}/{args.name}/last.pt')
 
-        with open(f'{NNUE_MODEL_DIRECTORY}/history.json', 'w') as f:
-            json.dump([history_train_mae, history_test_mae, history_train_r2, history_test_r2], f)
+            scheduler.step()
 
-        torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/last.pt')
-        torch.save(nnue.state_dict(), f'{NNUE_MODEL_DIRECTORY}/lastoptim.pt')
+            plot_loss(args.name, 'MAE [cp]', 'mae', 
+                stats.train_mae, 
+                stats.test_mae 
+            )
+            plot_loss(args.name, 'R²', 'r2', 
+                stats.train_r2,
+                stats.test_r2 
+            )
 
-        plot_loss('MAE [cp]', 'mae', 
-                  history_train_mae, 
-                  history_test_mae
-        )
-        plot_loss('R²', 'r2', 
-                  history_train_r2,
-                  history_test_r2
-        )
+    print("Training finished")
 
 
-        """
-        test_mse_last = history_test_mse[-1]
-        train_mse_last = history_train_mse[-1]
+def main():
+    args = get_startup_args()
 
-        scale = max(history_train_mse + history_test_mse) - min(history_train_mse + history_test_mse)
+    rand_seed = int(hashlib.sha256(FEN.STARTPOS.encode()).hexdigest(), 16) % (2**32) + args.seed 
+    setup_rand_seed(rand_seed)
+    
+    model_directory = f'{MODELS_DIRECTORY}/{args.name}'
+    os.makedirs(model_directory, exist_ok=True)
 
-        plt.axhline(train_mse_last, color='gray', linestyle='--', linewidth=1)
-        plt.text(0, train_mse_last+0.01*scale, f'{train_mse_last}', va='center', ha='left', fontsize=8)
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        print("using GPU ", torch.cuda.get_device_name(0))
+    else:
+        device = torch.device("cpu")
+        print("using CPU")
 
-        plt.plot(history_test_mse, label='Test MSE')
-        plt.plot(history_train_mse, label='Train MSE')
-        plt.xlabel("Epoch")
-        plt.ylabel("MSE")
-        plt.legend()
-        plt.savefig(f'{MODELS_DIRECTORY}/results.png')
-        plt.close()
-        """
- 
-print("END")
+    train_loader, test_loader = setup_loaders(args.datasetrows, args.nomaterial, args.batchsize, rand_seed)
+
+    nnue, stats, optimizer = load_or_create_model(args.name, args)
+
+    with open(f'{MODELS_DIRECTORY}/{args.name}/{datetime.now()}_epoch{stats.epochs}_args.txt', 'w') as f:
+        f.write(str(args)) 
+
+    last_epoch = -1
+    if stats.epochs > 0:
+        last_epoch = stats.epochs
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, last_epoch=last_epoch, T_max=args.epochs, eta_min=0.000005)
+
+    train(train_loader, test_loader, nnue, stats, optimizer, scheduler, args)
+
+if __name__ == "__main__":
+    main()
+exit(0)
+
+
+
+
+
+
+
+
+
 
