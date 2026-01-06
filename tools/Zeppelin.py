@@ -149,9 +149,9 @@ class ZeppelinWithDebug:
         if (
             not isinstance(res, dict)
             or 'white_perspective' not in res
-            or 'black_perspective' not in res
+            #or 'black_perspective' not in res
             or not isinstance(res['white_perspective'], list)
-            or not isinstance(res['black_perspective'], list)
+            #or not isinstance(res['black_perspective'], list)
         ):
             raise UnexpectedResponseException(res)
         return res

@@ -224,6 +224,7 @@ char *parsefen(char *fen) {
   }
 
   init_bbrds();
+  nnue_init(&g_game.nnue);
 
   return fen_nexttok();
 }

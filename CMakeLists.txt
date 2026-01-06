@@ -70,14 +70,21 @@ add_custom_command(
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
-set(EMBEDDED_WEIGHTS_FILE weights.bin)
-set(EMBEDDED_WEIGHTS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/weights.o)
+set(EMBEDDED_WEIGHTS_FILE nnue_weights.bin)
+set(EMBEDDED_WEIGHTS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_weights.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_WEIGHTS_OBJ}
 	COMMAND ld -r -b binary ${EMBEDDED_WEIGHTS_FILE} -o ${EMBEDDED_WEIGHTS_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
+set(EMBEDDED_BIAS_FILE nnue_bias.bin)
+set(EMBEDDED_BIAS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_bias.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_BIAS_OBJ}
+	COMMAND ld -r -b binary ${EMBEDDED_BIAS_FILE} -o ${EMBEDDED_BIAS_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
 
 # Choosing (cross) compiler 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -105,7 +112,7 @@ set(CMAKE_C_FLAGS_DEBUG "${WARN_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE")
 set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3")
 
 # Building executable
-add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ})
+add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ} ${EMBEDDED_BIAS_OBJ})
 target_link_libraries(zeppelin m)
 
 # Unit tests

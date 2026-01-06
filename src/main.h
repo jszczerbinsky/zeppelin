@@ -167,20 +167,25 @@ static inline int containsmove(const MoveList *moves, Move m) {
 //			  NNUE
 // =============================
 
-#define NNUE_IN_SIZE 64 * 2 * PIECE_MAX
-#define NNUE_H1_SIZE 2048
-#define NNUE_H2_SIZE 512
+#define NNUE_ACC0_SIZE (64 * 2 * PIECE_MAX)
+
+#include "../res/nnue_shape.h"
+
+#define NNUE_L1_SIZE (NNUE_ACC0_SIZE * NNUE_ACC1_SIZE)
+#define NNUE_L2_SIZE (NNUE_ACC1_SIZE * NNUE_ACC2_SIZE)
+#define NNUE_L3_SIZE (NNUE_ACC2_SIZE * NNUE_ACC3_SIZE)
+#define NNUE_L4_SIZE (NNUE_ACC3_SIZE * 1)
 
 typedef struct {
-  int8_t in[2][64 * 2 * PIECE_MAX];
-
-  // todo: h1 też w,b
-  int32_t h1[NNUE_H1_SIZE];
-  int32_t h2[NNUE_H2_SIZE];
+  // Always from white perspective
+  int8_t in[NNUE_ACC0_SIZE];
+  int32_t acc1[NNUE_ACC1_SIZE];
+  int32_t acc2[NNUE_ACC2_SIZE];
+  int32_t acc3[NNUE_ACC3_SIZE];
   int32_t out;
 } NNUE;
 
-void nnue_load_in(NNUE *nnue);
+void nnue_init(NNUE *nnue);
 
 // =============================
 //        Game definitions
@@ -228,6 +233,7 @@ typedef struct {
 
   MoveList movelist;
   GameState brdstate[MAX_PLY_PER_GAME];
+  NNUE nnue;
 } Game;
 
 extern Game g_game;
@@ -407,11 +413,6 @@ BitBrd gethash();
 // =============================
 //          Evaluation
 // =============================
-
-#define PATTERNS_SIZE 468
-extern int eval_weights[PATTERNS_SIZE * 3];
-
-int loadweights();
 
 static const int pawnval = 100;
 static const int knightval = 300;

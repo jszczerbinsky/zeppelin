@@ -128,20 +128,6 @@ static void respond2eval() {
   finishsending();
 }
 
-static void respond2setweight(char *index, char *value) {
-  int i = atoi(index);
-
-  if (i < 0 || i >= PATTERNS_SIZE * 3) {
-    printf("{\"status\": \"Weight index out of range\"}\n");
-    finishsending();
-    return;
-  }
-
-  eval_weights[i] = atoi(value);
-  printf("{\"status\": \"ok\"}\n");
-  finishsending();
-}
-
 static void respond2perft(char *depthstr) {
   int depth = atoi(depthstr);
   int nodes = 0;
@@ -172,23 +158,24 @@ static void respond2getscoreinfo(int score) {
 
 static void respond2getnnueinput() {
   NNUE nnue;
-  nnue_load_in(&nnue);
+  nnue_init(&nnue);
 
   printf("{\"white_perspective\": [");
-  for (int i = 0; i < NNUE_IN_SIZE; i++) {
+  for (int i = 0; i < NNUE_ACC0_SIZE; i++) {
     if (i != 0) {
       putchar(',');
     }
-    printf("%d", nnue.in[WHITE][i]);
+    printf("%d", nnue.in[i]);
   }
-  printf("], \"black_perspective\": [");
-  for (int i = 0; i < NNUE_IN_SIZE; i++) {
+  printf("]}\n");
+  /*printf("], \"black_perspective\": [");
+  for (int i = 0; i < NNUE_ACC0_SIZE; i++) {
     if (i != 0) {
       putchar(',');
     }
     printf("%d", nnue.in[BLACK][i]);
   }
-  printf("]}\n");
+  printf("]}\n");*/
   finishsending();
 }
 
@@ -211,11 +198,7 @@ static int next_cmd(char *buff) {
     respond2getrepetitions();
   else if (equals(token, "perft"))
     respond2perft(nexttok());
-  else if (equals(token, "setweight")) {
-    char *arg1 = nexttok();
-    char *arg2 = nexttok();
-    respond2setweight(arg1, arg2);
-  } else if (equals(token, "eval"))
+  else if (equals(token, "eval"))
     respond2eval();
   else if (equals(token, "getscoreinfo"))
     respond2getscoreinfo(atoi(nexttok()));

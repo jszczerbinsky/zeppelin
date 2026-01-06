@@ -1,4 +1,5 @@
 from datetime import datetime
+import gc
 import torch
 from typing import Tuple, Any
 import numpy as np
@@ -11,45 +12,115 @@ import pandas as pd
 import random
 import hashlib
 import argparse
+import chess
+import math
 
 import NNUE
 import FEN
-
-
-MODELS_DIRECTORY = 'models/'
+from Paths import MODELS_DIRECTORY
 
 
 class NNUEDataset(torch.utils.data.Dataset):
     def __init__(self, path: str, limit: int, skip_material: bool) -> None:
         self.path = path
-        self.csvdata = pd.read_csv(self.path)
-        self.csvdata = self.csvdata[np.abs(self.csvdata.iloc[:, 1].astype(np.int32)) < 1500]
+        filtered_path = path.removesuffix('.csv') + f'_filtered.pkl'
 
+        if os.path.exists(filtered_path):
+            print('Preprocessed dataset found, loading the file...')
+            df = pd.read_pickle(filtered_path)
+        else:
+            df = pd.read_csv(self.path)
+            df.columns = ['fen', 'eval']
+
+            print('Preparing dataset')
+            print('Raw data:')
+            print(df.head())
+
+            print('Preprocessing data...')
+            skipped_rows = 0
+
+            prev_len = len(df)
+            df = df[df['eval'].abs() < 700]
+            skipped_rows += prev_len - len(df)
+
+            df['input'] = [[] for _ in range(len(df))]
+            df['is_silent'] = True
+            i = 0
+            bar = tqdm.tqdm(df.iterrows(), total=len(df))
+            for index, row in bar:
+                if not self.__is_silent(row['fen']):
+                    df.at[index, 'is_silent'] = False
+                    skipped_rows += 1
+                else:
+                    side2move = FEN.get_side_to_move(str(row['fen']))
+                    df.at[index, 'input'] = NNUE.input_from_fen(str(row['fen']))['w']
+                    #if side2move == 'b':
+                    #    df.at[index, 'eval'] = -row['eval']
+                    df.at[index, 'eval_nomaterial'] = row['eval'] - FEN.FENBuilder(str(row['fen'])).get_material_diff('w')
+
+                if i % 2000 == 0:
+                    bar.set_postfix({
+                        'rows-left': prev_len - skipped_rows,
+                        'skipped-rows': skipped_rows,
+                    })
+                    i = 0
+                
+                i += 1
+
+            
+            df = df[df['is_silent']]
+            df = df.drop(columns=['is_silent'])
+            df.to_pickle(filtered_path)
+
+        if limit < len(df):
+            drop_idxs = np.random.choice(df.index, len(df) - limit, replace=False)
+            df = df.drop(drop_idxs)
+
+        print('Preprocessed data:')
+
+        print(df.head())
+        print()
+
+        print(f'Used rows: {len(df)}')
+        print()
+
+        print('min eval   :' + str(df["eval"].min()))
+        print('max eval   :' + str(df["eval"].max()))
+        print('avg eval   :' + str(df["eval"].mean()))
+        print('stddev eval:' + str(df["eval"].std()))
+
+
+        self.df = df
         self.skip_material = skip_material
+        self.length = len(self.df)
 
-        self.length = len(self.csvdata)
-        
-        if self.length > limit:
-            self.length = int(limit)
+        gc.collect()
+
+    def __is_silent(self, fen) -> bool:
+        board = chess.Board(fen)
+
+        if board.is_game_over():
+            return False
+
+        if board.is_check():
+            return False
+
+        for move in board.legal_moves:
+            if board.is_capture(move):
+                return False
+
+        return True
 
     def __len__(self) -> int:
         return self.length
 
     def __getitem__(self, index):
-        row = self.csvdata.iloc[index].values
-
-        val = float(row[1])
-        if FEN.get_side_to_move(row[0]) == 'w':
-            if self.skip_material:
-                val -= FEN.FENBuilder(row[0]).get_material_diff('w') * 100
-            x = NNUE.input_from_fen(row[0])['w']
-            y = val
+        row = self.df.iloc[index]
+        x = row['input']
+        if self.skip_material:
+            y = row['eval_nomaterial']
         else:
-            val = -val
-            if self.skip_material:
-                val -= FEN.FENBuilder(row[0]).get_material_diff('b') * 100
-            x = NNUE.input_from_fen(row[0])['b']
-            y = val
+            y = row['eval']
         return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
 
 
@@ -57,25 +128,25 @@ class ModelStats:
     def __init__(self) -> None:
         self.epochs = 0
 
-        self.train_mae = []
+        self.train_mse = []
         self.train_r2 = []
-        self.test_mae = []
+        self.test_mse = []
         self.test_r2 = []
 
     def state_dict(self) -> dict[str, Any]:
         return {
             'epochs': self.epochs,
-            'train_mae': self.train_mae,
+            'train_mse': self.train_mse,
             'train_r2': self.train_r2,
-            'test_mae': self.test_mae,
+            'test_mse': self.test_mse,
             'test_r2': self.test_r2
         }
 
     def load_state_dict(self, state_dict: dict[str, Any]):
         self.epochs = state_dict['epochs']
-        self.train_mae = state_dict['train_mae']
+        self.train_mse = state_dict['train_mse']
         self.train_r2 = state_dict['train_r2']
-        self.test_mae = state_dict['test_mae']
+        self.test_mse = state_dict['test_mse']
         self.test_r2 = state_dict['test_r2']
 
 
@@ -86,23 +157,31 @@ def get_startup_args() -> argparse.Namespace:
     parser.add_argument("-c", "--cont", help="Continue previous training (keep scheduler and epochs)", nargs='?', type=bool, default=False)
     parser.add_argument("-e", "--epochs", help="Target epochs count", nargs='?', type=int, default=100)
 
-    parser.add_argument("-r", "--datasetrows", help="Limit dataset rows", nargs='?', type=int, default=1e+6)
+    parser.add_argument("-r", "--datasetrows", help="Limit dataset rows", nargs='?', type=int, default=1000000)
     parser.add_argument("-b", "--batchsize", help="Batch size", nargs='?', type=int, default=16*1024)
 
     parser.add_argument("--l1size", help="Size of first layer", nargs='?', type=int)
     parser.add_argument("--l2size", help="Size of second layer", nargs='?', type=int)
     parser.add_argument("--l3size", help="Size of third layer", nargs='?', type=int)
-    parser.add_argument("--rshift", help="Right shift in quantization", nargs='?', type=int)
-    parser.add_argument("--dropout", help="Dropout probability or -1 if no dropout", nargs='?', type=float)
     parser.add_argument("--nomaterial", help="Skip material in training", nargs='?', type=bool)
+
+    parser.add_argument("--sched", help="Specify scheduler", nargs='?', type=str, default='cosine')
+
+    parser.add_argument("--plateaucooldown", help="Reduce on plateau cooldown", nargs='?', type=float, default=10)
+    parser.add_argument("--plateaupatience", help="Reduce on plateau patience", nargs='?', type=float, default=5)
+    parser.add_argument("--plateaufactor", help="Reduce on plateau factor", nargs='?', type=float, default=0.5)
+    parser.add_argument("--plateautrain", help="Reduce on plateau use train loss", nargs='?', type=bool, default=False)
 
     parser.add_argument("--lr", help="Start learning rate", nargs='?', type=float)
     parser.add_argument("--endlr", help="End learning rate", nargs='?', type=float)
     parser.add_argument("--weightdecay", help="Weight decay", nargs='?', type=float)
+
+    parser.add_argument("--debuggrad", help="Debug gradients", nargs='?', type=bool, default=False)
+    parser.add_argument("--debugflow", help="Debug NN flow", nargs='?', type=bool, default=False)
     a = parser.parse_args()
 
     if a.cont:
-        if (a.l1size or a.l2size or a.l3size or a.rshift or a.dropout or a.nomaterial):
+        if (a.l1size or a.l2size or a.l3size or a.nomaterial):
             print('Cannot specify NNUE structure with --cont')
             exit(1)
         if (a.lr or a.endlr or a.weightdecay):
@@ -112,8 +191,6 @@ def get_startup_args() -> argparse.Namespace:
         a.l1size = a.l1size or 1024
         a.l2size = a.l2size or 32
         a.l3size = a.l3size or 32
-        a.rshift = a.rshift or 5
-        a.dropout = a.dropout or -1
         a.nomaterial = False if a.nomaterial is None else a.nomaterial
         a.lr = a.lr or 0.005
         a.endlr = a.endlr or 0.0005
@@ -149,20 +226,11 @@ def setup_loaders(max_rows: int, skip_material: bool, batch_size: int, rand_seed
 def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUEModel, ModelStats, Optimizer]:
     model_path = f'{MODELS_DIRECTORY}/{name}/last.pt'
 
-    if args.dropout < 0:
-        allow_dropout = False
-        dropout = 0
-    else:
-        allow_dropout = True
-        dropout = args.dropout
-    
     nnue = NNUE.NNUEModel(
             l1_size=args.l1size, 
             l2_size=args.l2size, 
-            l3_size=args.l3size, 
-            rshift=args.rshift, 
-            allow_dropout=allow_dropout, 
-            dropout_prob=dropout)
+            l3_size=args.l3size,
+            debugflow=args.debugflow)
     stats = ModelStats()
     optimizer = torch.optim.AdamW(nnue.parameters(), lr=args.lr, weight_decay=args.weightdecay, betas=(.95, 0.999), eps=1e-5)
 
@@ -185,7 +253,7 @@ def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUE
     return nnue, stats, optimizer
 
 
-def plot_loss(model_name: str, loss_name: str, filename: str, train_loss: list[float], test_loss: list[float]):
+def plot_loss(args, model_name: str, loss_name: str, filename: str, train_loss: list[float], test_loss: list[float]):
     test_last = test_loss[-1]
     train_last = train_loss[-1]
 
@@ -203,32 +271,32 @@ def plot_loss(model_name: str, loss_name: str, filename: str, train_loss: list[f
     plt.xlabel("Epoch")
     plt.ylabel(loss_name)
     plt.legend()
-    plt.savefig(f'{MODELS_DIRECTORY}/{model_name}/{datetime.now()}_{filename}.png', dpi=200)
+    plt.savefig(f'{MODELS_DIRECTORY}/{model_name}/{args.starttime}_{filename}.png', dpi=200)
     plt.close()
 
 
 def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEModel, stats: ModelStats, optimizer: Optimizer, scheduler, args):
-    best_mae_no = np.inf
-    best_mae_cp = np.inf
+    best_mse_no = np.inf
+    best_mse_cp = np.inf
 
-    loss_fn = torch.nn.L1Loss()
+    loss_fn = torch.nn.MSELoss()
 
     for epoch in range(stats.epochs + 1, args.epochs + 1):
         stats.epochs += 1
 
         nnue.train()
-        mae_cp = 0
-        mae_no = 0
+        mse_cp = 0
+        mse_no = 0
         r2_cp = 0
         r2_cp_num = 0
         r2_cp_den = 0
         items = 0
         bar = tqdm.tqdm(train_loader, desc=f'Epoch {epoch}')
         for x, y_cp in bar:
-            y_no = torch.tanh(y_cp/500)
+            y_no = y_cp/700
 
             y_pred_cp = nnue(x.cuda())
-            y_pred_no = torch.tanh(y_pred_cp / 500)
+            y_pred_no = y_pred_cp / 700
 
             loss_no = loss_fn(y_pred_no.cuda(), y_no.cuda())
             loss_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda())
@@ -237,12 +305,32 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
             loss_no.backward()
 
             optimizer.step()
+            with torch.no_grad():
+                nnue.clamp_parameters()
 
-            pos_mae_no = loss_no.item()
-            pos_mae_cp = loss_cp.item()
+            if args.debuggrad:
+                assert nnue.l1.weight.grad is not None
+                assert nnue.l2.weight.grad is not None
+                assert nnue.l3.weight.grad is not None
+                assert nnue.l4.weight.grad is not None
+                assert nnue.l1.bias.grad is not None
+                assert nnue.l2.bias.grad is not None
+                assert nnue.l3.bias.grad is not None
+                assert nnue.l4.bias.grad is not None
+                print(f"L1 w grad mean: {nnue.l1.weight.grad.abs().mean()}")
+                print(f"L2 w grad mean: {nnue.l2.weight.grad.abs().mean()}")
+                print(f"L3 w grad mean: {nnue.l3.weight.grad.abs().mean()}")
+                print(f"L4 w grad mean: {nnue.l4.weight.grad.abs().mean()}")
+                print(f"L1 b grad mean: {nnue.l1.bias.grad.abs().mean()}")
+                print(f"L2 b grad mean: {nnue.l2.bias.grad.abs().mean()}")
+                print(f"L3 b grad mean: {nnue.l3.bias.grad.abs().mean()}")
+                print(f"L4 b grad mean: {nnue.l4.bias.grad.abs().mean()}")
 
-            mae_no += pos_mae_no
-            mae_cp += pos_mae_cp
+            pos_mse_no = loss_no.item()
+            pos_mse_cp = loss_cp.item()
+
+            mse_no += pos_mse_no
+            mse_cp += pos_mse_cp
             r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
             r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
             r2_cp = 1 - r2_cp_num / r2_cp_den
@@ -250,45 +338,49 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
             items += 1
             bar.set_postfix({
                 'lr': optimizer.param_groups[0]['lr'],
-                'train-MAE': mae_no / items,
-                'train-MAE[cp]': int(mae_cp / items),
+                'train-MSE': mse_no / items,
+                'train-RMSE[cp]': int(math.sqrt(mse_cp / items)),
                 'train-R²:': r2_cp
             })
-        mae_no /= items
-        mae_cp /= items
-        stats.train_mae.append(mae_cp) 
+        mse_no /= items
+        mse_cp /= items
+        stats.train_mse.append(mse_cp) 
         stats.train_r2.append(r2_cp) 
+
+        if args.sched == 'plateau' and args.plateautrain:
+            scheduler.step(mse_no)
+
 
         nnue.eval()
         with torch.no_grad():
-            mae_no = 0
-            mae_cp = 0
+            mse_no = 0
+            mse_cp = 0
             r2_cp_num = 0
             r2_cp_den = 0
             for x, y_cp in test_loader:
-                y_no = torch.tanh(y_cp/ 500)
+                y_no = y_cp/700 
 
                 y_pred_cp = nnue(x.cuda())
-                y_pred_no = torch.tanh(y_pred_cp.cuda() /  500)
+                y_pred_no = y_pred_cp.cuda() /  700
 
-                pos_mae_no = loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
-                pos_mae_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
+                pos_mse_no = loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
+                pos_mse_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()
 
-                mae_no += pos_mae_no
-                mae_cp += pos_mae_cp
+                mse_no += pos_mse_no
+                mse_cp += pos_mse_cp
                 r2_cp_num += torch.sum((y_cp.cuda() - y_pred_cp.cuda()) ** 2).item()
                 r2_cp_den += torch.sum((y_cp.cuda() - torch.mean(y_cp).cuda()) ** 2).item()
 
-            mae_no /= len(test_loader)
-            mae_cp /= len(test_loader)
+            mse_no /= len(test_loader)
+            mse_cp /= len(test_loader)
             r2_cp = 1 - r2_cp_num / r2_cp_den
 
 
-            stats.test_mae.append(mae_cp)
+            stats.test_mse.append(mse_cp)
             stats.test_r2.append(r2_cp)
             print()
-            print(f'test MAE    : {mae_no}')
-            print(f'test MAE[cp]: {int(mae_cp)}')
+            print(f'test MSE    : {mse_no}')
+            print(f'test RMSE[cp]: {int(math.sqrt(mse_cp))}')
             print(f'test R²: {r2_cp}')
             print()
             state_dict = {
@@ -297,18 +389,26 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
                 'stats': stats.state_dict()
             }
 
-            if mae_no < best_mae_no:
-                best_mae_no = mae_no 
+            if mse_no < best_mse_no:
+                best_mse_no = mse_no 
                 torch.save(state_dict, f'{MODELS_DIRECTORY}/{args.name}/best.pt')
             torch.save(state_dict, f'{MODELS_DIRECTORY}/{args.name}/last.pt')
 
-            scheduler.step()
+            if args.sched == 'plateau':
+                if not args.plateautrain:
+                    scheduler.step(best_mse_no)
+            else:
+                scheduler.step()
 
-            plot_loss(args.name, 'MAE [cp]', 'mae', 
-                stats.train_mae, 
-                stats.test_mae 
+            plot_loss(args, args.name, 'MSE [cp]', 'mse', 
+                stats.train_mse, 
+                stats.test_mse 
             )
-            plot_loss(args.name, 'R²', 'r2', 
+            plot_loss(args, args.name, 'RMSE [cp]', 'rmse', 
+                [math.sqrt(x) for x in stats.train_mse], 
+                [math.sqrt(x) for x in stats.test_mse] 
+            )
+            plot_loss(args, args.name, 'R²', 'r2', 
                 stats.train_r2,
                 stats.test_r2 
             )
@@ -318,6 +418,7 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
 
 def main():
     args = get_startup_args()
+    args.starttime = datetime.now()
 
     rand_seed = int(hashlib.sha256(FEN.STARTPOS.encode()).hexdigest(), 16) % (2**32) + args.seed 
     setup_rand_seed(rand_seed)
@@ -336,13 +437,17 @@ def main():
 
     nnue, stats, optimizer = load_or_create_model(args.name, args)
 
-    with open(f'{MODELS_DIRECTORY}/{args.name}/{datetime.now()}_epoch{stats.epochs}_args.txt', 'w') as f:
+    with open(f'{MODELS_DIRECTORY}/{args.name}/{args.starttime}_epoch{stats.epochs}_args.txt', 'w') as f:
         f.write(str(args)) 
 
     last_epoch = -1
     if stats.epochs > 0:
         last_epoch = stats.epochs
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, last_epoch=last_epoch, T_max=args.epochs, eta_min=0.000005)
+
+    if args.sched == 'plateau':
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=args.plateaupatience, factor=args.plateaufactor, cooldown=args.plateaucooldown)
+    else:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, last_epoch=last_epoch, T_max=args.epochs, eta_min=0.000005)
 
     train(train_loader, test_loader, nnue, stats, optimizer, scheduler, args)
 

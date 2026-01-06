@@ -135,10 +135,6 @@ int main(int argc, char **argv) {
       fprintf(stderr, "ERROR precomp file not found, aborting...\n");
       return 1;
     }
-    if (!loadweights()) {
-      fprintf(stderr, "ERROR weights file not found, aborting...\n");
-      return 1;
-    }
 
     choose_protocol();
     freeprecomp();
