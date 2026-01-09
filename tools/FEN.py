@@ -1,5 +1,8 @@
 import re
-from typing import Self
+from typing import Self, Union
+import random
+
+import Paths
 
 STARTPOS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
@@ -11,6 +14,21 @@ def get_side_to_move(fen: str) -> str:
         return 'w'
     else:
         return 'b'
+
+def get_random(count=1) -> Union[str, list[str]]:
+    fens = []
+    with open(Paths.DATA_DIRECTORY + "random_fens.txt", "r") as f:
+        lines = f.readlines()
+
+    for _ in range(count):
+        line = random.choice(lines)
+        fens.append(line)
+        lines.remove(line)
+
+    if count == 1:
+        return fens[0]
+    return fens
+
 
 class FENBuilder:
     def __init__(self, fen: str) -> None:

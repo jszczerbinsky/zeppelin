@@ -1,4 +1,25 @@
+/*
+ * Zeppelin chess engine.
+ *
+ * Copyright (C) 2024-2026 Jakub Szczerbiński <jszczerbinsky2@gmail.com>
+ *
+ * Zeppelin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "main.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef struct {
   int pcolor;
@@ -14,64 +35,24 @@ typedef struct {
   const BitBrd eattacks;
 } EvalSideArgs;
 
-static int _eval_side(const EvalSideArgs *args) { return 0; }
-
 int evaluate() {
-
+#ifdef EVAL_NNUE
   nnue_init(&g_game.nnue);
   if (g_game.who2move == WHITE)
     return (int)g_game.nnue.out;
   else
     return -(int)g_game.nnue.out;
+#endif
 
+#ifdef EVAL_MATERIAL_ONLY
   int value = 0;
-
-  BitBrd wattacks, battacks;
-  MoveList wmoves, bmoves;
-  gen_moves(WHITE, &wmoves, &wattacks, GEN_ALL, 0);
-  gen_moves(BLACK, &bmoves, &battacks, GEN_ALL, 0);
-
-  BitBrd bflipped_piece[PIECE_MAX];
-  BitBrd bflipped;
-  BitBrd wflipped_piece[PIECE_MAX];
-  BitBrd wflipped;
-  BitBrd wattacks_flipped = bbrdflipv(wattacks);
-  BitBrd battacks_flipped = bbrdflipv(battacks);
-  bflipped = bbrdflipv(g_game.piecesof[BLACK]);
-  wflipped = bbrdflipv(g_game.piecesof[WHITE]);
-  for (int i = 0; i < PIECE_MAX; i++) {
-    bflipped_piece[i] = bbrdflipv(g_game.pieces[BLACK][i]);
-    wflipped_piece[i] = bbrdflipv(g_game.pieces[WHITE][i]);
-  }
-
-  EvalSideArgs wargs = {
-      .pcolor = WHITE,
-      .ppieces = g_game.pieces[WHITE],
-      .pallpieces = g_game.piecesof[WHITE],
-      .pattacks = wattacks,
-      .epieces = g_game.pieces[BLACK],
-      .eallpieces = g_game.piecesof[BLACK],
-      .eattacks = battacks,
-  };
-  EvalSideArgs bargs = {
-      .pcolor = BLACK,
-      .ppieces = bflipped_piece,
-      .pallpieces = bflipped,
-      .pattacks = battacks_flipped,
-      .epieces = wflipped_piece,
-      .eallpieces = wflipped,
-      .eattacks = wattacks_flipped,
-  };
-
-  value += _eval_side(&wargs) - _eval_side(&bargs);
-
   for (int p = 0; p < PIECE_MAX; p++) {
     value +=
         (popcnt(g_game.pieces[WHITE][p]) - popcnt(g_game.pieces[BLACK][p])) *
         material[p];
   }
-
   return g_game.who2move == WHITE ? value : -value;
+#endif
 }
 
 int evaluate_terminalpos(int pliescnt) {
@@ -90,4 +71,98 @@ int evaluate_material() {
              material[p];
   }
   return value;
+}
+
+typedef struct {
+  BitBrd occupancy;
+  int piecescnt;
+  uint8_t *piece_pairs;
+  int pairscnt;
+  int32_t eval;
+  uint8_t fullmove;
+} EvalEntry;
+
+static int eval_entries_cnt = 0;
+static EvalEntry *eval_entries = NULL;
+
+void save_eval_entry(int eval) {
+  eval_entries_cnt++;
+  eval_entries =
+      realloc(eval_entries, (size_t)eval_entries_cnt * sizeof(EvalEntry));
+
+  EvalEntry *new_entry = eval_entries + (eval_entries_cnt - 1);
+  new_entry->occupancy = g_game.piecesof[ANY];
+  new_entry->fullmove = (uint8_t)g_gamestate->fullmove;
+
+  new_entry->piecescnt = popcnt(new_entry->occupancy);
+  new_entry->pairscnt = (new_entry->piecescnt + 1) / 2;
+
+  new_entry->piece_pairs = calloc((size_t)new_entry->pairscnt, sizeof(uint8_t));
+
+  int pair = 0;
+  int ishi = 1;
+  for (int sqr = 0; sqr < 64; sqr++) {
+    int piece = getpieceat(ANY, sqr2bbrd(sqr));
+    int isblack = getpieceat(BLACK, sqr2bbrd(sqr)) != -1;
+
+    if (piece != -1) {
+      uint8_t fpiece = (uint8_t)piece;
+      if (isblack)
+        fpiece |= 8U;
+
+      if (ishi) {
+        fpiece <<= 4;
+        new_entry->piece_pairs[pair] = fpiece;
+      } else {
+        new_entry->piece_pairs[pair] |= fpiece;
+      }
+
+      if (!ishi)
+        pair++;
+      ishi = !ishi;
+    }
+  }
+  new_entry->eval = (int32_t)eval;
+}
+
+void dump_eval_entries(int game_result) {
+  int8_t fgame_result = (int8_t)game_result;
+  uint8_t total_fullmoves = (uint8_t)g_gamestate->fullmove;
+
+  FILE *f = fopen("dataset", "r+b");
+  if (!f) {
+    f = fopen("dataset", "w+b");
+  }
+
+  fseek(f, 0, SEEK_END);
+  ssize_t fsize = ftell(f);
+  fseek(f, 0, SEEK_SET);
+
+  uint32_t count = 0;
+  if (fsize >= 4)
+    fread(&count, sizeof(uint32_t), 1, f);
+  count += (uint32_t)eval_entries_cnt;
+  fseek(f, 0, SEEK_SET);
+  fwrite(&count, sizeof(uint32_t), 1, f);
+
+  fseek(f, 0, SEEK_END);
+
+  for (int i = 0; i < eval_entries_cnt; i++) {
+    fwrite(&eval_entries[i].occupancy, sizeof(BitBrd), 1, f);
+    fwrite(eval_entries[i].piece_pairs, sizeof(uint8_t),
+           (size_t)eval_entries[i].pairscnt, f);
+    fwrite(&eval_entries[i].eval, sizeof(int32_t), 1, f);
+    fwrite(&fgame_result, sizeof(int8_t), 1, f);
+    fwrite(&eval_entries[i].fullmove, sizeof(uint8_t), 1, f);
+    fwrite(&total_fullmoves, sizeof(uint8_t), 1, f);
+
+    free(eval_entries[i].piece_pairs);
+  }
+
+  fclose(f);
+
+  free(eval_entries);
+  eval_entries = NULL;
+
+  g_set.gen_evals = 0;
 }

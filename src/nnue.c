@@ -1,5 +1,23 @@
+/*
+ * Zeppelin chess engine.
+ *
+ * Copyright (C) 2024-2026 Jakub Szczerbiński <jszczerbinsky2@gmail.com>
+ *
+ * Zeppelin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "main.h"
-#include <stdio.h>
 
 extern const unsigned char _binary_nnue_weights_bin_start[];
 extern const unsigned char _binary_nnue_bias_bin_start[]
@@ -37,8 +55,6 @@ const int32_t *l3bias =
     (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L3B_START);
 const int32_t *l4bias =
     (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L4B_START);
-
-#define IN_IDX(c, sqr, p) (PIECE_MAX * 64 * (c) + PIECE_MAX * (sqr) + p)
 
 static int8_t screlu(int32_t input) {
   if (input < 0) {
@@ -117,20 +133,20 @@ void nnue_init(NNUE *nnue) {
       int isw = (g_game.pieces[WHITE][p] & sqr2bbrd(sqr)) == sqr2bbrd(sqr);
       int isb = (g_game.pieces[BLACK][p] & sqr2bbrd(sqr)) == sqr2bbrd(sqr);
 
-      int idx_w = IN_IDX(WHITE, sqr, p);
-      int idx_b = IN_IDX(BLACK, sqr, p);
+      int idx_w = NNUE_IN_IDX(WHITE, sqr, p);
+      int idx_b = NNUE_IN_IDX(BLACK, sqr, p);
 
       if (isw) {
-        nnue->in[idx_w] = 1;
-        nnue->in[idx_b] = 0;
+        nnue->acc0[idx_w] = 1;
+        nnue->acc0[idx_b] = 0;
         nnue_acc1_add(nnue, idx_w);
       } else if (isb) {
-        nnue->in[idx_w] = 0;
-        nnue->in[idx_b] = 1;
+        nnue->acc0[idx_w] = 0;
+        nnue->acc0[idx_b] = 1;
         nnue_acc1_add(nnue, idx_b);
       } else {
-        nnue->in[idx_w] = 0;
-        nnue->in[idx_b] = 0;
+        nnue->acc0[idx_w] = 0;
+        nnue->acc0[idx_b] = 0;
       }
     }
   }

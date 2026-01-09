@@ -1,3 +1,4 @@
+
 import os
 import torch
 import numpy as np
@@ -9,8 +10,8 @@ from FEN import STARTPOS
 
 model_name = sys.argv[1]
 
-assert os.path.exists(f'{MODELS_DIRECTORY}/{model_name}/last.pt')
-state_dict = torch.load(f'{MODELS_DIRECTORY}/{model_name}/last.pt', weights_only=True)
+assert os.path.exists(f'{MODELS_DIRECTORY}/{model_name}/best.pt')
+state_dict = torch.load(f'{MODELS_DIRECTORY}/{model_name}/best.pt', weights_only=True)
 
 nnue = NNUEModel()
 nnue.load_state_dict(state_dict['nnue'])

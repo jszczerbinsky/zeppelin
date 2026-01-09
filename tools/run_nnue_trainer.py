@@ -20,7 +20,7 @@ import FEN
 from Paths import MODELS_DIRECTORY
 
 
-class NNUEDataset(torch.utils.data.Dataset):
+class xNNUEDataset(torch.utils.data.Dataset):
     def __init__(self, path: str, limit: int, skip_material: bool) -> None:
         self.path = path
         filtered_path = path.removesuffix('.csv') + f'_filtered.pkl'
@@ -124,6 +124,118 @@ class NNUEDataset(torch.utils.data.Dataset):
         return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
 
 
+def lerp(f1: float, f2: float, t: float):
+    return f1 * (1 - t) + f2 * t
+
+
+class NNUEDatasetRow:
+    def __init__(self, inputs, eval, result, move, totalmoves) -> None:
+        self.inputs = inputs
+        self.eval = eval
+        self.result = result
+        self.move = move
+        self.totalmoves = totalmoves
+
+
+class NNUEDataset(torch.utils.data.Dataset):
+    def __init__(self, path: str) -> None:
+        self.path: str = path
+        self.rows: list[NNUEDatasetRow] = []
+
+        with open(self.path, "rb") as f:
+            data = f.read(4)
+            self.length = int.from_bytes(data, byteorder="little", signed=False)
+            while True:
+                data = f.read(8)
+                if not data:
+                    break
+
+                occ = int.from_bytes(data, byteorder="little", signed=False)
+
+                inputs = [] 
+
+                bitlist = list("{0:b}".format(occ)[::-1])
+                for _ in range(64 - len(bitlist)):
+                    bitlist.append('0')
+
+                wking_found = False
+                bking_found = False
+
+                ishi = True
+                last_pair = None
+                for sqr, bit in enumerate(bitlist):
+                    if bit == '1':
+                        if ishi:
+                            data = f.read(1)
+                            last_pair = int.from_bytes(data, byteorder='little', signed=False)
+                            piece = (last_pair >> 4) & 0xF
+                        else:
+                            assert last_pair is not None
+                            piece = last_pair & 0xF
+
+                        if (piece & 8) != 0:
+                            piece = piece & 7
+                            color = 'b'
+                        else:
+                            color = 'w'
+
+                        assert piece <= 6
+
+                        if piece == 1:
+                            if color == 'w':
+                                assert not wking_found
+                                wking_found = True
+                            else:
+                                assert not bking_found
+                                bking_found = True
+
+                        inputs.append((color, sqr, piece))
+
+                        ishi = not ishi
+                        if ishi:
+                            last_pair = None
+
+                #print(inputs)
+                assert wking_found
+                assert bking_found
+
+                eval = int.from_bytes(f.read(4), byteorder='little', signed=True)
+                result = int.from_bytes(f.read(1), byteorder='little', signed=True)
+                fullmove = int.from_bytes(f.read(1), byteorder='little', signed=False)
+                total_fullmoves = int.from_bytes(f.read(1), byteorder='little', signed=False)
+
+                assert fullmove <= total_fullmoves
+                assert result in [-1, 0, 1]
+
+                """
+                print(f"eval: {eval}")
+                print(f"result: {result}")
+                print(f"move: {fullmove}")
+                print(f"total moves: {total_fullmoves}")
+                """
+
+                self.rows.append(NNUEDatasetRow(inputs, eval, result, fullmove, total_fullmoves))
+
+
+    def __len__(self) -> int:
+        return self.length
+
+    def __getitem__(self, index):
+        row = self.rows[index]
+        x = [0] * NNUE.IN_SIZE
+        for color, sqr, piece in row.inputs:
+            idx = NNUE.get_input_idx(color, sqr, piece, 'w')
+            x[idx] = 1
+
+        result_cp = row.result * 700
+        
+        y = lerp(row.eval, result_cp, row.move / row.totalmoves)
+
+
+        return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
+
+
+
 class ModelStats:
     def __init__(self) -> None:
         self.epochs = 0
@@ -207,7 +319,8 @@ def setup_rand_seed(rand_seed: int) -> None:
 
 
 def setup_loaders(max_rows: int, skip_material: bool, batch_size: int, rand_seed: int) -> Tuple[DataLoader, DataLoader]:
-    dataset = NNUEDataset(f'{MODELS_DIRECTORY}/dataset.csv', max_rows, skip_material)
+    #dataset = NNUEDataset(f'{MODELS_DIRECTORY}/dataset.csv', max_rows, skip_material)
+    dataset = NNUEDataset(f'dataset')
 
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size

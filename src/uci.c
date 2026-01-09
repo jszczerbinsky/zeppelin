@@ -1,3 +1,22 @@
+/*
+ * Zeppelin chess engine.
+ *
+ * Copyright (C) 2024-2026 Jakub Szczerbiński <jszczerbinsky2@gmail.com>
+ *
+ * Zeppelin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,6 +207,21 @@ static void on_move(const SearchInfo *si, size_t ttused, size_t ttsize,
 }
 
 static void on_finish(const SearchInfo *si) {
+  if (g_set.gen_evals) {
+    // MoveList moves;
+    // BitBrd attackbbrd;
+
+    if (IS_SILENT(si->prev_iter_pv.move[0])) {
+      int checks = get_under_check_cnt();
+      if (checks == 0) {
+        // gen_moves(g_game.who2move, &moves, &attackbbrd, GEN_CAPT, 0);
+        // if (moves.cnt == 0) {
+        save_eval_entry(evaluate());
+        //}
+      }
+    }
+  }
+
   char buff[6];
   move2str(buff, si->prev_iter_pv.move[0]);
   printf("bestmove %s\n", buff);
@@ -434,6 +468,11 @@ static void respond2go(char *token) {
   search(&ss);
 }
 
+static void respond2dumpevals(char *token) {
+  int game_result = atoi(token);
+  dump_eval_entries(game_result);
+}
+
 static int next_cmd(char *buff) {
   char *token = strtok(buff, " \n");
   if (!token)
@@ -455,6 +494,10 @@ static int next_cmd(char *buff) {
     respond2isready();
   else if (equals(token, "setoption"))
     respond2setoption(nexttok());
+  else if (equals(token, "genevals"))
+    g_set.gen_evals = 1;
+  else if (equals(token, "dumpevals"))
+    respond2dumpevals(nexttok());
   else if (equals(token, "quit"))
     return 1;
 

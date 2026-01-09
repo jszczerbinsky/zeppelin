@@ -36,6 +36,17 @@ if(NOT CMAKE_BUILD_TYPE IN_LIST ALLOWED_CMAKE_BUILD_TYPE)
 	message(FATAL_ERROR "Unsupported build type '${CMAKE_BUILD_TYPE}'")
 endif()
 
+# Setting evaluation type
+if(NOT EVAL_TYPE)
+	set(EVAL_TYPE "EVAL_NNUE" CACHE STRING "Eval type: NNUE / EVAL_MATERIAL_ONLY" FORCE)
+endif()
+set_property(CACHE EVAL_TYPE PROPERTY STRINGS "EVAL_NNUE" "EVAL_MATERIAL_ONLY")
+set(ALLOWED_EVAL_TYPE "EVAL_NNUE" "EVAL_MATERIAL_ONLY")
+if(NOT EVAL_TYPE IN_LIST ALLOWED_EVAL_TYPE)
+	message(FATAL_ERROR "Unsupported eval type '${EVAL_TYPE}'")
+endif()
+
+
 set(SOURCE_FILES
 	src/main.c
 	src/movegen.c
@@ -86,6 +97,8 @@ add_custom_command(
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
+set(EMBEDDED_FILES ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_FILES} ${EMBEDDED_WEIGHTS_OBJ} ${EMBEDDED_BIAS_OBJ})
+
 # Choosing (cross) compiler 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	if(TARGET_PLATFORM STREQUAL "Linux")
@@ -108,11 +121,11 @@ add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
 
 # Choosing compiler flags
 set(WARN_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
-set(CMAKE_C_FLAGS_DEBUG "${WARN_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE")
-set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3")
+set(CMAKE_C_FLAGS_DEBUG "${WARN_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE}")
+set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3 -D${EVAL_TYPE}")
 
 # Building executable
-add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ} ${EMBEDDED_BIAS_OBJ})
+add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_FILES})
 target_link_libraries(zeppelin m)
 
 # Unit tests

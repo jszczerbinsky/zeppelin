@@ -17,7 +17,7 @@ INT32_MAX = 2 ** 31 - 1
 
 IN_SIZE = 64 * 2 * 6
 
-def get_input_idx(player: str, sqr: int, piece: str, perspective: str):
+def get_input_idx(player: str, sqr: int, piece: Union[str, int], perspective: str):
     players = {
         'w': 0,
         'b': 1
@@ -32,16 +32,21 @@ def get_input_idx(player: str, sqr: int, piece: str, perspective: str):
         'Q': 5
     }
 
+    if isinstance(piece, str):
+        piece_i = pieces[piece]
+    else:
+        piece_i = piece
+
     if player == 'w':
         opp = 'b'
     else:
         opp = 'w'
 
     if perspective == 'w':
-        return 6 * 64 * players[player] + 6 * sqr + pieces[piece]
+        return 6 * 64 * players[player] + 6 * sqr + piece_i
     else:
         # TODO fixme - needs vertical flip instead of rotation
-        return 6 * 64 * players[opp] + 6 * (63-sqr) + pieces[piece]
+        return 6 * 64 * players[opp] + 6 * (63-sqr) + piece_i
 
 def input_from_fen(fen: str):
     board = chess.Board(fen)
