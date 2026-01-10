@@ -203,14 +203,15 @@ typedef struct {
   // Always from white perspective
   int8_t acc0[NNUE_ACC0_SIZE];
   int32_t acc1[NNUE_ACC1_SIZE];
-  int32_t acc2[NNUE_ACC2_SIZE];
-  int32_t acc3[NNUE_ACC3_SIZE];
+  // int32_t acc2[NNUE_ACC2_SIZE];
+  // int32_t acc3[NNUE_ACC3_SIZE];
   int32_t out;
 } NNUE;
 
 void nnue_init(NNUE *nnue);
 void nnue_acc1_add(NNUE *nnue, int i0);
 void nnue_acc1_sub(NNUE *nnue, int i0);
+void nnue_calc_deep_acc(NNUE *nnue);
 
 // =============================
 //        Game definitions
@@ -247,6 +248,7 @@ typedef struct {
   BitBrd epbbrd;
   BitBrd hash;
   int phase;
+  int32_t nnue_eval;
 } GameState;
 
 typedef struct {

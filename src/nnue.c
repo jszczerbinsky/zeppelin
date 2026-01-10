@@ -17,6 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <immintrin.h>
+
 #include "main.h"
 
 extern const unsigned char _binary_nnue_weights_bin_start[];
@@ -56,7 +58,7 @@ const int32_t *l3bias =
 const int32_t *l4bias =
     (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L4B_START);
 
-static int8_t screlu(int32_t input) {
+/*static int8_t screlu(int32_t input) {
   if (input < 0) {
     return 0;
   }
@@ -64,40 +66,80 @@ static int8_t screlu(int32_t input) {
     return 127;
   }
   return (int8_t)input;
+}*/
+
+static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
+                        int prev_acc_size, const int8_t *weights) {
+  int chunk = prev_acc_size / 32;
+  __m256i prev_acc[chunk];
+  for (int i = 0; i < chunk; i++) {
+    prev_acc[i] = _mm256_loadu_si256(((const __m256i *)prev_acc_arr) + i);
+  }
+
+  for (int i2 = 0; i2 < acc_size; i2++) {
+    for (int i = 0; i < chunk; i++) {
+      __m256i w = _mm256_loadu_si256(
+          (const __m256i *)(weights + i2 * prev_acc_size + i * 32));
+
+      __m256i w16_lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(w));
+      __m256i a16_lo =
+          _mm256_cvtepi8_epi16(_mm256_castsi256_si128(prev_acc[i]));
+      __m256i w16_hi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1));
+      __m256i a16_hi =
+          _mm256_cvtepi8_epi16(_mm256_extracti128_si256(prev_acc[i], 1));
+
+      __m256i res_lo = _mm256_madd_epi16(w16_lo, a16_lo);
+      __m256i res_hi = _mm256_madd_epi16(w16_hi, a16_hi);
+
+      __m256i res = _mm256_hadd_epi32(res_lo, res_hi);
+
+      int32_t sums[8];
+      _mm256_storeu_si256((__m256i *)sums, res);
+      for (int x = 0; x < 8; x++) {
+        acc_arr[i2] += sums[x];
+      }
+    }
+  }
+}
+
+static void activate(int8_t *dest, int32_t *acc, int acc_size) {
+  __m256i zeroes = _mm256_set1_epi32(0);
+  __m256i max = _mm256_set1_epi32(127);
+
+  int32_t activated[acc_size];
+
+  int chunk2 = acc_size / 8;
+  for (int i = 0; i < chunk2; i++) {
+    __m256i a = _mm256_loadu_si256((const __m256i *)(acc + i * 8));
+    a = _mm256_srai_epi32(a, 6);
+    a = _mm256_max_epi32(a, zeroes);
+    a = _mm256_min_epi32(a, max);
+    _mm256_storeu_si256((__m256i *)(activated + i * 8), a);
+  }
+  for (int i = 0; i < acc_size; i++) {
+    dest[i] = (int8_t)activated[i];
+  }
 }
 
 void nnue_calc_deep_acc(NNUE *nnue) {
-  for (int i2 = 0; i2 < NNUE_ACC2_SIZE; i2++) {
-    nnue->acc2[i2] = l2bias[i2];
-    for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
-      if (i2 == 0) {
-      }
-      int32_t shifted = nnue->acc1[i1] >> 6;
-      int8_t activated = screlu(shifted);
+  int8_t acc1_act[NNUE_ACC1_SIZE];
+  activate(acc1_act, nnue->acc1, NNUE_ACC1_SIZE);
 
-      nnue->acc2[i2] +=
-          (int32_t)activated * (int32_t)l2weight[i2 * NNUE_ACC1_SIZE + i1];
-    }
-  }
+  int32_t acc2[NNUE_ACC2_SIZE];
+  memcpy(acc2, l2bias, NNUE_ACC2_SIZE * sizeof(int32_t));
+  add_weights(acc2, NNUE_ACC2_SIZE, acc1_act, NNUE_ACC1_SIZE, l2weight);
+  int8_t acc2_act[NNUE_ACC2_SIZE];
+  activate(acc2_act, acc2, NNUE_ACC2_SIZE);
 
-  for (int i3 = 0; i3 < NNUE_ACC3_SIZE; i3++) {
-    nnue->acc3[i3] = l3bias[i3];
-    for (int i2 = 0; i2 < NNUE_ACC2_SIZE; i2++) {
-      int32_t shifted = nnue->acc2[i2] >> 6;
-      int8_t activated = screlu(shifted);
-
-      nnue->acc3[i3] +=
-          (int32_t)activated * (int32_t)l3weight[i3 * NNUE_ACC2_SIZE + i2];
-    }
-  }
+  int32_t acc3[NNUE_ACC3_SIZE];
+  memcpy(acc3, l3bias, NNUE_ACC3_SIZE * sizeof(int32_t));
+  add_weights(acc3, NNUE_ACC3_SIZE, acc2_act, NNUE_ACC2_SIZE, l3weight);
+  int8_t acc3_act[NNUE_ACC3_SIZE];
+  activate(acc3_act, acc3, NNUE_ACC3_SIZE);
 
   nnue->out = l4bias[0];
-  for (int i3 = 0; i3 < NNUE_ACC3_SIZE; i3++) {
-    int32_t shifted = nnue->acc3[i3] >> 6;
-    int8_t activated = screlu(shifted);
+  add_weights(&nnue->out, 1, acc3_act, NNUE_ACC3_SIZE, l4weight);
 
-    nnue->out += (int32_t)activated * (int32_t)l4weight[i3];
-  }
   if (nnue->out >= 0) {
     int32_t shifted = nnue->out >> 6;
     nnue->out = shifted;
@@ -124,8 +166,8 @@ void nnue_init(NNUE *nnue) {
     nnue->acc1[i] = l1bias[i];
   }
 
-  memset(nnue->acc2, 0, NNUE_ACC2_SIZE * sizeof(int32_t));
-  memset(nnue->acc3, 0, NNUE_ACC3_SIZE * sizeof(int32_t));
+  // memset(acc2, 0, NNUE_ACC2_SIZE * sizeof(int32_t));
+  // memset(nnue->acc3, 0, NNUE_ACC3_SIZE * sizeof(int32_t));
   nnue->out = 0;
 
   for (int sqr = 0; sqr < 64; sqr++) {

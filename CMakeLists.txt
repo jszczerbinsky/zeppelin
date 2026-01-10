@@ -120,9 +120,9 @@ add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
 add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
 
 # Choosing compiler flags
-set(WARN_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
-set(CMAKE_C_FLAGS_DEBUG "${WARN_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE}")
-set(CMAKE_C_FLAGS_RELEASE "${WARN_FLAGS} -O3 -D${EVAL_TYPE}")
+set(COMMON_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic -mavx2")
+set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE}")
+set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE}")
 
 # Building executable
 add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_FILES})

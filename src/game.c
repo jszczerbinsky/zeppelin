@@ -81,6 +81,7 @@ void reset_game() {
   init_bbrds();
   g_gamestate->hash = gethash();
   g_gamestate->phase = PHASE_OPENING;
+  nnue_init(&g_game.nnue);
 }
 
 char *parsefen(char *fen) {
@@ -705,6 +706,9 @@ void makemove(Move move) {
   g_game.movelist.cnt++;
   g_game.who2move = !g_game.who2move;
 
+  nnue_calc_deep_acc(&g_game.nnue);
+  g_gamestate->nnue_eval = g_game.nnue.out;
+
   update_gamestate();
 }
 
@@ -781,5 +785,7 @@ void unmakemove() {
     break;
   }
 
+  // nnue_calc_deep_acc(&g_game.nnue);
+  g_game.nnue.out = prevgamestate->nnue_eval;
   update_gamestate();
 }

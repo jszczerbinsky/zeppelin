@@ -1,8 +1,10 @@
 from datetime import datetime
 import gc
+from pandas.core.dtypes.cast import NumpyArrayT
 import torch
-from typing import Tuple, Any
+from typing import Tuple, Any, Union
 import numpy as np
+from numpy.typing import ArrayLike
 import os
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
@@ -40,7 +42,7 @@ class xNNUEDataset(torch.utils.data.Dataset):
             skipped_rows = 0
 
             prev_len = len(df)
-            df = df[df['eval'].abs() < 700]
+            df = df[df['eval'].abs() < 500]
             skipped_rows += prev_len - len(df)
 
             df['input'] = [[] for _ in range(len(df))]
@@ -127,6 +129,23 @@ class xNNUEDataset(torch.utils.data.Dataset):
 def lerp(f1: float, f2: float, t: float):
     return f1 * (1 - t) + f2 * t
 
+def cp_to_wdl(score: Union[torch.Tensor, int, float]):
+    if isinstance(score, torch.Tensor):
+        return torch.tanh(score/400)
+    else:
+        return math.tanh(score/400)
+
+
+def wdl_to_cp(score: Union[torch.Tensor, int, float]):
+    if isinstance(score, torch.Tensor):
+        return torch.atanh(score)*400
+    else:
+        if score == 1:
+            return 1000
+        elif score == -1:
+            return -1000
+        return math.atanh(score)*400
+
 
 class NNUEDatasetRow:
     def __init__(self, inputs, eval, result, move, totalmoves) -> None:
@@ -145,6 +164,7 @@ class NNUEDataset(torch.utils.data.Dataset):
         with open(self.path, "rb") as f:
             data = f.read(4)
             self.length = int.from_bytes(data, byteorder="little", signed=False)
+            self.original_length = self.length
             while True:
                 data = f.read(8)
                 if not data:
@@ -213,8 +233,15 @@ class NNUEDataset(torch.utils.data.Dataset):
                 print(f"move: {fullmove}")
                 print(f"total moves: {total_fullmoves}")
                 """
+                
+                if eval >= 1000 or eval <= -1000:
+                    self.length -= 1
+                else:
+                    self.rows.append(NNUEDatasetRow(inputs, eval, result, fullmove, total_fullmoves))
 
-                self.rows.append(NNUEDatasetRow(inputs, eval, result, fullmove, total_fullmoves))
+        print("Dataset ready")
+        print(f"Used rows: {self.length}")
+        print(f"Skipped rows: {self.original_length - self.length}")
 
 
     def __len__(self) -> int:
@@ -227,9 +254,13 @@ class NNUEDataset(torch.utils.data.Dataset):
             idx = NNUE.get_input_idx(color, sqr, piece, 'w')
             x[idx] = 1
 
-        result_cp = row.result * 700
+        result_cp = wdl_to_cp(row.result)
+
+        assert isinstance(result_cp, float) or isinstance(result_cp, int)
         
-        y = lerp(row.eval, result_cp, row.move / row.totalmoves)
+        t = row.move /row.totalmoves
+        #t = t * 2 / 3
+        y = lerp(row.eval, result_cp, t)
 
 
         return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
@@ -352,6 +383,7 @@ def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUE
     if os.path.exists(model_path):
         state_dict = torch.load(model_path)
         nnue.load_state_dict(state_dict['nnue'])
+        nnue.cuda()
         if args.cont:
             stats.load_state_dict(state_dict['stats'])
             optimizer.load_state_dict(state_dict['optim'])
@@ -365,6 +397,7 @@ def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUE
 
     return nnue, stats, optimizer
 
+ 
 
 def plot_loss(args, model_name: str, loss_name: str, filename: str, train_loss: list[float], test_loss: list[float]):
     test_last = test_loss[-1]
@@ -406,10 +439,10 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
         items = 0
         bar = tqdm.tqdm(train_loader, desc=f'Epoch {epoch}')
         for x, y_cp in bar:
-            y_no = y_cp/700
+            y_no = cp_to_wdl(y_cp)
 
             y_pred_cp = nnue(x.cuda())
-            y_pred_no = y_pred_cp / 700
+            y_pred_no = cp_to_wdl(y_pred_cp)
 
             loss_no = loss_fn(y_pred_no.cuda(), y_no.cuda())
             loss_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda())
@@ -471,10 +504,10 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
             r2_cp_num = 0
             r2_cp_den = 0
             for x, y_cp in test_loader:
-                y_no = y_cp/700 
+                y_no = cp_to_wdl(y_cp)
 
                 y_pred_cp = nnue(x.cuda())
-                y_pred_no = y_pred_cp.cuda() /  700
+                y_pred_no = cp_to_wdl(y_pred_cp.cuda())
 
                 pos_mse_no = loss_fn(y_pred_no.cuda(), y_no.cuda()).item()
                 pos_mse_cp = loss_fn(y_pred_cp.cuda(), y_cp.cuda()).item()

@@ -37,7 +37,7 @@ typedef struct {
 
 int evaluate() {
 #ifdef EVAL_NNUE
-  nnue_init(&g_game.nnue);
+  // nnue_init(&g_game.nnue);
   if (g_game.who2move == WHITE)
     return (int)g_game.nnue.out;
   else
