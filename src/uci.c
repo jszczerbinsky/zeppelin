@@ -216,7 +216,10 @@ static void on_finish(const SearchInfo *si) {
       if (checks == 0) {
         // gen_moves(g_game.who2move, &moves, &attackbbrd, GEN_CAPT, 0);
         // if (moves.cnt == 0) {
-        save_eval_entry(evaluate());
+        int score = si->prev_iter_score;
+        if (g_game.who2move == BLACK)
+          score = -score;
+        save_eval_entry(score);
         //}
       }
     }

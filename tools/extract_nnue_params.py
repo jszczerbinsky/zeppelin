@@ -6,10 +6,19 @@ import sys
 import seaborn as sns
 import matplotlib.pyplot as plt
 import math
+from typing import Tuple
 
 from Paths import MODELS_DIRECTORY 
-from NNUE import NNUEModel, IN_SIZE, input_from_fen, get_input_idx
+from NNUE import NNUEModel, IN_SIZE, input_from_fen
 from FEN import STARTPOS
+
+def factor_near_sqrt(n: int) -> Tuple[int, int]:
+    x = int(math.sqrt(n))
+
+    while n % x != 0:
+        x -= 1
+
+    return x, int(n / x)
 
 model_name = sys.argv[1]
 model_dir = f'{MODELS_DIRECTORY}/{model_name}/'
@@ -38,11 +47,11 @@ piece_names = {
 for piece in range(6):
     w = weights[:, piece::6]
 
-    half = int(math.sqrt(nnue.l1_size))
-    w = w.reshape(half, half, 2, 8, 8)
+    half1, half2 = factor_near_sqrt(nnue.l1_size)
+    w = w.reshape(half1, half2, 2, 8, 8)
 
     w = w.transpose(2, 0, 3, 1, 4)
-    w = w.reshape(2 * half * 8, half *8)
+    w = w.reshape(2 * half1 * 8, half2 *8)
 
     y = 0
     while y < w.shape[0]:

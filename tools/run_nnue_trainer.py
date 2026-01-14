@@ -148,12 +148,9 @@ def wdl_to_cp(score: Union[torch.Tensor, int, float]):
 
 
 class NNUEDatasetRow:
-    def __init__(self, inputs, eval, result, move, totalmoves) -> None:
+    def __init__(self, inputs, eval) -> None:
         self.inputs = inputs
         self.eval = eval
-        self.result = result
-        self.move = move
-        self.totalmoves = totalmoves
 
 
 class NNUEDataset(torch.utils.data.Dataset):
@@ -236,13 +233,50 @@ class NNUEDataset(torch.utils.data.Dataset):
                 
                 if eval >= 1000 or eval <= -1000:
                     self.length -= 1
+                elif eval * result < 0:
+                    self.length -= 1
                 else:
-                    self.rows.append(NNUEDatasetRow(inputs, eval, result, fullmove, total_fullmoves))
+                    result_cp = wdl_to_cp(result)
+                    assert isinstance(result_cp, float) or isinstance(result_cp, int)
+                    eval = lerp(eval, result_cp, 0.33)
+                    self.rows.append(NNUEDatasetRow(inputs, eval))
+
+        duplicated_positions = 0
+
+        dups = {}
+        for row in self.rows:
+            id = str(row.inputs)
+            if id in dups:
+                dups[id].append(row)
+            else:
+                dups[id] = [row]
+
+        new_rows = []
+        for dup in dups.values():
+            first = dup[0]
+            if len(dup) > 1:
+                duplicated_positions += 1
+                for next_dup in dup[1:]:
+                    first.eval += next_dup.eval
+                first.eval /= len(dup)
+            new_rows.append(first)
+
+        self.rows = new_rows
+        self.length = len(self.rows)
 
         print("Dataset ready")
+        print(f"Duplicated positions: {duplicated_positions}")
         print(f"Used rows: {self.length}")
         print(f"Skipped rows: {self.original_length - self.length}")
 
+        print()
+
+        evals = np.array([row.eval for row in self.rows])
+
+        print('min eval   :' + str(evals.min()))
+        print('max eval   :' + str(evals.max()))
+        print('avg eval   :' + str(evals.mean()))
+        print('stddev eval:' + str(evals.std()))
 
     def __len__(self) -> int:
         return self.length
@@ -254,15 +288,7 @@ class NNUEDataset(torch.utils.data.Dataset):
             idx = NNUE.get_input_idx(color, sqr, piece, 'w')
             x[idx] = 1
 
-        result_cp = wdl_to_cp(row.result)
-
-        assert isinstance(result_cp, float) or isinstance(result_cp, int)
-        
-        t = row.move /row.totalmoves
-        #t = t * 2 / 3
-        y = lerp(row.eval, result_cp, t)
-
-
+        y = row.eval
         return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
 
 
@@ -376,7 +402,7 @@ def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUE
             l3_size=args.l3size,
             debugflow=args.debugflow)
     stats = ModelStats()
-    optimizer = torch.optim.AdamW(nnue.parameters(), lr=args.lr, weight_decay=args.weightdecay, betas=(.95, 0.999), eps=1e-5)
+    optimizer = torch.optim.AdamW(nnue.parameters(), lr=args.lr, weight_decay=args.weightdecay, eps=1e-8)#, betas=(.95, 0.999), eps=1e-5)
 
     nnue.cuda()
 
@@ -494,7 +520,7 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
         stats.train_r2.append(r2_cp) 
 
         if args.sched == 'plateau' and args.plateautrain:
-            scheduler.step(mse_no)
+            scheduler.step(int(mse_cp))#mse_no)
 
 
         nnue.eval()
@@ -593,7 +619,8 @@ def main():
     if args.sched == 'plateau':
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=args.plateaupatience, factor=args.plateaufactor, cooldown=args.plateaucooldown)
     else:
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, last_epoch=last_epoch, T_max=args.epochs, eta_min=0.000005)
+        #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, last_epoch=last_epoch, T_max=args.epochs, eta_min=0.000005)
+        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1, total_iters=args.epochs, end_factor=0.05)
 
     train(train_loader, test_loader, nnue, stats, optimizer, scheduler, args)
 

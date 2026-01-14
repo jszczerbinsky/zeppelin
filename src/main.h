@@ -495,6 +495,7 @@ typedef struct {
   clock_t nps_lastcalc;
   long nps_lastnodes;
 
+  int iter_score;
   int iter_depth;
   long iter_visited_nodes;
   Move iter_bestmove;
@@ -502,6 +503,7 @@ typedef struct {
   int iter_highest_depth;
   Move iter_killers[MAX_PLY_PER_GAME][KILLER_MAX];
 
+  int prev_iter_score;
   MoveList prev_iter_pv;
 
   int finished;

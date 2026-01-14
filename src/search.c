@@ -724,6 +724,8 @@ static void *search_subthread(void *arg __attribute__((unused))) {
       } while (!inbounds);
     }
 
+    si.prev_iter_score = lastscore;
+    si.iter_score = score;
     lastscore = score;
     // recoverpv(&pv);
 

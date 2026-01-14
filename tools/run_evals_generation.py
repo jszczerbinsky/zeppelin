@@ -9,7 +9,7 @@ import asyncio
 import Zeppelin
 import FEN
 
-THREADS = 20
+THREADS = 8
 
 lock = threading.Lock()
 
@@ -30,28 +30,38 @@ def play_timeout(engine, board, limit):
         raise Exception("Engine answer timed out")
     return res['move']
 
-def play_game(fen: str):
+def play_game():
+    board = chess.Board(FEN.STARTPOS)
+
+    random_count = random.randint(4, 8)
+    for _ in range(random_count):
+        move = random.choice(list(board.legal_moves))
+        board.push(move)
+
+    fen = board.fen()
+
     engine1 = None
     engine2 = None
     try:
         print(f"Starting game from {fen}")
         engine1 = chess.engine.SimpleEngine.popen_uci(Zeppelin.find_exe_path())
         engine2 = chess.engine.SimpleEngine.popen_uci(Zeppelin.find_exe_path())
-        limit = chess.engine.Limit(nodes=5000)
+        limit = chess.engine.Limit(nodes=5000, depth=4)
 
         engine1.protocol.send_line("genevals")
-
-        board = chess.Board(fen)
 
         moves = 0
         result = None
         while not board.is_game_over():
-            if board.turn == chess.WHITE:
-                move = play_timeout(engine1, board, limit)
-                #move = engine1.play(board, limit).move
+            if random.randint(1, 100) == 1:
+                move = random.choice(list(board.legal_moves))
             else:
-                move = play_timeout(engine2, board, limit)
-                #move = engine2.play(board, limit).move
+                if board.turn == chess.WHITE:
+                    move = play_timeout(engine1, board, limit)
+                    #move = engine1.play(board, limit).move
+                else:
+                    move = play_timeout(engine2, board, limit)
+                    #move = engine2.play(board, limit).move
 
             moves += 1
 
@@ -101,14 +111,7 @@ def worker():
     global games_played
 
     while True:
-        fen = FEN.get_random()
-
-        board = Board(fen)
-
-        while FEN.FENBuilder(fen).fullmoves < 10 or board.is_game_over():
-            fen = FEN.get_random()
-
-        play_game(fen)
+        play_game()
 
         try:
             with lock:
