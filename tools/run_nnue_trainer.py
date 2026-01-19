@@ -238,11 +238,12 @@ class NNUEDataset(torch.utils.data.Dataset):
                 else:
                     result_cp = wdl_to_cp(result)
                     assert isinstance(result_cp, float) or isinstance(result_cp, int)
-                    eval = lerp(eval, result_cp, 0.33)
+                    eval = lerp(eval, result_cp, 0.15)
                     self.rows.append(NNUEDatasetRow(inputs, eval))
 
         duplicated_positions = 0
 
+        """
         dups = {}
         for row in self.rows:
             id = str(row.inputs)
@@ -262,6 +263,7 @@ class NNUEDataset(torch.utils.data.Dataset):
             new_rows.append(first)
 
         self.rows = new_rows
+        """
         self.length = len(self.rows)
 
         print("Dataset ready")
@@ -563,12 +565,13 @@ def train(train_loader: DataLoader, test_loader: DataLoader, nnue: NNUE.NNUEMode
 
             if mse_no < best_mse_no:
                 best_mse_no = mse_no 
+                best_mse_cp = mse_cp
                 torch.save(state_dict, f'{MODELS_DIRECTORY}/{args.name}/best.pt')
             torch.save(state_dict, f'{MODELS_DIRECTORY}/{args.name}/last.pt')
 
             if args.sched == 'plateau':
                 if not args.plateautrain:
-                    scheduler.step(best_mse_no)
+                    scheduler.step(int(best_mse_cp))
             else:
                 scheduler.step()
 

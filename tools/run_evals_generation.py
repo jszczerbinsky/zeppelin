@@ -33,7 +33,7 @@ def play_timeout(engine, board, limit):
 def play_game():
     board = chess.Board(FEN.STARTPOS)
 
-    random_count = random.randint(4, 8)
+    random_count = random.randint(6, 8)
     for _ in range(random_count):
         move = random.choice(list(board.legal_moves))
         board.push(move)
@@ -53,15 +53,12 @@ def play_game():
         moves = 0
         result = None
         while not board.is_game_over():
-            if random.randint(1, 100) == 1:
-                move = random.choice(list(board.legal_moves))
+            if board.turn == chess.WHITE:
+                move = play_timeout(engine1, board, limit)
+                #move = engine1.play(board, limit).move
             else:
-                if board.turn == chess.WHITE:
-                    move = play_timeout(engine1, board, limit)
-                    #move = engine1.play(board, limit).move
-                else:
-                    move = play_timeout(engine2, board, limit)
-                    #move = engine2.play(board, limit).move
+                move = play_timeout(engine2, board, limit)
+                #move = engine2.play(board, limit).move
 
             moves += 1
 
