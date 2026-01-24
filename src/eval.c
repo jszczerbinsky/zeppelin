@@ -39,9 +39,11 @@ int evaluate() {
 #ifdef EVAL_NNUE
   // nnue_init(&g_game.nnue);
   if (g_game.who2move == WHITE)
-    return (int)g_game.nnue.out;
+    // return (int)g_game.nnue.out;
+    return (int)g_gamestate->nnue_eval;
   else
-    return -(int)g_game.nnue.out;
+    // return -(int)g_game.nnue.out;
+    return -(int)g_gamestate->nnue_eval;
 #endif
 
 #ifdef EVAL_MATERIAL_ONLY

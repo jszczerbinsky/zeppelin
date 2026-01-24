@@ -82,6 +82,7 @@ void reset_game() {
   g_gamestate->hash = gethash();
   g_gamestate->phase = PHASE_OPENING;
   nnue_init(&g_game.nnue);
+  g_gamestate->nnue_eval = g_game.nnue.out;
 }
 
 char *parsefen(char *fen) {
@@ -245,6 +246,7 @@ char *parsefen(char *fen) {
 
   init_bbrds();
   nnue_init(&g_game.nnue);
+  g_gamestate->nnue_eval = g_game.nnue.out;
 
   return fen_nexttok();
 }
@@ -390,8 +392,10 @@ int getrepetitions() {
     g_game.piecesof[color] &= ~(bbrd);                                         \
     g_game.piecesof[ANY] &= ~(bbrd);                                           \
     int idx = NNUE_IN_IDX(color, bbrd2sqr(bbrd), piece);                       \
-    g_game.nnue.acc0[idx] = 0;                                                 \
-    nnue_acc1_sub(&g_game.nnue, idx);                                          \
+    if (g_game.nnue.acc0[idx] == 1) {                                          \
+      g_game.nnue.acc0[idx] = 0;                                               \
+      nnue_acc1_sub(&g_game.nnue, idx);                                        \
+    }                                                                          \
   }
 
 #define putpiece(color, piece, bbrd)                                           \
@@ -401,8 +405,10 @@ int getrepetitions() {
     g_game.piecesof[color] |= bbrd;                                            \
     g_game.piecesof[ANY] |= bbrd;                                              \
     int idx = NNUE_IN_IDX(color, bbrd2sqr(bbrd), piece);                       \
-    g_game.nnue.acc0[idx] = 1;                                                 \
-    nnue_acc1_add(&g_game.nnue, idx);                                          \
+    if (g_game.nnue.acc0[idx] == 0) {                                          \
+      g_game.nnue.acc0[idx] = 1;                                               \
+      nnue_acc1_add(&g_game.nnue, idx);                                        \
+    }                                                                          \
   }
 
 void makemove(Move move) {
@@ -707,7 +713,7 @@ void makemove(Move move) {
   g_game.who2move = !g_game.who2move;
 
   nnue_calc_deep_acc(&g_game.nnue);
-  g_gamestate->nnue_eval = g_game.nnue.out;
+  newgamestate->nnue_eval = g_game.nnue.out;
 
   update_gamestate();
 }
