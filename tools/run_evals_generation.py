@@ -5,11 +5,39 @@ import threading
 import time
 import random
 import asyncio
+import logging
+import re
 
 import Zeppelin
 import FEN
 
-THREADS = 8
+log_lines_lock = threading.Lock()
+log_lines: dict[int, list[str]] = {}
+
+class GameTooLongException(Exception):
+    ...
+
+class LogHandler(logging.Handler):
+    def emit(self, record):
+        formatted = self.format(record)
+        match = re.search(r'pid=(\d+)', formatted)
+        if match:
+            pid = int(match.group(1))
+            with log_lines_lock:
+                if pid in log_lines:
+                    log_lines[pid].append(formatted)
+                else:
+                    log_lines[pid] = [formatted]
+
+logger = logging.getLogger("chess.engine")
+logger.setLevel(logging.DEBUG)
+logger.handlers = []
+handler = LogHandler()
+logger.addHandler(handler)
+
+THREADS = os.cpu_count()
+
+print(f"Starting on {THREADS} threads")
 
 lock = threading.Lock()
 
@@ -42,10 +70,14 @@ def play_game():
 
     engine1 = None
     engine2 = None
+    engine1_pid = 0
+    engine2_pid = 0
     try:
         print(f"Starting game from {fen}")
         engine1 = chess.engine.SimpleEngine.popen_uci(Zeppelin.find_exe_path())
+        engine1_pid = engine1.protocol.transport.get_pid()
         engine2 = chess.engine.SimpleEngine.popen_uci(Zeppelin.find_exe_path())
+        engine2_pid = engine2.protocol.transport.get_pid()
         limit = chess.engine.Limit(nodes=5000, depth=4)
 
         engine1.protocol.send_line("genevals")
@@ -72,7 +104,7 @@ def play_game():
                 break
 
             if moves >= 250:
-                raise Exception("Aborting game, too long")
+                raise GameTooLongException()
                 break
 
         if result is None:
@@ -91,7 +123,18 @@ def play_game():
             engine1.quit()
         engine2.quit()
     except Exception as e:
-        print(f"Error: {e}")
+        with log_lines_lock:
+            if isinstance(e, GameTooLongException):
+                print(f"Game aborted - too long")
+            else:
+                print(f"Error: {e}")
+                print(f"======================ENGINE 1==========================")
+                for l in log_lines[engine1_pid]:
+                    print(l)
+                print(f"======================ENGINE 2==========================")
+                for l in log_lines[engine2_pid]:
+                    print(l)
+                print(f"========================================================")
         if engine1 is not None:
             try:
                 engine1.quit()
@@ -102,6 +145,12 @@ def play_game():
                 engine2.quit()
             except Exception:
                 ...
+
+    with log_lines_lock:
+        if engine1_pid in log_lines:
+            del log_lines[engine1_pid]
+        if engine2_pid in log_lines:
+            del log_lines[engine2_pid]
 
 
 def worker():

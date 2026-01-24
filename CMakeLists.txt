@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.15)
 
 project(zeppelin)
 
@@ -46,6 +46,15 @@ if(NOT EVAL_TYPE IN_LIST ALLOWED_EVAL_TYPE)
 	message(FATAL_ERROR "Unsupported eval type '${EVAL_TYPE}'")
 endif()
 
+# Setting vectorization support
+if(NOT VECTORIZATION_METHOD)
+	set(VECTORIZATION_METHOD "VECT_AVX2" CACHE STRING "Vectorization type: VECT_NONE / VECT_AVX2 / VECT_NEON" FORCE)
+endif()
+set_property(CACHE VECTORIZATION_METHOD PROPERTY STRINGS "VECT_NONE" "VECT_AVX2" "VECT_NEON")
+set(ALLOWED_VECTORIZATION_METHOD "VECT_NONE" "VECT_AVX2" "VECT_NEON")
+if(NOT VECTORIZATION_METHOD IN_LIST ALLOWED_VECTORIZATION_METHOD)
+	message(FATAL_ERROR "Unsupported vectorization method '${VECTORIZATION_METHOD}'")
+endif()
 
 set(SOURCE_FILES
 	src/main.c
@@ -71,6 +80,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS YES)
 
 # Embedding binary files
 set(EMBEDDED_PRECOMPUTED_FILE precomputed.bin)
@@ -120,9 +131,17 @@ add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
 add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
 
 # Choosing compiler flags
-set(COMMON_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic -mavx2")
-set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE}")
-set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE}")
+set(COMMON_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
+if(VECTORIZATION_METHOD STREQUAL "VECT_AVX2")
+	set(COMMON_FLAGS "${COMMON_FLAGS} -mavx2")
+elseif(VECTORIZATION_METHOD STREQUAL "VECT_NEON")
+
+endif()
+set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE} -D${VECTORIZATION_METHOD}")
+set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE} -D${VECTORIZATION_METHOD}")
+
+set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Building executable
 add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_FILES})

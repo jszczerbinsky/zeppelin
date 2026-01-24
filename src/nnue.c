@@ -17,7 +17,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifdef VECT_AVX2
 #include <immintrin.h>
+#endif
+
+#ifdef VECT_NEON
+#include <arm_neon.h>
+#endif
 
 #include "main.h"
 
@@ -58,18 +64,18 @@ const int32_t *l3bias =
 const int32_t *l4bias =
     (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L4B_START);
 
-/*static int8_t screlu(int32_t input) {
-  if (input < 0) {
-    return 0;
-  }
-  if (input > 127) {
-    return 127;
-  }
-  return (int8_t)input;
-}*/
-
 static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
                         int prev_acc_size, const int8_t *weights) {
+#ifdef VECT_NONE
+  for (int l2 = 0; l2 < acc_size; l2++) {
+    for (int l1 = 0; l1 < prev_acc_size; l1++) {
+      acc_arr[l2] +=
+          (int32_t)prev_acc_arr[l1] * (int32_t)weights[l2 * prev_acc_size + l1];
+    }
+  }
+#endif
+
+#ifdef VECT_AVX2
   int chunk = prev_acc_size / 32;
   __m256i prev_acc[chunk];
   for (int i = 0; i < chunk; i++) {
@@ -100,9 +106,52 @@ static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
       }
     }
   }
+#endif
+
+#ifdef VECT_NEON
+  int chunk = prev_acc_size / 16;
+  int8x16_t prev_acc[chunk];
+  for(int i = 0; i < chunk; i++){
+    prev_acc[i] = vld1q_s8(prev_acc_arr + i * 16);
+  }
+
+  for(int i2 = 0; i2< acc_size; i2++){
+    for(int i = 0; i < chunk; i++) {
+      int8x16_t w = vld1q_s8(weights + i2 * prev_acc_size + i * 16);
+
+      int8x8_t w_lo = vget_low_s8(w);
+      int8x8_t a_lo = vget_low_s8(prev_acc[i]);
+      int8x8_t w_hi = vget_high_s8(w);
+      int8x8_t a_hi = vget_high_s8(prev_acc[i]);
+
+      int16x8_t res_lo = vmull_s8(w_lo, a_lo);
+      int16x8_t res_hi = vmull_s8(w_hi, a_hi);
+
+      int32x4_t res = vdupq_n_s32(0);
+      res = vaddq_s32(res, vpaddlq_s16(res_lo));
+      res = vaddq_s32(res, vpaddlq_s16(res_hi));
+
+      acc_arr[i2] += vaddvq_s32(res);
+    }
+  }
+#endif
 }
 
 static void activate(int8_t *dest, int32_t *acc, int acc_size) {
+#ifdef VECT_NONE
+  for (int i = 0; i < acc_size; i++) {
+    acc[i] >>= 6;
+
+    if (acc[i] < 0)
+      dest[i] = 0;
+    else if (acc[i] > 127)
+      dest[i] = 127;
+    else
+      dest[i] = (int8_t)acc[i];
+  }
+#endif
+
+#ifdef VECT_AVX2
   __m256i zeroes = _mm256_set1_epi32(0);
   __m256i max = _mm256_set1_epi32(127);
 
@@ -119,6 +168,26 @@ static void activate(int8_t *dest, int32_t *acc, int acc_size) {
   for (int i = 0; i < acc_size; i++) {
     dest[i] = (int8_t)activated[i];
   }
+#endif
+
+#ifdef VECT_NEON
+  int32x4_t zeroes = vdupq_n_s32(0);
+  int32x4_t max = vdupq_n_s32(127);
+
+  int32_t activated[acc_size];
+
+  int chunk2= acc_size/4;
+  for(int i = 0; i < chunk2; i++){
+    int32x4_t a = vld1q_s32(acc + i * 4);
+    a = vshrq_n_s32(a, 6);
+    a = vmaxq_s32(a, zeroes);
+    a = vminq_s32(a, max);
+    vst1q_s32(activated + i * 4, a);
+  }
+  for(int i = 0; i < acc_size; i++){
+    dest[i] = (int8_t)activated[i];
+  }
+#endif
 }
 
 void nnue_calc_deep_acc(NNUE *nnue) {
