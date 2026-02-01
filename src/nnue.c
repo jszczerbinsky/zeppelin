@@ -17,9 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <emmintrin.h>
-#include <mmintrin.h>
-#include <xmmintrin.h>
 #ifdef VECT_AVX2
 #include <immintrin.h>
 #endif
@@ -145,14 +142,14 @@ static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
 static void activate(int8_t *dest, int32_t *acc, int acc_size) {
 #ifdef VECT_NONE
   for (int i = 0; i < acc_size; i++) {
-    acc[i] >>= 6;
+    int32_t res = acc[i] >> 6;
 
-    if (acc[i] < 0)
+    if (res < 0)
       dest[i] = 0;
-    else if (acc[i] > 127)
+    else if (res > 127)
       dest[i] = 127;
     else
-      dest[i] = (int8_t)acc[i];
+      dest[i] = (int8_t)res;
   }
 #endif
 
@@ -215,13 +212,8 @@ void nnue_calc_deep_acc(NNUE *nnue) {
   nnue->out = l4bias[0];
   add_weights(&nnue->out, 1, acc3_act, NNUE_ACC3_SIZE, l4weight);
 
-  if (nnue->out >= 0) {
-    int32_t shifted = nnue->out >> 6;
-    nnue->out = shifted;
-  } else {
-    int32_t shifted = (-nnue->out) >> 6;
-    nnue->out = -shifted;
-  }
+  int32_t shifted = nnue->out >> 6;
+  nnue->out = shifted;
 }
 
 void nnue_acc1_add(NNUE *nnue, int i0) {

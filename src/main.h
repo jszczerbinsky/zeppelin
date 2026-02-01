@@ -20,6 +20,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <stdalign.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
