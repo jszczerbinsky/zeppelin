@@ -392,10 +392,7 @@ int getrepetitions() {
     g_game.piecesof[color] &= ~(bbrd);                                         \
     g_game.piecesof[ANY] &= ~(bbrd);                                           \
     int idx = NNUE_IN_IDX(color, bbrd2sqr(bbrd), piece);                       \
-    if (g_game.nnue.acc0[idx] == 1) {                                          \
-      g_game.nnue.acc0[idx] = 0;                                               \
-      nnue_acc1_sub(&g_game.nnue, idx);                                        \
-    }                                                                          \
+    nnue_acc1_sub(&g_game.nnue, idx);                                          \
   }
 
 #define putpiece(color, piece, bbrd)                                           \
@@ -405,10 +402,7 @@ int getrepetitions() {
     g_game.piecesof[color] |= bbrd;                                            \
     g_game.piecesof[ANY] |= bbrd;                                              \
     int idx = NNUE_IN_IDX(color, bbrd2sqr(bbrd), piece);                       \
-    if (g_game.nnue.acc0[idx] == 0) {                                          \
-      g_game.nnue.acc0[idx] = 1;                                               \
-      nnue_acc1_add(&g_game.nnue, idx);                                        \
-    }                                                                          \
+    nnue_acc1_add(&g_game.nnue, idx);                                          \
   }
 
 void makemove(Move move) {

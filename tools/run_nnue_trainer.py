@@ -1,20 +1,15 @@
 from datetime import datetime
-import gc
-from pandas.core.dtypes.cast import NumpyArrayT
 import torch
 from typing import Tuple, Any, Union
 import numpy as np
-from numpy.typing import ArrayLike
 import os
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 import tqdm
 import matplotlib.pyplot as plt
-import pandas as pd
 import random
 import hashlib
 import argparse
-import chess
 import math
 
 import NNUE
@@ -22,112 +17,9 @@ import FEN
 from Paths import MODELS_DIRECTORY
 
 
-class xNNUEDataset(torch.utils.data.Dataset):
-    def __init__(self, path: str, limit: int, skip_material: bool) -> None:
-        self.path = path
-        filtered_path = path.removesuffix('.csv') + f'_filtered.pkl'
-
-        if os.path.exists(filtered_path):
-            print('Preprocessed dataset found, loading the file...')
-            df = pd.read_pickle(filtered_path)
-        else:
-            df = pd.read_csv(self.path)
-            df.columns = ['fen', 'eval']
-
-            print('Preparing dataset')
-            print('Raw data:')
-            print(df.head())
-
-            print('Preprocessing data...')
-            skipped_rows = 0
-
-            prev_len = len(df)
-            df = df[df['eval'].abs() < 500]
-            skipped_rows += prev_len - len(df)
-
-            df['input'] = [[] for _ in range(len(df))]
-            df['is_silent'] = True
-            i = 0
-            bar = tqdm.tqdm(df.iterrows(), total=len(df))
-            for index, row in bar:
-                if not self.__is_silent(row['fen']):
-                    df.at[index, 'is_silent'] = False
-                    skipped_rows += 1
-                else:
-                    side2move = FEN.get_side_to_move(str(row['fen']))
-                    df.at[index, 'input'] = NNUE.input_from_fen(str(row['fen']))['w']
-                    #if side2move == 'b':
-                    #    df.at[index, 'eval'] = -row['eval']
-                    df.at[index, 'eval_nomaterial'] = row['eval'] - FEN.FENBuilder(str(row['fen'])).get_material_diff('w')
-
-                if i % 2000 == 0:
-                    bar.set_postfix({
-                        'rows-left': prev_len - skipped_rows,
-                        'skipped-rows': skipped_rows,
-                    })
-                    i = 0
-                
-                i += 1
-
-            
-            df = df[df['is_silent']]
-            df = df.drop(columns=['is_silent'])
-            df.to_pickle(filtered_path)
-
-        if limit < len(df):
-            drop_idxs = np.random.choice(df.index, len(df) - limit, replace=False)
-            df = df.drop(drop_idxs)
-
-        print('Preprocessed data:')
-
-        print(df.head())
-        print()
-
-        print(f'Used rows: {len(df)}')
-        print()
-
-        print('min eval   :' + str(df["eval"].min()))
-        print('max eval   :' + str(df["eval"].max()))
-        print('avg eval   :' + str(df["eval"].mean()))
-        print('stddev eval:' + str(df["eval"].std()))
-
-
-        self.df = df
-        self.skip_material = skip_material
-        self.length = len(self.df)
-
-        gc.collect()
-
-    def __is_silent(self, fen) -> bool:
-        board = chess.Board(fen)
-
-        if board.is_game_over():
-            return False
-
-        if board.is_check():
-            return False
-
-        for move in board.legal_moves:
-            if board.is_capture(move):
-                return False
-
-        return True
-
-    def __len__(self) -> int:
-        return self.length
-
-    def __getitem__(self, index):
-        row = self.df.iloc[index]
-        x = row['input']
-        if self.skip_material:
-            y = row['eval_nomaterial']
-        else:
-            y = row['eval']
-        return torch.tensor(x, dtype=torch.float), torch.tensor(y, dtype=torch.float)
-
-
 def lerp(f1: float, f2: float, t: float):
     return f1 * (1 - t) + f2 * t
+
 
 def cp_to_wdl(score: Union[torch.Tensor, int, float]):
     if isinstance(score, torch.Tensor):
@@ -212,7 +104,6 @@ class NNUEDataset(torch.utils.data.Dataset):
                         if ishi:
                             last_pair = None
 
-                #print(inputs)
                 assert wking_found
                 assert bking_found
 
@@ -224,13 +115,6 @@ class NNUEDataset(torch.utils.data.Dataset):
                 assert fullmove <= total_fullmoves
                 assert result in [-1, 0, 1]
 
-                """
-                print(f"eval: {eval}")
-                print(f"result: {result}")
-                print(f"move: {fullmove}")
-                print(f"total moves: {total_fullmoves}")
-                """
-                
                 if eval >= 1000 or eval <= -1000:
                     self.length -= 1
                 elif eval * result < 0:
@@ -238,32 +122,11 @@ class NNUEDataset(torch.utils.data.Dataset):
                 else:
                     result_cp = wdl_to_cp(result)
                     assert isinstance(result_cp, float) or isinstance(result_cp, int)
-                    eval = lerp(eval, result_cp, 0.15)
+                    eval = lerp(eval, result_cp, 0.1)
                     self.rows.append(NNUEDatasetRow(inputs, eval))
 
         duplicated_positions = 0
 
-        """
-        dups = {}
-        for row in self.rows:
-            id = str(row.inputs)
-            if id in dups:
-                dups[id].append(row)
-            else:
-                dups[id] = [row]
-
-        new_rows = []
-        for dup in dups.values():
-            first = dup[0]
-            if len(dup) > 1:
-                duplicated_positions += 1
-                for next_dup in dup[1:]:
-                    first.eval += next_dup.eval
-                first.eval /= len(dup)
-            new_rows.append(first)
-
-        self.rows = new_rows
-        """
         self.length = len(self.rows)
 
         print("Dataset ready")
@@ -378,7 +241,6 @@ def setup_rand_seed(rand_seed: int) -> None:
 
 
 def setup_loaders(max_rows: int, skip_material: bool, batch_size: int, rand_seed: int) -> Tuple[DataLoader, DataLoader]:
-    #dataset = NNUEDataset(f'{MODELS_DIRECTORY}/dataset.csv', max_rows, skip_material)
     dataset = NNUEDataset(f'dataset')
 
     train_size = int(0.8 * len(dataset))
@@ -418,6 +280,7 @@ def load_or_create_model(name: str, args: argparse.Namespace) -> Tuple[NNUE.NNUE
             print(f'Continuing the training, the model has been trained for {stats.epochs} epochs')
         else:
             print('Loaded existing model, will be training from this point with specified parameters')
+            optimizer = torch.optim.AdamW(nnue.parameters(), lr=args.lr, weight_decay=args.weightdecay, eps=1e-8)#, betas=(.95, 0.999), eps=1e-5)
     else:
         print(f'Creating a new model with name {args.name}')
         with torch.no_grad():
@@ -623,20 +486,11 @@ def main():
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=args.plateaupatience, factor=args.plateaufactor, cooldown=args.plateaucooldown)
     else:
         #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, last_epoch=last_epoch, T_max=args.epochs, eta_min=0.000005)
-        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1, total_iters=args.epochs, end_factor=0.05)
+        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1, total_iters=args.epochs, end_factor=0.001)
 
     train(train_loader, test_loader, nnue, stats, optimizer, scheduler, args)
 
 if __name__ == "__main__":
     main()
 exit(0)
-
-
-
-
-
-
-
-
-
 

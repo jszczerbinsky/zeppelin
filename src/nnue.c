@@ -17,6 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <emmintrin.h>
+#include <mmintrin.h>
+#include <xmmintrin.h>
 #ifdef VECT_AVX2
 #include <immintrin.h>
 #endif
@@ -64,6 +67,8 @@ const int32_t *l3bias =
 const int32_t *l4bias =
     (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L4B_START);
 
+alignas(32) static int32_t l1weight32[NNUE_ACC0_SIZE][NNUE_ACC1_SIZE];
+
 static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
                         int prev_acc_size, const int8_t *weights) {
 #ifdef VECT_NONE
@@ -77,33 +82,33 @@ static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
 
 #ifdef VECT_AVX2
   int chunk = prev_acc_size / 32;
-  __m256i prev_acc[chunk];
-  for (int i = 0; i < chunk; i++) {
-    prev_acc[i] = _mm256_loadu_si256(((const __m256i *)prev_acc_arr) + i);
-  }
 
   for (int i2 = 0; i2 < acc_size; i2++) {
     for (int i = 0; i < chunk; i++) {
+      __m256i prev_acc = _mm256_load_si256(((const __m256i *)prev_acc_arr) + i);
+
       __m256i w = _mm256_loadu_si256(
           (const __m256i *)(weights + i2 * prev_acc_size + i * 32));
 
       __m256i w16_lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(w));
-      __m256i a16_lo =
-          _mm256_cvtepi8_epi16(_mm256_castsi256_si128(prev_acc[i]));
+      __m256i a16_lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(prev_acc));
       __m256i w16_hi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1));
       __m256i a16_hi =
-          _mm256_cvtepi8_epi16(_mm256_extracti128_si256(prev_acc[i], 1));
+          _mm256_cvtepi8_epi16(_mm256_extracti128_si256(prev_acc, 1));
 
       __m256i res_lo = _mm256_madd_epi16(w16_lo, a16_lo);
       __m256i res_hi = _mm256_madd_epi16(w16_hi, a16_hi);
 
-      __m256i res = _mm256_hadd_epi32(res_lo, res_hi);
+      __m256i res = _mm256_add_epi32(res_lo, res_hi);
 
-      int32_t sums[8];
-      _mm256_storeu_si256((__m256i *)sums, res);
-      for (int x = 0; x < 8; x++) {
-        acc_arr[i2] += sums[x];
-      }
+      __m128i res128 = _mm_add_epi32(_mm256_extracti128_si256(res, 1),
+                                     _mm256_castsi256_si128(res));
+      res128 = _mm_add_epi32(
+          res128, _mm_shuffle_epi32(res128, _MM_SHUFFLE(0, 1, 2, 3)));
+      res128 = _mm_add_epi32(
+          res128, _mm_shuffle_epi32(res128, _MM_SHUFFLE(0, 0, 0, 1)));
+
+      acc_arr[i2] += _mm_cvtsi128_si32(res128);
     }
   }
 #endif
@@ -111,12 +116,12 @@ static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
 #ifdef VECT_NEON
   int chunk = prev_acc_size / 16;
   int8x16_t prev_acc[chunk];
-  for(int i = 0; i < chunk; i++){
+  for (int i = 0; i < chunk; i++) {
     prev_acc[i] = vld1q_s8(prev_acc_arr + i * 16);
   }
 
-  for(int i2 = 0; i2< acc_size; i2++){
-    for(int i = 0; i < chunk; i++) {
+  for (int i2 = 0; i2 < acc_size; i2++) {
+    for (int i = 0; i < chunk; i++) {
       int8x16_t w = vld1q_s8(weights + i2 * prev_acc_size + i * 16);
 
       int8x8_t w_lo = vget_low_s8(w);
@@ -155,18 +160,19 @@ static void activate(int8_t *dest, int32_t *acc, int acc_size) {
   __m256i zeroes = _mm256_set1_epi32(0);
   __m256i max = _mm256_set1_epi32(127);
 
-  int32_t activated[acc_size];
-
   int chunk2 = acc_size / 8;
   for (int i = 0; i < chunk2; i++) {
-    __m256i a = _mm256_loadu_si256((const __m256i *)(acc + i * 8));
+    __m256i a = _mm256_load_si256((const __m256i *)(acc + i * 8));
     a = _mm256_srai_epi32(a, 6);
     a = _mm256_max_epi32(a, zeroes);
     a = _mm256_min_epi32(a, max);
-    _mm256_storeu_si256((__m256i *)(activated + i * 8), a);
-  }
-  for (int i = 0; i < acc_size; i++) {
-    dest[i] = (int8_t)activated[i];
+
+    __m128i a_lo = _mm256_castsi256_si128(a);
+    __m128i a_hi = _mm256_extracti128_si256(a, 1);
+    __m128i a16 = _mm_packs_epi32(a_lo, a_hi);
+    __m128i a8 = _mm_packs_epi16(a16, a16);
+
+    _mm_storel_epi64((__m128i *)(dest + i * 8), a8);
   }
 #endif
 
@@ -176,34 +182,34 @@ static void activate(int8_t *dest, int32_t *acc, int acc_size) {
 
   int32_t activated[acc_size];
 
-  int chunk2= acc_size/4;
-  for(int i = 0; i < chunk2; i++){
+  int chunk2 = acc_size / 4;
+  for (int i = 0; i < chunk2; i++) {
     int32x4_t a = vld1q_s32(acc + i * 4);
     a = vshrq_n_s32(a, 6);
     a = vmaxq_s32(a, zeroes);
     a = vminq_s32(a, max);
     vst1q_s32(activated + i * 4, a);
   }
-  for(int i = 0; i < acc_size; i++){
+  for (int i = 0; i < acc_size; i++) {
     dest[i] = (int8_t)activated[i];
   }
 #endif
 }
 
 void nnue_calc_deep_acc(NNUE *nnue) {
-  int8_t acc1_act[NNUE_ACC1_SIZE];
+  alignas(32) int8_t acc1_act[NNUE_ACC1_SIZE];
   activate(acc1_act, nnue->acc1, NNUE_ACC1_SIZE);
 
-  int32_t acc2[NNUE_ACC2_SIZE];
+  alignas(32) int32_t acc2[NNUE_ACC2_SIZE];
   memcpy(acc2, l2bias, NNUE_ACC2_SIZE * sizeof(int32_t));
   add_weights(acc2, NNUE_ACC2_SIZE, acc1_act, NNUE_ACC1_SIZE, l2weight);
-  int8_t acc2_act[NNUE_ACC2_SIZE];
+  alignas(32) int8_t acc2_act[NNUE_ACC2_SIZE];
   activate(acc2_act, acc2, NNUE_ACC2_SIZE);
 
-  int32_t acc3[NNUE_ACC3_SIZE];
+  alignas(32) int32_t acc3[NNUE_ACC3_SIZE];
   memcpy(acc3, l3bias, NNUE_ACC3_SIZE * sizeof(int32_t));
   add_weights(acc3, NNUE_ACC3_SIZE, acc2_act, NNUE_ACC2_SIZE, l3weight);
-  int8_t acc3_act[NNUE_ACC3_SIZE];
+  alignas(32) int8_t acc3_act[NNUE_ACC3_SIZE];
   activate(acc3_act, acc3, NNUE_ACC3_SIZE);
 
   nnue->out = l4bias[0];
@@ -219,24 +225,52 @@ void nnue_calc_deep_acc(NNUE *nnue) {
 }
 
 void nnue_acc1_add(NNUE *nnue, int i0) {
+#ifndef VECT_AVX2
   for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
     nnue->acc1[i1] += (int32_t)l1weight[i1 * NNUE_ACC0_SIZE + i0];
   }
+#endif
+#ifdef VECT_AVX2
+  int chunk = NNUE_ACC1_SIZE / 8;
+  for (int i = 0; i < chunk; i++) {
+    __m256i w = _mm256_loadu_si256((__m256i *)(l1weight32[i0] + i * 8));
+    __m256i a = _mm256_loadu_si256((__m256i *)(nnue->acc1 + i * 8));
+
+    a = _mm256_add_epi32(a, w);
+    _mm256_storeu_si256((__m256i *)(nnue->acc1 + i * 8), a);
+  }
+#endif
 }
 
 void nnue_acc1_sub(NNUE *nnue, int i0) {
+#ifndef VECT_AVX2
   for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
     nnue->acc1[i1] -= (int32_t)l1weight[i1 * NNUE_ACC0_SIZE + i0];
   }
+#endif
+#ifdef VECT_AVX2
+  int chunk = NNUE_ACC1_SIZE / 8;
+  for (int i = 0; i < chunk; i++) {
+    __m256i w = _mm256_loadu_si256((__m256i *)(l1weight32[i0] + i * 8));
+    __m256i a = _mm256_loadu_si256((__m256i *)(nnue->acc1 + i * 8));
+
+    a = _mm256_sub_epi32(a, w);
+    _mm256_storeu_si256((__m256i *)(nnue->acc1 + i * 8), a);
+  }
+#endif
 }
 
 void nnue_init(NNUE *nnue) {
+  for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
+    for (int i0 = 0; i0 < NNUE_ACC0_SIZE; i0++) {
+      l1weight32[i0][i1] = (int32_t)l1weight[i1 * NNUE_ACC0_SIZE + i0];
+    }
+  }
+
   for (int i = 0; i < NNUE_ACC1_SIZE; i++) {
     nnue->acc1[i] = l1bias[i];
   }
 
-  // memset(acc2, 0, NNUE_ACC2_SIZE * sizeof(int32_t));
-  // memset(nnue->acc3, 0, NNUE_ACC3_SIZE * sizeof(int32_t));
   nnue->out = 0;
 
   for (int sqr = 0; sqr < 64; sqr++) {
@@ -248,17 +282,24 @@ void nnue_init(NNUE *nnue) {
       int idx_b = NNUE_IN_IDX(BLACK, sqr, p);
 
       if (isw) {
+#ifdef DEBUG_INTERFACE
         nnue->acc0[idx_w] = 1;
         nnue->acc0[idx_b] = 0;
+#endif
         nnue_acc1_add(nnue, idx_w);
       } else if (isb) {
+#ifdef DEBUG_INTERFACE
         nnue->acc0[idx_w] = 0;
         nnue->acc0[idx_b] = 1;
+#endif
         nnue_acc1_add(nnue, idx_b);
-      } else {
+      }
+#ifdef DEBUG_INTERFACE
+      else {
         nnue->acc0[idx_w] = 0;
         nnue->acc0[idx_b] = 0;
       }
+#endif
     }
   }
 
