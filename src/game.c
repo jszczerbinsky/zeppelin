@@ -1,3 +1,22 @@
+/*
+ * Zeppelin chess engine.
+ *
+ * Copyright (C) 2024-2026 Jakub Szczerbiński <jszczerbinsky2@gmail.com>
+ *
+ * Zeppelin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <stdio.h>
 #include <string.h>
 
@@ -62,6 +81,8 @@ void reset_game() {
   init_bbrds();
   g_gamestate->hash = gethash();
   g_gamestate->phase = PHASE_OPENING;
+  nnue_init(&g_game.nnue);
+  g_gamestate->nnue_eval = g_game.nnue.out;
 }
 
 char *parsefen(char *fen) {
@@ -224,6 +245,8 @@ char *parsefen(char *fen) {
   }
 
   init_bbrds();
+  nnue_init(&g_game.nnue);
+  g_gamestate->nnue_eval = g_game.nnue.out;
 
   return fen_nexttok();
 }
@@ -368,6 +391,8 @@ int getrepetitions() {
     g_game.pieces[ANY][piece] &= ~(bbrd);                                      \
     g_game.piecesof[color] &= ~(bbrd);                                         \
     g_game.piecesof[ANY] &= ~(bbrd);                                           \
+    int idx = NNUE_IN_IDX(color, bbrd2sqr(bbrd), piece);                       \
+    nnue_acc1_sub(&g_game.nnue, idx);                                          \
   }
 
 #define putpiece(color, piece, bbrd)                                           \
@@ -376,6 +401,8 @@ int getrepetitions() {
     g_game.pieces[ANY][piece] |= bbrd;                                         \
     g_game.piecesof[color] |= bbrd;                                            \
     g_game.piecesof[ANY] |= bbrd;                                              \
+    int idx = NNUE_IN_IDX(color, bbrd2sqr(bbrd), piece);                       \
+    nnue_acc1_add(&g_game.nnue, idx);                                          \
   }
 
 void makemove(Move move) {
@@ -679,6 +706,9 @@ void makemove(Move move) {
   g_game.movelist.cnt++;
   g_game.who2move = !g_game.who2move;
 
+  nnue_calc_deep_acc(&g_game.nnue);
+  newgamestate->nnue_eval = g_game.nnue.out;
+
   update_gamestate();
 }
 
@@ -755,5 +785,7 @@ void unmakemove() {
     break;
   }
 
+  // nnue_calc_deep_acc(&g_game.nnue);
+  g_game.nnue.out = prevgamestate->nnue_eval;
   update_gamestate();
 }

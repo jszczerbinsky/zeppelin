@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import override
 import chess
+import NNUE
 
 from Zeppelin import ZeppelinWithDebug
 from FEN import FENBuilder
@@ -9,9 +10,9 @@ from FEN import FENBuilder
 class TestFailedException(Exception):
     pass
 
+
 class AbstractTest(ABC):
-    def __init__(self, engine: ZeppelinWithDebug, test_name: str, test_id: str):
-        self.engine: ZeppelinWithDebug = engine
+    def __init__(self, test_name: str, test_id: str):
         self.__test_name: str = test_name
         self.__test_id: str = test_id 
 
@@ -53,7 +54,13 @@ class AbstractTest(ABC):
         ...
 
 
-class FenParserTest(AbstractTest):
+class AbstractEngineTest(AbstractTest):
+    def __init__(self, engine: ZeppelinWithDebug, test_name: str, test_id: str):
+        super().__init__(test_name, test_id)
+        self.engine: ZeppelinWithDebug = engine
+
+
+class FenParserTest(AbstractEngineTest):
     def __init__(self, engine, fen, exp_results):
         super().__init__(engine, "FEN Parser", fen)
         self.fen = fen
@@ -75,7 +82,7 @@ class FenParserTest(AbstractTest):
 
         return True
 
-class MakeMoveTest(AbstractTest):
+class MakeMoveTest(AbstractEngineTest):
     def __init__(self, engine, move, fen_before, fen_after):
         super().__init__(engine, "Make Move", move + " " + fen_before)
         self.fen_before = fen_before
@@ -100,7 +107,7 @@ class MakeMoveTest(AbstractTest):
 
         return True
 
-class UnmakeMoveTest(AbstractTest):
+class UnmakeMoveTest(AbstractEngineTest):
     def __init__(self, engine, fen):
         super().__init__(engine, "Unmake Move", fen)
         self.fen = fen
@@ -124,7 +131,7 @@ class UnmakeMoveTest(AbstractTest):
 
         return True
 
-class EvalTest(AbstractTest):
+class EvalTest(AbstractEngineTest):
     def __init__(self, engine, fen, exp_res):
         super().__init__(engine, "Eval", fen)
         self.fen = fen
@@ -143,7 +150,7 @@ class EvalTest(AbstractTest):
 
         return True
 
-class EvalSymmetryTest(AbstractTest):
+class EvalSymmetryTest(AbstractEngineTest):
     def __init__(self, engine: ZeppelinWithDebug, fen: str):
         super().__init__(engine, "Eval Symmetry", fen)
         self.fen = fen
@@ -162,7 +169,7 @@ class EvalSymmetryTest(AbstractTest):
         return True
 
 
-class PerftTest(AbstractTest):
+class PerftTest(AbstractEngineTest):
     def __init__(self, engine, fen, exp_counts):
         super().__init__(engine, "Perft", fen)
         self.fen = fen 
@@ -186,7 +193,7 @@ class PerftTest(AbstractTest):
 
         return True
 
-class RepetitionDetectionTest(AbstractTest):
+class RepetitionDetectionTest(AbstractEngineTest):
     def __init__(self, engine, fen, variations):
         super().__init__(engine, "Repetition Detect", fen)
         self.fen = fen
@@ -208,7 +215,7 @@ class RepetitionDetectionTest(AbstractTest):
 
         return True
 
-class GenMovesTest(AbstractTest):
+class GenMovesTest(AbstractEngineTest):
     def __init__(self, engine: ZeppelinWithDebug, fen: str):
         super().__init__(engine, "Gen Moves", fen)
         self.fen = fen
@@ -241,3 +248,64 @@ class GenMovesTest(AbstractTest):
 
         return True
 
+class NNUEInputTest(AbstractEngineTest):
+    def __init__(self, engine: ZeppelinWithDebug, fen: str):
+        super().__init__(engine, "NNUE input", fen)
+        self.fen = fen
+        self.ready()
+
+    def perform_test(self) -> bool:
+        self.engine.loadfen(self.fen)
+        engine_inputs = self.engine.getnnueinput()
+        python_inputs = NNUE.input_from_fen(self.fen)
+
+        if len(engine_inputs['white_perspective']) != len(python_inputs['w']):
+            self.set_failinfo('white perspective length', len(python_inputs['w']), len(engine_inputs['white_perspective']))
+            return False
+        #if len(engine_inputs['black_perspective']) != len(python_inputs['b']):
+        #    self.set_failinfo('black perspective length', len(python_inputs['b']), len(engine_inputs['black_perspective']))
+        #    return False
+
+        for i in range(len(engine_inputs['white_perspective'])):
+            if engine_inputs['white_perspective'][i] != python_inputs['w'][i]:
+                self.set_failinfo('white perspective', python_inputs['w'], engine_inputs['white_perspective'])
+                return False
+        #    if engine_inputs['black_perspective'][i] != python_inputs['b'][i]:
+        #        self.set_failinfo('black perspective', python_inputs['b'], engine_inputs['black_perspective'])
+        #        return False
+
+        return True 
+
+class NNUEIndexing(AbstractTest):
+    def __init__(self):
+        super().__init__("NNUE index", "")
+        self.ready()
+
+    def perform_test(self) -> bool:
+        self_used_by = [-1] * 64 * 2 * 6
+        opponent_used_by = [-1] * 64 * 2 * 6
+
+        for sqr in range(64):
+            for p in ['P', 'B', 'N', 'R', 'Q', 'K']:
+                ww = NNUE.get_input_idx('w', sqr, p, 'w') 
+                bw = NNUE.get_input_idx('b', 63 - sqr, p, 'w')
+                wb = NNUE.get_input_idx('w', sqr, p, 'b') 
+                bb = NNUE.get_input_idx('b', 63 - sqr, p, 'b')
+
+                if ww != bb:
+                    self.set_failinfo(f'self perspective for square {sqr}', ww, bb)
+                    return False
+                if wb != bw:
+                    self.set_failinfo(f'opponent perspective for square {sqr}', wb, bw)
+                    return False
+
+                if self_used_by[ww] != -1:
+                    self_used_by[ww] = sqr
+                    self.set_failinfo(f'self perspective index collision for squares {sqr} and {self_used_by[ww]}', '???', '???')
+                    return False
+                if opponent_used_by[wb] != -1:
+                    opponent_used_by[wb] = sqr
+                    self.set_failinfo(f'opponent perspective index collision for squares {sqr} and {opponent_used_by[ww]}', '???', '???')
+                    return False
+
+        return True

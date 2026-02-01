@@ -1,29 +1,25 @@
+/*
+ * Zeppelin chess engine.
+ *
+ * Copyright (C) 2024-2026 Jakub Szczerbiński <jszczerbinsky2@gmail.com>
+ *
+ * Zeppelin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "main.h"
-
-extern const unsigned char _binary_weights_bin_start[];
-
-// every 3 rows: opening, middlegame, endgame
-int eval_weights[PATTERNS_SIZE * 3] = {0};
-
-static BitBrd _patterns[PATTERNS_SIZE];
-
-static const BitBrd FILES[] = {FILE_A, FILE_B, FILE_C, FILE_D,
-                               FILE_E, FILE_F, FILE_G, FILE_H};
-
-static const BitBrd RANKS[] = {RANK_1, RANK_2, RANK_3, RANK_4,
-                               RANK_5, RANK_6, RANK_7, RANK_8};
-
-static const BitBrd PAWN_COVER_KSIDE_PAWNS[] = {
-    0xe000ULL, 0x20c000ULL, 0x40a000ULL, 0x806000ULL, 0x608000ULL, 0xc02000ULL,
-};
-
-static const BitBrd PAWN_COVER_KSIDE_KING[] = {0x20ULL, 0x40ULL, 0x80ULL};
-
-static const BitBrd PAWN_COVER_QSIDE_PAWNS[] = {
-    0x700ULL, 0x10600ULL, 0x20500ULL, 0x40300ULL, 0x30400ULL, 0x60100ULL,
-};
-
-static const BitBrd PAWN_COVER_QSIDE_KING[] = {0x1ULL, 0x2ULL, 0x4ULL};
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef struct {
   int pcolor;
@@ -39,202 +35,26 @@ typedef struct {
   const BitBrd eattacks;
 } EvalSideArgs;
 
-static int _eval_side(const EvalSideArgs *args) {
-  // From white perspective
-
-  BitBrd rookqueens = args->ppieces[ROOK] | args->ppieces[QUEEN];
-
-  int kingsqr = bbrd2sqr(args->ppieces[KING]);
-
-  int x = 0;
-
-  // piece-square pairs [384]
-  for (int p = 0; p < PIECE_MAX; p++) {
-    for (int sqr = 0; sqr < 64; sqr++) {
-      _patterns[x++] = sqr2bbrd(sqr) & args->ppieces[p];
-    }
-  }
-
-  // knight horizontal span [4]
-  _patterns[x++] = (FILE_A | FILE_H) & args->ppieces[KNIGHT];
-  _patterns[x++] = (FILE_B | FILE_G) & args->ppieces[KNIGHT];
-  _patterns[x++] = (FILE_C | FILE_F) & args->ppieces[KNIGHT];
-  _patterns[x++] = (FILE_D | FILE_E) & args->ppieces[KNIGHT];
-
-  // pawn horizontal span [4]
-  _patterns[x++] = (FILE_A | FILE_H) & args->ppieces[PAWN];
-  _patterns[x++] = (FILE_B | FILE_G) & args->ppieces[PAWN];
-  _patterns[x++] = (FILE_C | FILE_F) & args->ppieces[PAWN];
-  _patterns[x++] = (FILE_D | FILE_E) & args->ppieces[PAWN];
-
-  // pawn advancement [8]
-  for (int i = 0; i < 8; i++)
-    _patterns[x++] = RANKS[i] & args->ppieces[PAWN];
-
-  // center [2]
-  _patterns[x++] = args->pallpieces & CENTER;
-  _patterns[x++] = args->pallpieces & CENTER16;
-
-  // pawns in center [2]
-  _patterns[x++] = args->ppieces[PAWN] & CENTER;
-  _patterns[x++] = args->ppieces[PAWN] & CENTER16;
-
-  // king in center [2]
-  _patterns[x++] = args->ppieces[KING] & CENTER;
-  _patterns[x++] = args->ppieces[KING] & CENTER16;
-
-  // king advancement [8]
-  for (int i = 0; i < 8; i++)
-    _patterns[x++] = RANKS[i] & args->ppieces[KING];
-
-  // king horizontal span [4]
-  _patterns[x++] = (FILE_A | FILE_H) & args->ppieces[KING];
-  _patterns[x++] = (FILE_B | FILE_G) & args->ppieces[KING];
-  _patterns[x++] = (FILE_C | FILE_F) & args->ppieces[KING];
-  _patterns[x++] = (FILE_D | FILE_E) & args->ppieces[KING];
-
-  // pieces near king [2]
-  _patterns[x++] = nearby(args->ppieces[KING]) & args->pallpieces;
-  _patterns[x++] = nearby(args->ppieces[KING]) & args->eallpieces;
-
-  // doubled pawns [1]
-  _patterns[x++] = args->ppieces[PAWN] &
-                   (args->ppieces[PAWN] >> 8 | args->ppieces[PAWN] >> 16 |
-                    args->ppieces[PAWN] >> 24 | args->ppieces[PAWN] >> 32 |
-                    args->ppieces[PAWN] >> 40 | args->ppieces[PAWN] >> 48 |
-                    args->ppieces[PAWN] >> 56);
-
-  // doubled rooks/queens [1]
-  _patterns[x++] =
-      rookqueens & (rookqueens >> 8 | rookqueens >> 16 | rookqueens >> 24 |
-                    rookqueens >> 32 | rookqueens >> 40 | rookqueens >> 48 |
-                    rookqueens >> 56);
-
-  // king on the same file with a rook/queen [1]
-  _patterns[x++] = rookqueens & FILES[kingsqr % 8];
-
-  // king castled [1]
-  _patterns[x++] = args->ppieces[KING] &
-                   (sqr2bbrd(CASTLE_WK_KINGSQR) | sqr2bbrd(CASTLE_WQ_KINGSQR));
-
-  // undeveloped light pieces [1]
-  _patterns[x++] = (args->ppieces[BISHOP] | args->ppieces[KNIGHT]) & RANK_1;
-
-  // king decastled [1]
-  _patterns[x++] = args->ppieces[KING] & 0x3828ULL;
-
-  // pawn cover kingside [18]
-  for (int k = 0; k < 3; k++) {
-    for (int p = 0; p < 6; p++) {
-      int match = (args->ppieces[PAWN] & PAWN_COVER_KSIDE_PAWNS[p]) ==
-                  PAWN_COVER_KSIDE_PAWNS[p];
-      match &= (args->ppieces[KING] & PAWN_COVER_KSIDE_KING[k]) ==
-               PAWN_COVER_KSIDE_KING[k];
-
-      _patterns[x++] = match ? 1ULL : 0ULL;
-    }
-  }
-
-  // pawn cover queenside [18]
-  for (int k = 0; k < 3; k++) {
-    for (int p = 0; p < 6; p++) {
-      int match = (args->ppieces[PAWN] & PAWN_COVER_QSIDE_PAWNS[p]) ==
-                  PAWN_COVER_QSIDE_PAWNS[p];
-      match &= (args->ppieces[KING] & PAWN_COVER_QSIDE_KING[k]) ==
-               PAWN_COVER_QSIDE_KING[k];
-
-      _patterns[x++] = match ? 1ULL : 0ULL;
-    }
-  }
-
-  // mobility [1]
-  _patterns[x++] = args->pattacks;
-
-  // attacked pieces [1]
-  _patterns[x++] = args->pattacks & args->eallpieces;
-
-  // defended pieces under attack [1]
-  _patterns[x++] = args->pattacks & args->pallpieces & args->eattacks;
-
-  // defended pieces not under attack [1]
-  _patterns[x++] = args->pattacks & args->pallpieces & (~args->eattacks);
-
-  // undefended pieces under attack [1]
-  _patterns[x++] = (~args->pattacks) & args->pallpieces & args->eattacks;
-
-  // undefended pieces not under attack [1]
-  _patterns[x++] = (~args->pattacks) & args->pallpieces & (~args->eattacks);
-
-  int offset;
-  switch (g_gamestate->phase) {
-  case PHASE_OPENING:
-    offset = 0;
-    break;
-  case PHASE_MIDDLEGAME:
-    offset = 1;
-    break;
-  case PHASE_ENDGAME:
-    offset = 2;
-    break;
-  }
-
-  int sum = 0;
-  for (int i = 0; i < PATTERNS_SIZE; i++) {
-    sum += popcnt(_patterns[i]) * eval_weights[3 * i + offset];
-  }
-
-  return sum;
-}
-
 int evaluate() {
+#ifdef EVAL_NNUE
+  // nnue_init(&g_game.nnue);
+  if (g_game.who2move == WHITE)
+    // return (int)g_game.nnue.out;
+    return (int)g_gamestate->nnue_eval;
+  else
+    // return -(int)g_game.nnue.out;
+    return -(int)g_gamestate->nnue_eval;
+#endif
+
+#ifdef EVAL_MATERIAL_ONLY
   int value = 0;
-
-  BitBrd wattacks, battacks;
-  MoveList wmoves, bmoves;
-  gen_moves(WHITE, &wmoves, &wattacks, GEN_ALL, 0);
-  gen_moves(BLACK, &bmoves, &battacks, GEN_ALL, 0);
-
-  BitBrd bflipped_piece[PIECE_MAX];
-  BitBrd bflipped;
-  BitBrd wflipped_piece[PIECE_MAX];
-  BitBrd wflipped;
-  BitBrd wattacks_flipped = bbrdflipv(wattacks);
-  BitBrd battacks_flipped = bbrdflipv(battacks);
-  bflipped = bbrdflipv(g_game.piecesof[BLACK]);
-  wflipped = bbrdflipv(g_game.piecesof[WHITE]);
-  for (int i = 0; i < PIECE_MAX; i++) {
-    bflipped_piece[i] = bbrdflipv(g_game.pieces[BLACK][i]);
-    wflipped_piece[i] = bbrdflipv(g_game.pieces[WHITE][i]);
-  }
-
-  EvalSideArgs wargs = {
-      .pcolor = WHITE,
-      .ppieces = g_game.pieces[WHITE],
-      .pallpieces = g_game.piecesof[WHITE],
-      .pattacks = wattacks,
-      .epieces = g_game.pieces[BLACK],
-      .eallpieces = g_game.piecesof[BLACK],
-      .eattacks = battacks,
-  };
-  EvalSideArgs bargs = {
-      .pcolor = BLACK,
-      .ppieces = bflipped_piece,
-      .pallpieces = bflipped,
-      .pattacks = battacks_flipped,
-      .epieces = wflipped_piece,
-      .eallpieces = wflipped,
-      .eattacks = wattacks_flipped,
-  };
-
-  value += _eval_side(&wargs) - _eval_side(&bargs);
-
   for (int p = 0; p < PIECE_MAX; p++) {
     value +=
         (popcnt(g_game.pieces[WHITE][p]) - popcnt(g_game.pieces[BLACK][p])) *
         material[p];
   }
-
   return g_game.who2move == WHITE ? value : -value;
+#endif
 }
 
 int evaluate_terminalpos(int pliescnt) {
@@ -255,10 +75,96 @@ int evaluate_material() {
   return value;
 }
 
-int loadweights() {
+typedef struct {
+  BitBrd occupancy;
+  int piecescnt;
+  uint8_t *piece_pairs;
+  int pairscnt;
+  int32_t eval;
+  uint8_t fullmove;
+} EvalEntry;
 
-  memcpy(eval_weights, _binary_weights_bin_start,
-         sizeof(int) * PATTERNS_SIZE * 3);
+static int eval_entries_cnt = 0;
+static EvalEntry *eval_entries = NULL;
 
-  return 1;
+void save_eval_entry(int eval) {
+  eval_entries_cnt++;
+  eval_entries =
+      realloc(eval_entries, (size_t)eval_entries_cnt * sizeof(EvalEntry));
+
+  EvalEntry *new_entry = eval_entries + (eval_entries_cnt - 1);
+  new_entry->occupancy = g_game.piecesof[ANY];
+  new_entry->fullmove = (uint8_t)g_gamestate->fullmove;
+
+  new_entry->piecescnt = popcnt(new_entry->occupancy);
+  new_entry->pairscnt = (new_entry->piecescnt + 1) / 2;
+
+  new_entry->piece_pairs = calloc((size_t)new_entry->pairscnt, sizeof(uint8_t));
+
+  int pair = 0;
+  int ishi = 1;
+  for (int sqr = 0; sqr < 64; sqr++) {
+    int piece = getpieceat(ANY, sqr2bbrd(sqr));
+    int isblack = getpieceat(BLACK, sqr2bbrd(sqr)) != -1;
+
+    if (piece != -1) {
+      uint8_t fpiece = (uint8_t)piece;
+      if (isblack)
+        fpiece |= 8U;
+
+      if (ishi) {
+        fpiece <<= 4;
+        new_entry->piece_pairs[pair] = fpiece;
+      } else {
+        new_entry->piece_pairs[pair] |= fpiece;
+      }
+
+      if (!ishi)
+        pair++;
+      ishi = !ishi;
+    }
+  }
+  new_entry->eval = (int32_t)eval;
+}
+
+void dump_eval_entries(int game_result) {
+  int8_t fgame_result = (int8_t)game_result;
+  uint8_t total_fullmoves = (uint8_t)g_gamestate->fullmove;
+
+  FILE *f = fopen("dataset", "r+b");
+  if (!f) {
+    f = fopen("dataset", "w+b");
+  }
+
+  fseek(f, 0, SEEK_END);
+  ssize_t fsize = ftell(f);
+  fseek(f, 0, SEEK_SET);
+
+  uint32_t count = 0;
+  if (fsize >= 4)
+    fread(&count, sizeof(uint32_t), 1, f);
+  count += (uint32_t)eval_entries_cnt;
+  fseek(f, 0, SEEK_SET);
+  fwrite(&count, sizeof(uint32_t), 1, f);
+
+  fseek(f, 0, SEEK_END);
+
+  for (int i = 0; i < eval_entries_cnt; i++) {
+    fwrite(&eval_entries[i].occupancy, sizeof(BitBrd), 1, f);
+    fwrite(eval_entries[i].piece_pairs, sizeof(uint8_t),
+           (size_t)eval_entries[i].pairscnt, f);
+    fwrite(&eval_entries[i].eval, sizeof(int32_t), 1, f);
+    fwrite(&fgame_result, sizeof(int8_t), 1, f);
+    fwrite(&eval_entries[i].fullmove, sizeof(uint8_t), 1, f);
+    fwrite(&total_fullmoves, sizeof(uint8_t), 1, f);
+
+    free(eval_entries[i].piece_pairs);
+  }
+
+  fclose(f);
+
+  free(eval_entries);
+  eval_entries = NULL;
+
+  g_set.gen_evals = 0;
 }

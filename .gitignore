@@ -1,4 +1,9 @@
 build/*
+tools/models/
+tools/dataset
+tools/data
+tools/venv/
+
 *.out
 *.log
 *.bin

@@ -1,2 +1,3 @@
 ZEPPELIN_BUILD_DIR = '../build/'
-
+MODELS_DIRECTORY = 'models/'
+DATA_DIRECTORY = 'data/'
