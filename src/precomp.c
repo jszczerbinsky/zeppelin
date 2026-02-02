@@ -47,7 +47,7 @@ static const BitBrd antidiagbbrds[] = {
     ADIAG_0, ADIAG_1, ADIAG_2,  ADIAG_3,  ADIAG_4,  ADIAG_5,  ADIAG_6, ADIAG_7,
     ADIAG_8, ADIAG_9, ADIAG_10, ADIAG_11, ADIAG_12, ADIAG_13, ADIAG_14};
 
-static void savefile() {
+static void savefile(void) {
   FILE *out = fopen("precomputed.bin", "wb");
 
   fwrite(&g_precomp.knightmask, sizeof(BitBrd), 64, out);
@@ -78,7 +78,7 @@ static void savefile() {
   fclose(out);
 }
 
-static void gen_pawnattackmask() {
+static void gen_pawnattackmask(void) {
   for (int sqr = 0; sqr < 64; sqr++) {
     g_precomp.pawnattackmask[WHITE][sqr] = 0;
     g_precomp.pawnattackmask[BLACK][sqr] = 0;
@@ -101,7 +101,7 @@ static void gen_pawnattackmask() {
   }
 }
 
-static void gen_kingmask() {
+static void gen_kingmask(void) {
   for (int sqr = 0; sqr < 64; sqr++) {
     g_precomp.kingmask[sqr] = 0;
 
@@ -132,7 +132,7 @@ static void gen_kingmask() {
   }
 }
 
-static void gen_knightmask() {
+static void gen_knightmask(void) {
   for (int sqr = 0; sqr < 64; sqr++) {
     g_precomp.knightmask[sqr] = 0;
 
@@ -156,7 +156,7 @@ static void gen_knightmask() {
   }
 }
 
-static void gen_slidingmoves() {
+static void gen_slidingmoves(void) {
   for (int sqr = 0; sqr < 64; sqr++) {
     int rank = sqr / 8;
     int file = sqr % 8;
@@ -421,7 +421,7 @@ static void gen_magic_for(int piece, int sqr, int mode) {
   }
 }
 
-static void gen_magic() {
+static void gen_magic(void) {
   if (file_loaded) {
     printf("There are magic numbers in the precomp file, if they work, they "
            "will NOT be overriden.\n");
@@ -508,7 +508,7 @@ void usemagic(const char *numstr) {
     printf("No magic numbers have been updated\n");
 }
 
-void huntmagic() {
+void huntmagic(void) {
   while (1) {
     int piece = rand() % 2 ? ROOK : BISHOP;
     int sqr = rand() % 64;
@@ -519,7 +519,7 @@ void huntmagic() {
   }
 }
 
-int loadprecomp() {
+int loadprecomp(void) {
   const unsigned char *ptr = _binary_precomputed_bin_start;
 
   memcpy(&g_precomp.knightmask, ptr, sizeof(BitBrd) * 64);
@@ -572,7 +572,7 @@ int loadprecomp() {
   return 1;
 }
 
-void genprecomp() {
+void genprecomp(void) {
   file_loaded = loadprecomp();
 
   gen_kingmask();
@@ -584,7 +584,7 @@ void genprecomp() {
   savefile();
 }
 
-void freeprecomp() {
+void freeprecomp(void) {
   for (int i = 0; i < 64; i++) {
     free(g_precomp.rookmagicmoves[i]);
     free(g_precomp.bishopmagicmoves[i]);

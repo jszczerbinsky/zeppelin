@@ -35,7 +35,7 @@ typedef struct {
   const BitBrd eattacks;
 } EvalSideArgs;
 
-int evaluate() {
+int evaluate(void) {
 #ifdef EVAL_NNUE
   // nnue_init(&g_game.nnue);
   if (g_game.who2move == WHITE)
@@ -65,7 +65,7 @@ int evaluate_terminalpos(int pliescnt) {
   }
 }
 
-int evaluate_material() {
+int evaluate_material(void) {
   int value = 0;
   for (int p = 0; p < PIECE_MAX; p++) {
     value += (popcnt(g_game.pieces[g_game.who2move][p]) -

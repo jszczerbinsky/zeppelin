@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
 #include <string.h>
 
 #include "main.h"
@@ -27,13 +26,13 @@
 Game g_game;
 GameState *g_gamestate;
 
-static inline char *fen_nexttok() { return strtok(NULL, FEN_TOK_DELIMS); }
+static inline char *fen_nexttok(void) { return strtok(NULL, FEN_TOK_DELIMS); }
 
-static inline void update_gamestate() {
+static inline void update_gamestate(void) {
   g_gamestate = g_game.brdstate + g_game.movelist.cnt;
 }
 
-void init_bbrds() {
+void init_bbrds(void) {
   for (int p = 0; p < 2; p++) {
     g_game.piecesof[p] = 0;
     for (int i = 0; i < PIECE_MAX; i++) {
@@ -56,7 +55,7 @@ int getpieceat(int color, BitBrd bbrd) {
   return -1;
 }
 
-void reset_game() {
+void reset_game(void) {
   g_game.who2move = WHITE;
   g_game.movelist.cnt = 0;
 
@@ -375,7 +374,7 @@ void move2str(char *buff, Move move) {
     buff[4] = '\0';
 }
 
-int getrepetitions() {
+int getrepetitions(void) {
   int count = 0;
   for (int i = 0; i < g_game.movelist.cnt; i++) {
     if (g_gamestate->hash == g_game.brdstate[i].hash) {
@@ -712,7 +711,7 @@ void makemove(Move move) {
   update_gamestate();
 }
 
-void unmakemove() {
+void unmakemove(void) {
   g_game.who2move = !g_game.who2move;
   g_game.movelist.cnt--;
 

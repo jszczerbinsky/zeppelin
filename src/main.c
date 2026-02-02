@@ -26,11 +26,9 @@
 #define ARG_NONE -1
 #define ARG_HELP 0
 #define ARG_VER 1
-#define ARG_DUMP_PRECOMP 2
-#define ARG_GEN_PRECOMP 3
-#define ARG_HUNT_MAGIC 4
-#define ARG_USE_MAGIC 5
-#define ARG_DUMP_POS 6
+#define ARG_GEN_PRECOMP 2
+#define ARG_HUNT_MAGIC 3
+#define ARG_USE_MAGIC 4
 
 typedef struct {
   const char *str;
@@ -64,13 +62,6 @@ static const ArgDef definedargs[] = {
         ARG_GEN_PRECOMP,
     },
     {
-        "--dump-precomp",
-        "--dump-precomp",
-        "Dump precomputed engine values to a file",
-        0,
-        ARG_DUMP_PRECOMP,
-    },
-    {
         "--hunt-magic",
         "--hunt-magic",
         "Try to find better magic numbers",
@@ -84,13 +75,6 @@ static const ArgDef definedargs[] = {
         1,
         ARG_USE_MAGIC,
     },
-    {
-        "--dump-position",
-        "--dump-position \"<FEN string>\"",
-        "Dump information about a specified FEN position",
-        1,
-        ARG_DUMP_POS,
-    },
 
 };
 static const int definedargscnt = sizeof(definedargs) / sizeof(ArgDef);
@@ -103,7 +87,7 @@ Settings g_set = {0};
 void (*g_printdbg)(const char *format, ...) = NULL;
 #endif
 
-static void choose_protocol() {
+static void choose_protocol(void) {
   const size_t buffsize = 256;
   char buff[buffsize];
 
@@ -129,7 +113,7 @@ static void choose_protocol() {
   }
 }
 
-static void printhelp() {
+static void printhelp(void) {
   printf("Usage: %s\nOptions:\n", usagestr);
 
   for (int i = 0; i < definedargscnt; i++) {
@@ -192,13 +176,6 @@ int main(int argc, char **argv) {
     break;
   case ARG_VER:
     printf("Version: " PROGRAM_VERSION " for " TARGET_PLATFORM "\n");
-    break;
-  case ARG_DUMP_PRECOMP:
-    dumpprecomp();
-    break;
-  case ARG_DUMP_POS:
-    parsefen(argv[2]);
-    dumppos();
     break;
   case ARG_HUNT_MAGIC:
     huntmagic();

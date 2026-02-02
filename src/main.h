@@ -45,10 +45,10 @@
 extern int g_mode;
 
 extern int g_ucidebug;
-void uci_start();
+void uci_start(void);
 
 #ifdef DEBUG_INTERFACE
-void debug_start();
+void debug_start(void);
 extern void (*g_printdbg)(const char *format, ...);
 #define PRINTDBG(...) (g_printdbg ? (*g_printdbg)(__VA_ARGS__) : (void)0)
 #else
@@ -107,23 +107,23 @@ typedef uint32_t Move;
 // | Type  | PromPiece | CaptPiece | MovPiece | DstSqr | SrcSqr |
 // | 11bit |   3bit    |   3bit    |   3bit   |  6bit  |  6bit  |
 
-#define MOVE_SRC_SQR_MASK 0b00000000000000000000000000111111UL
-#define MOVE_DST_SQR_MASK 0b00000000000000000000111111000000UL
-#define MOVE_MOV_PIECE_MASK 0b00000000000000000111000000000000UL
-#define MOVE_CAPT_PIECE_MASK 0b00000000000000111000000000000000UL
-#define MOVE_PROM_PIECE_MASK 0b00000000000111000000000000000000UL
-#define MOVE_TYPE_MASK 0b00111111111000000000000000000000UL
-#define MOVE_TYPE_NULL 0b00000000000000000000000000000000UL
-#define MOVE_TYPE_CASTLEWQ 0b00000000001000000000000000000000UL
-#define MOVE_TYPE_CASTLEWK 0b00000000010000000000000000000000UL
-#define MOVE_TYPE_CASTLEBQ 0b00000000011000000000000000000000UL
-#define MOVE_TYPE_CASTLEBK 0b00000000100000000000000000000000UL
-#define MOVE_TYPE_NORMALPROM 0b00000000101000000000000000000000UL
-#define MOVE_TYPE_NORMALCAPT 0b00000000110000000000000000000000UL
-#define MOVE_TYPE_PROMCAPT 0b00000000111000000000000000000000UL
-#define MOVE_TYPE_EP 0b00000001000000000000000000000000UL
-#define MOVE_TYPE_DOUBLEPUSH 0b00000001001000000000000000000000UL
-#define MOVE_TYPE_NORMAL 0b00000001010000000000000000000000UL
+#define MOVE_SRC_SQR_MASK 0x3FUL
+#define MOVE_DST_SQR_MASK 0xFC0UL
+#define MOVE_MOV_PIECE_MASK 0x7000UL
+#define MOVE_CAPT_PIECE_MASK 0x38000UL
+#define MOVE_PROM_PIECE_MASK 0x1C0000UL
+#define MOVE_TYPE_MASK 0x3FE00000UL
+#define MOVE_TYPE_NULL 0x0UL
+#define MOVE_TYPE_CASTLEWQ 0x200000UL
+#define MOVE_TYPE_CASTLEWK 0x400000UL
+#define MOVE_TYPE_CASTLEBQ 0x600000UL
+#define MOVE_TYPE_CASTLEBK 0x800000UL
+#define MOVE_TYPE_NORMALPROM 0xA00000UL
+#define MOVE_TYPE_NORMALCAPT 0xC00000UL
+#define MOVE_TYPE_PROMCAPT 0xE00000UL
+#define MOVE_TYPE_EP 0x1000000UL
+#define MOVE_TYPE_DOUBLEPUSH 0x1200000UL
+#define MOVE_TYPE_NORMAL 0x1400000UL
 
 #define NULLMOVE 0U
 
@@ -267,13 +267,13 @@ extern Game g_game;
 extern GameState *g_gamestate;
 
 int getpieceat(int color, BitBrd bbrd);
-void reset_game();
+void reset_game(void);
 char *parsefen(char *fen);
 void makemove(Move move);
-void unmakemove();
+void unmakemove(void);
 void move2str(char *buff, Move move);
 Move parsemove(const char *str);
-int getrepetitions();
+int getrepetitions(void);
 
 // =============================
 //   Move generator definitions
@@ -417,11 +417,11 @@ typedef struct {
 
 extern PrecompTable g_precomp;
 
-void genprecomp();
-void huntmagic();
+void genprecomp(void);
+void huntmagic(void);
 void usemagic(const char *numstr);
-int loadprecomp();
-void freeprecomp();
+int loadprecomp(void);
+void freeprecomp(void);
 
 // =============================
 //          Zobrist hash
@@ -434,8 +434,8 @@ extern BitBrd hash_castle_bk;
 extern BitBrd hash_castle_bq;
 extern BitBrd hash_epfile[8];
 
-void inithash();
-BitBrd gethash();
+void inithash(void);
+BitBrd gethash(void);
 
 // =============================
 //          Evaluation
@@ -460,9 +460,9 @@ static const int material[] = {pawnval,   0,       knightval,
   (((score) >= SCORE_CHECKMATE_BOUND && (score) <= SCORE_CHECKMATE) ||         \
    ((score) <= -SCORE_CHECKMATE_BOUND && (score) >= -SCORE_CHECKMATE))
 
-int evaluate();
+int evaluate(void);
 int evaluate_terminalpos(int pliescnt);
-int evaluate_material();
+int evaluate_material(void);
 
 void save_eval_entry(int eval);
 void dump_eval_entries(int game_result);
@@ -478,8 +478,8 @@ long getsearchtime(long wtime, long btime, long winc, long binc);
 //             Search
 // =============================
 
-void ttinit();
-void ttfree();
+void ttinit(void);
+void ttfree(void);
 
 #define KILLER_MAX 5
 
@@ -531,17 +531,10 @@ typedef struct {
 
 #define NODES_INF 0
 
-void reset_hashtables();
+void reset_hashtables(void);
 void search(const SearchSettings *ss);
-void stop();
-int calcnps();
-
-// =============================
-//             Dump
-// =============================
-
-void dumpprecomp();
-void dumppos();
+void stop(void);
+int calcnps(void);
 
 // =============================
 //           Perft
@@ -596,10 +589,10 @@ static inline BitBrd nextsubset(BitBrd subset, BitBrd set) {
   return (subset - set) & set;
 }
 
-static inline char *nexttok() { return strtok(NULL, " \n"); }
-static inline char *nexttok_untilend() { return strtok(NULL, "\n"); }
+static inline char *nexttok(void) { return strtok(NULL, " \n"); }
+static inline char *nexttok_untilend(void) { return strtok(NULL, "\n"); }
 
-static inline int lastmovelegal() {
+static inline int lastmovelegal(void) {
   if (GET_CAPT_PIECE(g_game.movelist.move[g_game.movelist.cnt - 1]) == KING) {
     return 0;
   }
@@ -609,22 +602,22 @@ static inline int lastmovelegal() {
              bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
 }
 
-static inline int possible_zugzwang() {
+static inline int possible_zugzwang(void) {
   return (g_game.piecesof[ANY] & ~g_game.pieces[ANY][PAWN] &
           ~g_game.pieces[ANY][KING]) > 0ULL;
 }
 
-static inline int get_under_check_cnt() {
+static inline int get_under_check_cnt(void) {
   return get_sqr_attackers_cnt(!g_game.who2move,
                                bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
 }
 
-static inline int giving_check_cnt() {
+static inline int giving_check_cnt(void) {
   return get_sqr_attackers_cnt(g_game.who2move,
                                bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
-static inline BitBrd rand64() {
+static inline BitBrd rand64(void) {
   return (BitBrd)rand() | (((BitBrd)rand()) << 32);
 }
 

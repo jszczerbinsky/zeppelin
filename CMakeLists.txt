@@ -75,7 +75,6 @@ set(SOURCE_FILES
 	src/uci.c
 	src/game.c
 	src/movegen.c
-	src/dump.c
 	src/search.c
 	src/zobrist.c
 	src/eval.c

@@ -25,12 +25,12 @@
 
 #include "main.h"
 
-static void finishsending() {
+static void finishsending(void) {
   printf("END\n");
   fflush(stdout);
 }
 
-static void sendboard() {
+static void sendboard(void) {
   printf("{\n");
 
   printf("\"hash\": %" PRIu64 ",\n", g_gamestate->hash);
@@ -107,17 +107,17 @@ static void respond2getmoves(char *arg) {
   finishsending();
 }
 
-static void respond2getboard() {
+static void respond2getboard(void) {
   sendboard();
   finishsending();
 }
 
-static void respond2getrepetitions() {
+static void respond2getrepetitions(void) {
   printf("{\"repetitions\": %d}\n", getrepetitions());
   finishsending();
 }
 
-static void respond2eval() {
+static void respond2eval(void) {
   MoveList movelist;
   BitBrd attacksbbrd;
   gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
@@ -175,7 +175,7 @@ static void respond2getscoreinfo(int score) {
   finishsending();
 }
 
-static void respond2getnnueinput() {
+static void respond2getnnueinput(void) {
   NNUE nnue;
   nnue_init(&nnue);
 
@@ -249,7 +249,7 @@ static void printdbg(const char *format, ...) {
   putchar('\n');
 }
 
-void debug_start() {
+void debug_start(void) {
   g_mode = MODE_DEBUG;
   g_printdbg = &printdbg;
 

@@ -37,10 +37,10 @@ typedef struct {
   const char *defstr;
   const char *minstr;
   const char *maxstr;
-  void (*onchange)();
+  void (*onchange)(void);
 } UciOpt;
 
-void onhashchange() {
+void onhashchange(void) {
   ttfree();
   ttinit();
 }
@@ -231,7 +231,7 @@ static void on_finish(const SearchInfo *si) {
   fflush(stdout);
 }
 
-static void respond2uci() {
+static void respond2uci(void) {
   printf("id name Zeppelin " PROGRAM_VERSION "\n");
   printf("id author Jakub Szczerbinski\n");
 
@@ -300,7 +300,7 @@ static void respond2setoption(char *token) {
   }
 }
 
-static void respond2ucinewgame() { reset_hashtables(); }
+static void respond2ucinewgame(void) { reset_hashtables(); }
 
 static void respond2position(char *token) {
   if (equals(token, "startpos")) {
@@ -328,12 +328,12 @@ static void respond2debug(char *token) {
     g_ucidebug = 0;
 }
 
-static void respond2isready() {
+static void respond2isready(void) {
   printf("readyok\n");
   fflush(stdout);
 }
 
-static void respond2stop() { stop(); }
+static void respond2stop(void) { stop(); }
 
 static void runperft(char *token) {
   if (!token) {
@@ -507,7 +507,7 @@ static int next_cmd(char *buff) {
   return 0;
 }
 
-void uci_start() {
+void uci_start(void) {
 #ifdef DEBUG_INTERFACE
   g_printdbg = &printdbg;
 #endif

@@ -27,7 +27,7 @@ BitBrd hash_castle_bk;
 BitBrd hash_castle_bq;
 BitBrd hash_epfile[8];
 
-void inithash() {
+void inithash(void) {
   for (int player = 0; player < 2; player++) {
     hash_whitemove = rand64();
     for (int piece = 0; piece < PIECE_MAX; piece++)
@@ -42,7 +42,7 @@ void inithash() {
     hash_epfile[i] = rand64();
 }
 
-BitBrd gethash() {
+BitBrd gethash(void) {
   BitBrd hash = 0;
 
   if (g_game.who2move == WHITE) {

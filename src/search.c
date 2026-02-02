@@ -72,14 +72,14 @@ static int searchid = 0;
 static int historyoverflow = 0;
 static int history[2][64][64] = {0};
 
-void ttinit() {
+void ttinit(void) {
   memset(history, 0, 2 * 64 * 64 * sizeof(int));
   ttsize = g_set.ttbytes / sizeof(TT);
   ttused = 0;
   tt = calloc(ttsize, sizeof(TT));
 }
 
-void ttfree() { free(tt); }
+void ttfree(void) { free(tt); }
 
 static const TT *ttread(BitBrd hash, int depth) {
   TT *ttentry = tt + (hash % ttsize);
@@ -133,7 +133,7 @@ static void addhistory(int player, Move m, int diff) {
   }
 }
 
-static void normalizehistory() {
+static void normalizehistory(void) {
   for (int p = 0; p < 2; p++) {
     for (int x = 0; x < 64; x++) {
       for (int y = 0; y < 64; y++) {
@@ -144,7 +144,7 @@ static void normalizehistory() {
   historyoverflow = 0;
 }
 
-int calcnps() {
+int calcnps(void) {
   clock_t now = clock();
 
   double seconds = (double)(now - si.nps_lastcalc) / (double)CLOCKS_PER_SEC;
@@ -180,7 +180,7 @@ static int iskiller(int depth, Move move) {
   return 0;
 }
 
-void reset_hashtables() {}
+void reset_hashtables(void) {}
 
 static int see(int sqr) {
   MoveList capts;
@@ -621,7 +621,7 @@ int negamax(int alpha, int beta, int depthleft, MoveList *pvdest, int ispv) {
   return ni.score;
 }
 
-static void search_finish() {
+static void search_finish(void) {
   if (si.prev_iter_pv.cnt > 0) {
     ON_FINISH();
   } else {
@@ -631,7 +631,7 @@ static void search_finish() {
   si.finished = 1;
 }
 
-static void recoverpv(MoveList *pv) {
+/*static void recoverpv(MoveList *pv) {
   int pvcnt = pv->cnt;
 
   for (int i = 0; i < pvcnt; i++) {
@@ -653,7 +653,7 @@ static void recoverpv(MoveList *pv) {
   for (int i = 0; i < pvcnt; i++) {
     unmakemove();
   }
-}
+}*/
 
 static void *search_subthread(void *arg __attribute__((unused))) {
   int firsttime = 1;
@@ -752,7 +752,7 @@ static void *supervisor_subthread(void *arg __attribute__((unused))) {
     }
     // todo PRINTDBG needs lock
     if (ss.timelimit != TIME_FOREVER &&
-        difftime(clock() / CLOCKS_PER_MS, start_time) >= ss.timelimit) {
+        difftime(clock() / CLOCKS_PER_MS, start_time) >= (double)ss.timelimit) {
       // PRINTDBG("cancelling on time");
       break;
     }
@@ -792,7 +792,7 @@ void search(const SearchSettings *settings) {
   pthread_create(&supervisor_thread, NULL, supervisor_subthread, NULL);
 }
 
-void stop() {
+void stop(void) {
   PRINTDBG("canceling manually");
   fflush(stdout);
   manualstop = 1;
