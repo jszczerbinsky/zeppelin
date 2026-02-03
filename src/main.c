@@ -132,6 +132,7 @@ static int getarg(const char *argv) {
 int main(int argc, char **argv) {
   srand((unsigned int)time(NULL));
   inithash();
+  nnue_load_weights();
   reset_hashtables();
   if (argc == 1) {
     if (!loadprecomp()) {

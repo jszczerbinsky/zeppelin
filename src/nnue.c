@@ -209,11 +209,13 @@ void nnue_calc_deep_acc(NNUE *nnue) {
   alignas(32) int8_t acc3_act[NNUE_ACC3_SIZE];
   activate(acc3_act, acc3, NNUE_ACC3_SIZE);
 
-  nnue->out = l4bias[0];
-  add_weights(&nnue->out, 1, acc3_act, NNUE_ACC3_SIZE, l4weight);
+  int32_t out = l4bias[0];
+  add_weights(&out, 1, acc3_act, NNUE_ACC3_SIZE, l4weight);
 
-  int32_t shifted = nnue->out >> 6;
-  nnue->out = shifted;
+  int32_t shifted = out >> 6;
+  out = shifted;
+  g_gamestate->nnue_eval = out;
+  g_gamestate->nnue_ready = 1;
 }
 
 void nnue_acc1_add(NNUE *nnue, int i0) {
@@ -252,18 +254,20 @@ void nnue_acc1_sub(NNUE *nnue, int i0) {
 #endif
 }
 
-void nnue_init(NNUE *nnue) {
+void nnue_load_weights(void) {
   for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
     for (int i0 = 0; i0 < NNUE_ACC0_SIZE; i0++) {
       l1weight32[i0][i1] = (int32_t)l1weight[i1 * NNUE_ACC0_SIZE + i0];
     }
   }
+}
 
+void nnue_init(NNUE *nnue) {
   for (int i = 0; i < NNUE_ACC1_SIZE; i++) {
     nnue->acc1[i] = l1bias[i];
   }
 
-  nnue->out = 0;
+  // nnue->out = 0;
 
   for (int sqr = 0; sqr < 64; sqr++) {
     for (int p = 0; p < PIECE_MAX; p++) {

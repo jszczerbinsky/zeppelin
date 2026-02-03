@@ -206,12 +206,13 @@ typedef struct {
   alignas(32) int32_t acc1[NNUE_ACC1_SIZE];
   // int32_t acc2[NNUE_ACC2_SIZE];
   // int32_t acc3[NNUE_ACC3_SIZE];
-  int32_t out;
+  // int32_t out;
 } NNUE;
 
 void nnue_init(NNUE *nnue);
 void nnue_acc1_add(NNUE *nnue, int i0);
 void nnue_acc1_sub(NNUE *nnue, int i0);
+void nnue_load_weights(void);
 void nnue_calc_deep_acc(NNUE *nnue);
 
 // =============================
@@ -249,6 +250,7 @@ typedef struct {
   BitBrd epbbrd;
   BitBrd hash;
   int phase;
+  int nnue_ready;
   int32_t nnue_eval;
 } GameState;
 

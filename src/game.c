@@ -81,7 +81,7 @@ void reset_game(void) {
   g_gamestate->hash = gethash();
   g_gamestate->phase = PHASE_OPENING;
   nnue_init(&g_game.nnue);
-  g_gamestate->nnue_eval = g_game.nnue.out;
+  // g_gamestate->nnue_eval = g_game.nnue.out;
 }
 
 char *parsefen(char *fen) {
@@ -245,7 +245,7 @@ char *parsefen(char *fen) {
 
   init_bbrds();
   nnue_init(&g_game.nnue);
-  g_gamestate->nnue_eval = g_game.nnue.out;
+  // g_gamestate->nnue_eval = g_game.nnue.out;
 
   return fen_nexttok();
 }
@@ -705,8 +705,9 @@ void makemove(Move move) {
   g_game.movelist.cnt++;
   g_game.who2move = !g_game.who2move;
 
-  nnue_calc_deep_acc(&g_game.nnue);
-  newgamestate->nnue_eval = g_game.nnue.out;
+  // nnue_calc_deep_acc(&g_game.nnue);
+  // newgamestate->nnue_eval = g_game.nnue.out;
+  newgamestate->nnue_ready = 0;
 
   update_gamestate();
 }
@@ -785,6 +786,6 @@ void unmakemove(void) {
   }
 
   // nnue_calc_deep_acc(&g_game.nnue);
-  g_game.nnue.out = prevgamestate->nnue_eval;
+  // g_game.nnue.out = prevgamestate->nnue_eval;
   update_gamestate();
 }
