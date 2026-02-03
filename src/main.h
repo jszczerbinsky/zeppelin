@@ -200,6 +200,8 @@ static inline int containsmove(const MoveList *moves, Move m) {
 #define NNUE_L3_SIZE (NNUE_ACC2_SIZE * NNUE_ACC3_SIZE)
 #define NNUE_L4_SIZE (NNUE_ACC3_SIZE * 1)
 
+#define NNUE_CACHE_SIZE 16
+
 typedef struct {
   // Always from white perspective
   int8_t acc0[NNUE_ACC0_SIZE];
@@ -207,9 +209,16 @@ typedef struct {
   // int32_t acc2[NNUE_ACC2_SIZE];
   // int32_t acc3[NNUE_ACC3_SIZE];
   // int32_t out;
+
+  int cache_add[NNUE_CACHE_SIZE];
+  int cache_sub[NNUE_CACHE_SIZE];
+
+  int cache_addcnt;
+  int cache_subcnt;
 } NNUE;
 
 void nnue_init(NNUE *nnue);
+void nnue_release_cache(NNUE *nnue);
 void nnue_acc1_add(NNUE *nnue, int i0);
 void nnue_acc1_sub(NNUE *nnue, int i0);
 void nnue_load_weights(void);

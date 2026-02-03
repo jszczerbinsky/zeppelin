@@ -405,6 +405,8 @@ int getrepetitions(void) {
   }
 
 void makemove(Move move) {
+  // nnue_drop_cache(&g_game.nnue);
+
   GameState *newgamestate = g_gamestate + 1;
   memcpy(newgamestate, g_gamestate, sizeof(GameState));
 

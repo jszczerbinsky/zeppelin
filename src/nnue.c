@@ -194,6 +194,8 @@ static void activate(int8_t *dest, int32_t *acc, int acc_size) {
 }
 
 void nnue_calc_deep_acc(NNUE *nnue) {
+  nnue_release_cache(nnue);
+
   alignas(32) int8_t acc1_act[NNUE_ACC1_SIZE];
   activate(acc1_act, nnue->acc1, NNUE_ACC1_SIZE);
 
@@ -218,7 +220,7 @@ void nnue_calc_deep_acc(NNUE *nnue) {
   g_gamestate->nnue_ready = 1;
 }
 
-void nnue_acc1_add(NNUE *nnue, int i0) {
+void nnue_acc1_add_now(NNUE *nnue, int i0) {
 #ifndef VECT_AVX2
   for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
     nnue->acc1[i1] += (int32_t)l1weight[i1 * NNUE_ACC0_SIZE + i0];
@@ -236,7 +238,7 @@ void nnue_acc1_add(NNUE *nnue, int i0) {
 #endif
 }
 
-void nnue_acc1_sub(NNUE *nnue, int i0) {
+static void nnue_acc1_sub_now(NNUE *nnue, int i0) {
 #ifndef VECT_AVX2
   for (int i1 = 0; i1 < NNUE_ACC1_SIZE; i1++) {
     nnue->acc1[i1] -= (int32_t)l1weight[i1 * NNUE_ACC0_SIZE + i0];
@@ -252,6 +254,50 @@ void nnue_acc1_sub(NNUE *nnue, int i0) {
     _mm256_storeu_si256((__m256i *)(nnue->acc1 + i * 8), a);
   }
 #endif
+}
+
+void nnue_release_cache(NNUE *nnue) {
+  for (int i = 0; i < nnue->cache_addcnt; i++) {
+    nnue_acc1_add_now(nnue, nnue->cache_add[i]);
+  }
+  for (int i = 0; i < nnue->cache_subcnt; i++) {
+    nnue_acc1_sub_now(nnue, nnue->cache_sub[i]);
+  }
+
+  nnue->cache_addcnt = 0;
+  nnue->cache_subcnt = 0;
+}
+
+void nnue_acc1_add(NNUE *nnue, int i0) {
+  for (int i = 0; i < nnue->cache_subcnt; i++) {
+    if (nnue->cache_sub[i] == i0) {
+      nnue->cache_subcnt--;
+      nnue->cache_sub[i] = nnue->cache_sub[nnue->cache_subcnt];
+      return;
+    }
+  }
+
+  if (nnue->cache_addcnt + 1 >= NNUE_CACHE_SIZE)
+    nnue_release_cache(nnue);
+
+  nnue->cache_add[nnue->cache_addcnt] = i0;
+  nnue->cache_addcnt++;
+}
+
+void nnue_acc1_sub(NNUE *nnue, int i0) {
+  for (int i = 0; i < nnue->cache_addcnt; i++) {
+    if (nnue->cache_add[i] == i0) {
+      nnue->cache_addcnt--;
+      nnue->cache_add[i] = nnue->cache_add[nnue->cache_addcnt];
+      return;
+    }
+  }
+
+  if (nnue->cache_subcnt + 1 >= NNUE_CACHE_SIZE)
+    nnue_release_cache(nnue);
+
+  nnue->cache_sub[nnue->cache_subcnt] = i0;
+  nnue->cache_subcnt++;
 }
 
 void nnue_load_weights(void) {
@@ -282,13 +328,13 @@ void nnue_init(NNUE *nnue) {
         nnue->acc0[idx_w] = 1;
         nnue->acc0[idx_b] = 0;
 #endif
-        nnue_acc1_add(nnue, idx_w);
+        nnue_acc1_add_now(nnue, idx_w);
       } else if (isb) {
 #ifdef DEBUG_INTERFACE
         nnue->acc0[idx_w] = 0;
         nnue->acc0[idx_b] = 1;
 #endif
-        nnue_acc1_add(nnue, idx_b);
+        nnue_acc1_add_now(nnue, idx_b);
       }
 #ifdef DEBUG_INTERFACE
       else {
@@ -299,5 +345,7 @@ void nnue_init(NNUE *nnue) {
     }
   }
 
+  nnue->cache_addcnt = 0;
+  nnue->cache_subcnt = 0;
   nnue_calc_deep_acc(nnue);
 }
