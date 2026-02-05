@@ -19,7 +19,8 @@
 
 #include <string.h>
 
-#include "main.h"
+#include "game.h"
+#include "hash.h"
 
 #define FEN_TOK_DELIMS " /\n"
 

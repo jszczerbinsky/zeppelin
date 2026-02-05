@@ -17,9 +17,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "main.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "../core/game.h"
+#include "../core/movegen.h"
+#include "../settings.h"
+#include "eval.h"
 
 typedef struct {
   int pcolor;

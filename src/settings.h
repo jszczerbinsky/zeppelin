@@ -17,15 +17,30 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef SETTINGS_H
+#define SETTINGS_H
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
+#include <stddef.h>
 
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+typedef struct {
+  int disbl_ab;
+  int disbl_quiescence;
+  int disbl_nmp;
+  int disbl_tt;
+  int disbl_killer;
+  int disbl_pvs;
+  int disbl_lmr;
+  int disbl_aspwnd;
+  int disbl_delta;
+  int disbl_fp;
+
+  int gen_evals;
+
+  int print_currline;
+
+  size_t ttbytes;
+} Settings;
+
+extern Settings g_set;
 
 #endif

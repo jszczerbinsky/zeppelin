@@ -21,10 +21,17 @@
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
-#include "main.h"
+#include "../core/game.h"
+#include "../core/movegen.h"
+#include "../eval/eval.h"
+#include "../iface/iface.h"
+#include "../settings.h"
+#include "../utils/timeutils.h"
+#include "search.h"
 
 #define ON_FINISH() (ss.on_finish ? (*ss.on_finish)(&si) : (void)0)
 #define ON_ROOTMOVE(score)                                                     \

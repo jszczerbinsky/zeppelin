@@ -17,15 +17,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef STRUTILS_H
+#define STRUTILS_H
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
+#include <string.h>
 
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+static inline int equals(const char *s1, const char *s2) {
+  return strcmp(s1, s2) == 0;
+}
+
+static inline char *nexttok(void) { return strtok(NULL, " \n"); }
+
+static inline char *nexttok_untilend(void) { return strtok(NULL, "\n"); }
 
 #endif

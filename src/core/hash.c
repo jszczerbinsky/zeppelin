@@ -17,7 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "main.h"
+#include "bitboard.h"
+#include "game.h"
+#include "piece.h"
 
 BitBrd hash_piecesqr[2][64][PIECE_MAX];
 BitBrd hash_whitemove;

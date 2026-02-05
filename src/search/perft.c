@@ -17,15 +17,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#include "../core/game.h"
+#include "../core/movegen.h"
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
+void perft(int depth, int *nodes, int *leafnodes) {
+  if (depth == 0) {
+    (*nodes)++;
+    (*leafnodes)++;
+    return;
+  }
 
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+  MoveList movelist;
+  BitBrd attacksbbrd;
+  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
 
-#endif
+  if (movelist.cnt == 0) {
+    (*nodes)++;
+    (*leafnodes)++;
+    return;
+  }
+
+  for (int i = 0; i < movelist.cnt; i++) {
+    makemove(movelist.move[i]);
+
+    if (lastmovelegal())
+      perft(depth - 1, nodes, leafnodes);
+    unmakemove();
+  }
+}

@@ -17,15 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef PERFT_H
+#define PERFT_H
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
-
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+void perft(int depth, int *nodes, int *leafnodes);
 
 #endif

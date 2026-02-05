@@ -17,30 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "main.h"
+#ifndef TIMEMANAGE_H
+#define TIMEMANAGE_H
 
-void perft(int depth, int *nodes, int *leafnodes) {
-  if (depth == 0) {
-    (*nodes)++;
-    (*leafnodes)++;
-    return;
-  }
+long getsearchtime(long wtime, long btime, long winc, long binc);
 
-  MoveList movelist;
-  BitBrd attacksbbrd;
-  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
-
-  if (movelist.cnt == 0) {
-    (*nodes)++;
-    (*leafnodes)++;
-    return;
-  }
-
-  for (int i = 0; i < movelist.cnt; i++) {
-    makemove(movelist.move[i]);
-
-    if (lastmovelegal())
-      perft(depth - 1, nodes, leafnodes);
-    unmakemove();
-  }
-}
+#endif

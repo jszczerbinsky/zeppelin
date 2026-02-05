@@ -22,7 +22,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "main.h"
+#include "../core/game.h"
+#include "../core/movegen.h"
+#include "../core/timemanage.h"
+#include "../eval/eval.h"
+#include "../search/perft.h"
+#include "../search/search.h"
+#include "../settings.h"
+#include "../utils/strutils.h"
+#include "iface.h"
 
 #define TOK_DELIMS " \n"
 

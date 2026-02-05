@@ -17,15 +17,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef DEBUG_H
+#define DEBUG_H
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
+#ifdef DEBUG_INTERFACE
+void debug_start(void);
+extern void (*g_printdbg)(const char *format, ...);
+#define PRINTDBG(...) (g_printdbg ? (*g_printdbg)(__VA_ARGS__) : (void)0)
+#else
+#define PRINTDBG(...)
+
 #endif
 
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+extern int g_ucidebug;
+void uci_start(void);
+
+#define MODE_CLIARG 0
+#define MODE_UCI 1
+#define MODE_DEBUG 2
+
+extern int g_mode;
 
 #endif

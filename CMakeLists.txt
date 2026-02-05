@@ -68,26 +68,19 @@ if(NOT VECTORIZATION_METHOD IN_LIST ALLOWED_VECTORIZATION_METHOD)
 endif()
 
 set(SOURCE_FILES
+	src/core/game.c
+	src/core/hash.c
+	src/core/movegen.c
+	src/core/precomp.c
+	src/core/timemanage.c
+	src/iface/debug.c
+	src/iface/uci.c
+	src/eval/nnue.c
+	src/eval/eval.c
+	src/search/perft.c
+	src/search/search.c
 	src/main.c
-	src/movegen.c
-	src/perft.c
-	src/precomp.c
-	src/uci.c
-	src/game.c
-	src/movegen.c
-	src/search.c
-	src/zobrist.c
-	src/eval.c
-	src/time.c
-	src/nnue.c
 )
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	set(SOURCE_FILES
-		${SOURCE_FILES}
-		src/debug.c
-	)
-endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 

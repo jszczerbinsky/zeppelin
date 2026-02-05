@@ -17,15 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef TIMEUTILS_H
+#define TIMEUTILS_H
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
-
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+#define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
 
 #endif

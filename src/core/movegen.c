@@ -17,7 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "main.h"
+#include "movegen.h"
+#include "game.h"
+#include "precomp.h"
 
 int get_sqr_attackers_cnt(int attacker, int sqr) {
   BitBrd occ, index;

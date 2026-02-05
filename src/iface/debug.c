@@ -17,6 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifdef DEBUG_INTERFACE
+
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -268,3 +270,5 @@ void debug_start(void) {
       quit = next_cmd(buff);
   }
 }
+
+#endif

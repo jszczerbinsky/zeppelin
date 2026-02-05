@@ -21,7 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "main.h"
+#include <string.h>
+
+#include "game.h"
+#include "precomp.h"
 
 extern const unsigned char _binary_precomputed_bin_start[];
 extern const unsigned char _binary_precomputed_bin_end[];

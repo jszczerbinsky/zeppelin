@@ -25,7 +25,10 @@
 #include <arm_neon.h>
 #endif
 
-#include "main.h"
+#include <string.h>
+
+#include "../core/game.h"
+#include "nnue.h"
 
 extern const unsigned char _binary_nnue_weights_bin_start[];
 extern const unsigned char _binary_nnue_bias_bin_start[]

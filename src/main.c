@@ -17,11 +17,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "main.h"
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "core/hash.h"
+#include "core/precomp.h"
+#include "eval/nnue.h"
+#include "iface/iface.h"
+#include "search/search.h"
+#include "settings.h"
+#include "utils/strutils.h"
 
 #define ARG_NONE -1
 #define ARG_HELP 0

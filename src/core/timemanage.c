@@ -17,15 +17,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#include "game.h"
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
+long getsearchtime(long wtime, long btime, long winc __attribute__((unused)),
+                   long binc __attribute__((unused))) {
+  long ptime;
 
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+  if (g_game.who2move == WHITE) {
+    ptime = wtime;
+    // pinc = winc;
+  } else {
+    ptime = btime;
+    // pinc = binc;
+  }
 
-#endif
+  int predictedlen;
+  if (g_gamestate->fullmove <= 30) {
+    predictedlen = 40;
+  } else {
+    predictedlen = g_gamestate->fullmove + 10;
+  }
+
+  return ptime / (predictedlen - g_gamestate->fullmove);
+}

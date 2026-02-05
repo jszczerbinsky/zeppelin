@@ -17,15 +17,40 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef MOVELIST_H
+#define MOVELIST_H
 
-#ifndef TARGET_PLATFORM
-#define TARGET_PLATFORM "unknown platform"
-#endif
+#include "move.h"
+#include "piece.h"
 
-#ifndef PROGRAM_VERSION
-#define PROGRAM_VERSION "v0.0.0-unknown"
-#endif
+#define MAX_PLY_PER_GAME 512
+
+typedef struct {
+  Move move[MAX_PLY_PER_GAME];
+  int cnt;
+} MoveList;
+
+static inline void popmove(MoveList *moves) { moves->cnt--; }
+
+static inline void pushmove(MoveList *moves, Move m) {
+  moves->move[moves->cnt] = m;
+  moves->cnt++;
+}
+
+static inline void pushprommove(MoveList *moves, Move m) {
+  for (int prompiece = KNIGHT; prompiece <= QUEEN; prompiece++) {
+    moves->move[moves->cnt] = m | PROM_PIECE(prompiece);
+    moves->cnt++;
+  }
+}
+
+static inline int containsmove(const MoveList *moves, Move m) {
+  for (int i = 0; i < moves->cnt; i++) {
+    if (m == moves->move[i]) {
+      return 1;
+    }
+  }
+  return 0;
+}
 
 #endif

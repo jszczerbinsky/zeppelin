@@ -17,26 +17,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "main.h"
+#ifndef HASH_H
+#define HASH_H
 
-long getsearchtime(long wtime, long btime, long winc __attribute__((unused)),
-                   long binc __attribute__((unused))) {
-  long ptime;
+#include "bitboard.h"
+#include "piece.h"
 
-  if (g_game.who2move == WHITE) {
-    ptime = wtime;
-    // pinc = winc;
-  } else {
-    ptime = btime;
-    // pinc = binc;
-  }
+extern BitBrd hash_piecesqr[2][64][PIECE_MAX];
+extern BitBrd hash_whitemove;
+extern BitBrd hash_castle_wk;
+extern BitBrd hash_castle_wq;
+extern BitBrd hash_castle_bk;
+extern BitBrd hash_castle_bq;
+extern BitBrd hash_epfile[8];
 
-  int predictedlen;
-  if (g_gamestate->fullmove <= 30) {
-    predictedlen = 40;
-  } else {
-    predictedlen = g_gamestate->fullmove + 10;
-  }
+void inithash(void);
+BitBrd gethash(void);
 
-  return ptime / (predictedlen - g_gamestate->fullmove);
-}
+#endif
