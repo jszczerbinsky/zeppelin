@@ -25,7 +25,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "main.h"
+#include "../core/game.h"
+#include "../core/movegen.h"
+#include "../eval/eval.h"
+#include "../eval/nnue.h"
+#include "../search/perft.h"
+#include "../search/tt.h"
+#include "../settings.h"
+#include "../utils/strutils.h"
+#include "iface.h"
 
 static void finishsending(void) {
   printf("END\n");

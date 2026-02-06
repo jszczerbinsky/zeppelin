@@ -28,6 +28,7 @@
 #include "../eval/eval.h"
 #include "../search/perft.h"
 #include "../search/search.h"
+#include "../search/tt.h"
 #include "../settings.h"
 #include "../utils/strutils.h"
 #include "iface.h"
@@ -182,9 +183,8 @@ static void printscore(int score) {
   }
 }
 
-static void on_iterfinish(const SearchInfo *si, size_t ttused, size_t ttsize,
-                          int score) {
-  size_t hashfull = (ttused * 1000UL) / ttsize;
+static void on_iterfinish(const Search *si, int score) {
+  size_t hashfull = (getttused() * 1000UL) / getttsize();
 
   printf("info depth %d seldepth %d nps %d tbhits %d hashfull %zu nodes %ld ",
          si->iter_depth, si->iter_highest_depth, calcnps(), si->iter_tbhits,
@@ -196,9 +196,8 @@ static void on_iterfinish(const SearchInfo *si, size_t ttused, size_t ttsize,
   fflush(stdout);
 }
 
-static void on_move(const SearchInfo *si, size_t ttused, size_t ttsize,
-                    int score) {
-  long hashfull = ((long)((long)ttused * 1000L)) / (long)ttsize;
+static void on_move(const Search *si, int score) {
+  long hashfull = ((long)((long)getttused() * 1000L)) / (long)getttsize();
 
   printf("info nodes %ld currmove %s currmovenumber %d nps %d hashfull %ld ",
          si->iter_visited_nodes, si->rootmove_str, si->rootmove_n, calcnps(),
@@ -214,7 +213,7 @@ static void on_move(const SearchInfo *si, size_t ttused, size_t ttsize,
   fflush(stdout);
 }
 
-static void on_finish(const SearchInfo *si) {
+static void on_finish(const Search *si) {
   if (g_set.gen_evals) {
     // MoveList moves;
     // BitBrd attackbbrd;
@@ -378,12 +377,14 @@ static void respond2go(char *token) {
     return;
   }
 
+  SearchCallbacks cbs;
+  cbs.on_finish = &on_finish;
+  cbs.on_rootmove = g_set.print_currline ? &on_move : NULL;
+  cbs.on_nonrootmove = g_set.print_currline ? &on_move : NULL;
+  cbs.on_iterfinish = &on_iterfinish;
+
   SearchSettings ss;
   ss.startdepth = 1;
-  ss.on_finish = &on_finish;
-  ss.on_rootmove = g_set.print_currline ? &on_move : NULL;
-  ss.on_nonrootmove = g_set.print_currline ? &on_move : NULL;
-  ss.on_iterfinish = &on_iterfinish;
   ss.specificmoves.cnt = 0;
 
   int wtime = TIME_FOREVER;
@@ -476,7 +477,7 @@ static void respond2go(char *token) {
 
   PRINTDBG("timelimit %ld", ss.timelimit);
 
-  search(&ss);
+  search(&ss, &cbs);
 }
 
 static void respond2dumpevals(char *token) {

@@ -24,12 +24,26 @@
 
 #include "../core/movelist.h"
 
-void ttinit(void);
-void ttfree(void);
-
-#define KILLER_MAX 5
+struct Search_;
 
 typedef struct {
+  long timelimit;
+  int startdepth;
+  int depthlimit;
+  int nodeslimit;
+  MoveList specificmoves;
+} SearchSettings;
+
+typedef struct {
+  void (*on_finish)(const struct Search_ *si);
+  void (*on_rootmove)(const struct Search_ *si, int score);
+  void (*on_nonrootmove)(const struct Search_ *si, int score);
+  void (*on_iterfinish)(const struct Search_ *si, int score);
+} SearchCallbacks;
+
+typedef struct Search_ {
+  int searchid;
+
   int rootmove_n;
   char rootmove_str[6];
   int root_nodetype;
@@ -48,28 +62,15 @@ typedef struct {
   Move iter_bestmove;
   int iter_tbhits;
   int iter_highest_depth;
-  Move iter_killers[MAX_PLY_PER_GAME][KILLER_MAX];
 
   int prev_iter_score;
   MoveList prev_iter_pv;
 
   int finished;
-} SearchInfo;
 
-typedef struct {
-  long timelimit;
-  int startdepth;
-  int depthlimit;
-  int nodeslimit;
-  MoveList specificmoves;
-  void (*on_finish)(const SearchInfo *si);
-  void (*on_rootmove)(const SearchInfo *si, size_t ttused, size_t ttsize,
-                      int score);
-  void (*on_nonrootmove)(const SearchInfo *si, size_t ttused, size_t ttsize,
-                         int score);
-  void (*on_iterfinish)(const SearchInfo *si, size_t ttused, size_t ttsize,
-                        int score);
-} SearchSettings;
+  SearchCallbacks cbs;
+  SearchSettings set;
+} Search;
 
 #define TIME_FOREVER -1
 
@@ -77,9 +78,24 @@ typedef struct {
 
 #define NODES_INF 0
 
+extern _Atomic int g_abort_search;
+
 void reset_hashtables(void);
-void search(const SearchSettings *ss);
+void search(const SearchSettings *ss, const SearchCallbacks *cbs);
 void stop(void);
 int calcnps(void);
+
+static inline void cb_on_finish(const struct Search_ *s) {
+  s->cbs.on_finish ? (*s->cbs.on_finish)(s) : (void)0;
+}
+static inline void cb_on_rootmove(const struct Search_ *s, int score) {
+  s->cbs.on_rootmove ? (*s->cbs.on_rootmove)(s, score) : (void)0;
+}
+static inline void cb_on_nonrootmove(const struct Search_ *s, int score) {
+  s->cbs.on_nonrootmove ? (*s->cbs.on_nonrootmove)(s, score) : (void)0;
+}
+static inline void cb_on_iterfinish(const struct Search_ *s, int score) {
+  s->cbs.on_iterfinish ? (*s->cbs.on_iterfinish)(s, score) : (void)0;
+}
 
 #endif

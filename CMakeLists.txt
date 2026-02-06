@@ -77,8 +77,14 @@ set(SOURCE_FILES
 	src/iface/uci.c
 	src/eval/nnue.c
 	src/eval/eval.c
+	src/search/history.c
+	src/search/killer.c
+	src/search/negamax.c
+	src/search/order.c
 	src/search/perft.c
+	src/search/quiescence.c
 	src/search/search.c
+	src/search/tt.c
 	src/main.c
 )
 

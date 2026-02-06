@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include "../iface/iface.h"
 #include "game.h"
 #include "hash.h"
 
