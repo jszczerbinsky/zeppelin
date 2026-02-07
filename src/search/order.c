@@ -96,8 +96,12 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
       if (IS_PROM(move)) {
         diff += material[GET_PROM_PIECE(move)] - 1;
       }
+      unmakemove();
+    } else {
+
+      unmakemove();
+      return INT_MIN;
     }
-    unmakemove();
     return captpriority + diff;
   }
 
@@ -113,8 +117,8 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
          history[g_game.who2move][GET_SRC_SQR(move)][GET_DST_SQR(move)];
 }
 
-void order(const Search *s, MoveList *movelist, int curr, Move ttbest,
-           int ispv) {
+int order(const Search *s, MoveList *movelist, int curr, Move ttbest,
+          int ispv) {
   int best_i = -1;
   int best_priority = INT_MIN;
 
@@ -128,4 +132,6 @@ void order(const Search *s, MoveList *movelist, int curr, Move ttbest,
   Move best = movelist->move[best_i];
   movelist->move[best_i] = movelist->move[curr];
   movelist->move[curr] = best;
+
+  return best_priority != INT_MIN;
 }

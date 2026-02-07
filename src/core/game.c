@@ -349,10 +349,10 @@ void move2str(char *buff, Move move) {
   int srcsqr = GET_SRC_SQR(move);
   int dstsqr = GET_DST_SQR(move);
 
-  buff[0] = (char)(srcsqr % 8) + 'a';
-  buff[1] = (char)(srcsqr / 8) + '1';
-  buff[2] = (char)(dstsqr % 8) + 'a';
-  buff[3] = (char)(dstsqr / 8) + '1';
+  buff[0] = (char)((srcsqr % 8) + 'a');
+  buff[1] = (char)((srcsqr / 8) + '1');
+  buff[2] = (char)((dstsqr % 8) + 'a');
+  buff[3] = (char)((dstsqr / 8) + '1');
 
   if (IS_PROM(move)) {
     switch (GET_PROM_PIECE(move)) {

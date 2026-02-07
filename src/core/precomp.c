@@ -70,11 +70,11 @@ static void savefile(void) {
   fwrite(&g_precomp.bishopmagic, sizeof(BitBrd), 64, out);
 
   for (int i = 0; i < 64; i++) {
-    size_t cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
+    size_t cnt = ((size_t)1) << (64 - g_precomp.rookmagicshift[i]);
     fwrite(g_precomp.rookmagicmoves[i], sizeof(BitBrd), cnt, out);
   }
   for (int i = 0; i < 64; i++) {
-    size_t cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
+    size_t cnt = ((size_t)1) << (64 - g_precomp.bishopmagicshift[i]);
     fwrite(g_precomp.bishopmagicmoves[i], sizeof(BitBrd), cnt, out);
   }
 
@@ -300,8 +300,8 @@ static int ismagic_checklen(int sqr, int indexlen, int piece, BitBrd num) {
 
   BitBrd usedby[1 << indexlen];
   int used[1 << indexlen];
-  memset(usedby, 0, (1 << indexlen) * sizeof(BitBrd));
-  memset(used, 0, (1 << indexlen) * sizeof(int));
+  memset(usedby, 0, (((size_t)1) << indexlen) * sizeof(BitBrd));
+  memset(used, 0, (((size_t)1) << indexlen) * sizeof(int));
 
   BitBrd subset = 0;
   do {
@@ -346,7 +346,7 @@ static void update_magicmoves_for(int piece, int sqr) {
   BitBrd premask =
       piece == ROOK ? g_precomp.rookpremask[sqr] : g_precomp.bishoppremask[sqr];
 
-  size_t arrsize = 1 << (64 - shift);
+  size_t arrsize = ((size_t)1) << (64 - shift);
 
   if (piece == ROOK) {
     if (file_loaded)
@@ -556,7 +556,7 @@ int loadprecomp(void) {
   ptr += sizeof(BitBrd) * 64;
 
   for (int i = 0; i < 64; i++) {
-    size_t cnt = 1 << (64 - g_precomp.rookmagicshift[i]);
+    size_t cnt = ((size_t)1) << (64 - g_precomp.rookmagicshift[i]);
 
     g_precomp.rookmagicmoves[i] = malloc(cnt * sizeof(BitBrd));
 
@@ -564,7 +564,7 @@ int loadprecomp(void) {
     ptr += sizeof(BitBrd) * cnt;
   }
   for (int i = 0; i < 64; i++) {
-    size_t cnt = 1 << (64 - g_precomp.bishopmagicshift[i]);
+    size_t cnt = ((size_t)1) << (64 - g_precomp.bishopmagicshift[i]);
 
     g_precomp.bishopmagicmoves[i] = malloc(cnt * sizeof(BitBrd));
 

@@ -77,6 +77,7 @@ static void *search_subthread(void *arg __attribute__((unused))) {
   int firsttime = 1;
   int lastscore = SCORE_ILLEGAL;
 
+  clearhistory();
   si.search_visitednodes = 0;
   for (int depth = si.set.startdepth; depth <= si.set.depthlimit; depth++) {
     searchid++;

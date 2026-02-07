@@ -17,6 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifndef DEBUG_INTERFACE
+static int __dummy_debug __attribute__((unused));
+#endif
+
 #ifdef DEBUG_INTERFACE
 
 #include <inttypes.h>

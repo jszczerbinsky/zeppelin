@@ -120,7 +120,7 @@ void save_eval_entry(int eval) {
         fpiece |= 8U;
 
       if (ishi) {
-        fpiece <<= 4;
+        fpiece = (uint8_t)(fpiece << 4);
         new_entry->piece_pairs[pair] = fpiece;
       } else {
         new_entry->piece_pairs[pair] |= fpiece;

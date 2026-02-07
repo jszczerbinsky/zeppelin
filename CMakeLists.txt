@@ -166,11 +166,16 @@ add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
 add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
 
 # Choosing compiler flags
-set(COMMON_FLAGS "-Wall -Wextra -Wformat -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
+set(COMMON_FLAGS "-Wall -Wextra -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
 if(VECTORIZATION_METHOD STREQUAL "VECT_AVX2")
 	set(COMMON_FLAGS "${COMMON_FLAGS} -mavx2")
 elseif(VECTORIZATION_METHOD STREQUAL "VECT_NEON")
 
+endif()
+if(TARGET_PLATFORM STREQUAL "Linux")
+	set(COMMON_FLAGS "${COMMON_FLAGS} -Wformat")
+else()
+	set(COMMON_FLAGS "${COMMON_FLAGS} -Wno-format")
 endif()
 set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE} -D${VECTORIZATION_METHOD}")
 set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE} -D${VECTORIZATION_METHOD}")

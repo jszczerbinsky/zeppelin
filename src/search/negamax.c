@@ -71,7 +71,9 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
             under_check_cnt);
 
   for (int i = 0; i < ni->availmoves.cnt; i++) {
-    order(s, &ni->availmoves, i, ttbest, ispv);
+    if (!order(s, &ni->availmoves, i, ttbest, ispv))
+      break;
+
     Move currmove = ni->availmoves.move[i];
 
     if (s->currline.cnt == 0 && s->set.specificmoves.cnt > 0 &&

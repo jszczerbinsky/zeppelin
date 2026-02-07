@@ -23,7 +23,6 @@
 #include "../core/movelist.h"
 #include "search.h"
 
-void order(const Search *s, MoveList *movelist, int curr, Move ttbest,
-           int ispv);
+int order(const Search *s, MoveList *movelist, int curr, Move ttbest, int ispv);
 
 #endif
