@@ -17,10 +17,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <limits.h>
 #include <string.h>
 
 #include "../utils/cmputils.h"
 #include "history.h"
+
+static const int HISTORY_MAX = (INT_MAX / 2);
 
 int historyoverflow = 0;
 int history[2][64][64] = {0};
@@ -28,9 +31,12 @@ int history[2][64][64] = {0};
 void addhistory(int player, Move m, int diff) {
   history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] += diff;
   history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] =
-      min(history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)], 100000000 - 1);
+      max(min(history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)], HISTORY_MAX),
+          -HISTORY_MAX);
 
-  if (history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] == 100000000 - 1) {
+  if (history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] >= HISTORY_MAX) {
+    historyoverflow = 1;
+  } else if (history[player][GET_SRC_SQR(m)][GET_DST_SQR(m)] <= -HISTORY_MAX) {
     historyoverflow = 1;
   }
 }

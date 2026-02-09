@@ -67,8 +67,8 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
 
   const int pvpriority = INT_MAX;
   const int ttpriority = INT_MAX - 1;
-  const int captpriority = 1000000000;
-  const int killerpriority = 100000000;
+  const int captpriority = INT_MAX - 10000;
+  const int killerpriority = INT_MAX - 20001;
   const int normalpriority = 0;
 
   // ordering before making move, thus ply=cnt

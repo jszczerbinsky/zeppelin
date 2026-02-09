@@ -50,6 +50,8 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
   int under_check_cnt = get_under_check_cnt();
   Move last_move = s->currline.move[s->currline.cnt - 1];
 
+  MoveList nocutoff_silent = {0};
+
   if (!g_set.disbl_nmp && g_gamestate->phase != PHASE_ENDGAME &&
       !possible_zugzwang() && under_check_cnt == 0 && s->currline.cnt != 0 &&
       depthleft > 3 && last_move != NULLMOVE && stat_eval >= beta) {
@@ -170,13 +172,19 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
             if (!g_set.disbl_killer) {
               addkiller(s->currline.cnt, currmove);
             }
-            addhistory(g_game.who2move, currmove, 1);
+            addhistory(g_game.who2move, currmove, ni->legalcnt);
+            for (int j = 0; j < nocutoff_silent.cnt; j++) {
+              addhistory(g_game.who2move, nocutoff_silent.move[j], -1);
+            }
           }
 
           ni->nodetype = NODE_FAILH;
           ni->score = score;
           return;
         } else {
+          if (IS_SILENT(currmove)) {
+            pushmove(&nocutoff_silent, currmove);
+          }
         }
       }
 
