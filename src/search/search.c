@@ -39,7 +39,7 @@ static Search si;
 static pthread_t search_thread;
 static pthread_t supervisor_thread;
 
-static int manualstop = 0;
+static _Atomic int manualstop = 0;
 _Atomic int g_abort_search = 0;
 
 static int searchid = 0;
@@ -163,9 +163,14 @@ static void *search_subthread(void *arg __attribute__((unused))) {
 }
 
 static void *supervisor_subthread(void *arg __attribute__((unused))) {
-  clock_t start_time = clock() / CLOCKS_PER_MS;
-
   pthread_create(&search_thread, NULL, search_subthread, NULL);
+
+  while (si.ispondering) {
+    usleep(1000);
+  }
+
+  clock_t start_time = clock() / CLOCKS_PER_MS;
+  long start_iter_nodes = si.iter_visited_nodes;
 
   while (1) {
     if (si.finished) {
@@ -178,7 +183,8 @@ static void *supervisor_subthread(void *arg __attribute__((unused))) {
       // PRINTDBG("cancelling on time");
       break;
     }
-    if (si.set.nodeslimit != 0 && si.iter_visited_nodes >= si.set.nodeslimit) {
+    if (si.set.nodeslimit != 0 &&
+        si.iter_visited_nodes - start_iter_nodes >= si.set.nodeslimit) {
       // PRINTDBG("canceling on nodes limit");
       break;
     }
@@ -203,7 +209,10 @@ static void *supervisor_subthread(void *arg __attribute__((unused))) {
   return 0;
 }
 
-void search(const SearchSettings *settings, const SearchCallbacks *callbacks) {
+void ponderhit(void) { si.ispondering = 0; }
+
+void search(const SearchSettings *settings, const SearchCallbacks *callbacks,
+            int ponder) {
   memset(&si, 0, sizeof(Search));
 
   memcpy(&si.set, settings, sizeof(SearchSettings));
@@ -212,6 +221,7 @@ void search(const SearchSettings *settings, const SearchCallbacks *callbacks) {
   manualstop = 0;
   g_abort_search = 0;
   si.finished = 0;
+  si.ispondering = ponder;
   pthread_create(&supervisor_thread, NULL, supervisor_subthread, NULL);
 }
 
@@ -219,5 +229,6 @@ void stop(void) {
   PRINTDBG("canceling manually");
   fflush(stdout);
   manualstop = 1;
+  si.ispondering = 0;
   pthread_join(supervisor_thread, NULL);
 }

@@ -232,10 +232,17 @@ static void on_finish(const Search *si) {
     }
   }
 
-  char buff[6];
-  move2str(buff, si->prev_iter_pv.move[0]);
-  printf("bestmove %s\n", buff);
-  fflush(stdout);
+  if (!si->ispondering) {
+    char buff[6];
+    move2str(buff, si->prev_iter_pv.move[0]);
+    printf("bestmove %s", buff);
+    if (si->prev_iter_pv.cnt >= 2) {
+      move2str(buff, si->prev_iter_pv.move[1]);
+      printf(" ponder %s", buff);
+    }
+    putchar('\n');
+    fflush(stdout);
+  }
 }
 
 static void respond2uci(void) {
@@ -371,6 +378,8 @@ static void runperft(char *token) {
   fflush(stdout);
 }
 
+static void respond2ponderhit(void) { ponderhit(); }
+
 static void respond2go(char *token) {
   if (token && equals(token, "perft")) {
     runperft(nexttok());
@@ -395,7 +404,7 @@ static void respond2go(char *token) {
 
   int depth = DEPTH_INF;
   int nodes = 0;
-  // int ponder = 0;
+  int ponder = 0;
 
   int readingmoves = 0;
   while (token) {
@@ -453,6 +462,8 @@ static void respond2go(char *token) {
       if (token) {
         movetime = atoi(token);
       }
+    } else if (equals(token, "ponder")) {
+      ponder = 1;
     } else if (equals(token, "infinite")) {
       readingmoves = 0;
     } else if (equals(token, "searchmoves")) {
@@ -477,7 +488,7 @@ static void respond2go(char *token) {
 
   PRINTDBG("timelimit %ld", ss.timelimit);
 
-  search(&ss, &cbs);
+  search(&ss, &cbs, ponder);
 }
 
 static void respond2dumpevals(char *token) {
@@ -496,6 +507,8 @@ static int next_cmd(char *buff) {
     respond2ucinewgame();
   else if (equals(token, "go"))
     respond2go(nexttok());
+  else if (equals(token, "ponderhit"))
+    respond2ponderhit();
   else if (equals(token, "stop"))
     respond2stop();
   else if (equals(token, "position"))

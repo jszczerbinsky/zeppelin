@@ -44,6 +44,8 @@ typedef struct {
 typedef struct Search_ {
   int searchid;
 
+  _Atomic int ispondering;
+
   int rootmove_n;
   char rootmove_str[6];
   int root_nodetype;
@@ -58,7 +60,7 @@ typedef struct Search_ {
 
   int iter_score;
   int iter_depth;
-  long iter_visited_nodes;
+  _Atomic long iter_visited_nodes;
   Move iter_bestmove;
   int iter_tbhits;
   int iter_highest_depth;
@@ -81,7 +83,8 @@ typedef struct Search_ {
 extern _Atomic int g_abort_search;
 
 void reset_hashtables(void);
-void search(const SearchSettings *ss, const SearchCallbacks *cbs);
+void search(const SearchSettings *ss, const SearchCallbacks *cbs, int ponder);
+void ponderhit(void);
 void stop(void);
 int calcnps(void);
 
