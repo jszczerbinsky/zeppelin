@@ -1,6 +1,6 @@
 from datetime import datetime
 import torch
-from typing import Tuple, Any, Union
+from typing import Optional, Tuple, Any, Union
 import numpy as np
 import os
 from torch.optim.optimizer import Optimizer
@@ -40,114 +40,150 @@ def wdl_to_cp(score: Union[torch.Tensor, int, float]):
 
 
 class NNUEDatasetRow:
-    def __init__(self, inputs, eval) -> None:
+    def __init__(self, inputs, eval, move, game_moves) -> None:
         self.inputs = inputs
         self.eval = eval
+        self.move = move
+        self.game_moves = game_moves
 
 
 class NNUEDataset(torch.utils.data.Dataset):
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, a0:float, a1:float, b0:float, b1:float) -> None:
         self.path: str = path
-        self.rows: list[NNUEDatasetRow] = []
+        self.offsets = []
+        self.data = b""
+
+        self.a0 = a0
+        self.a1 = a1
+        self.b0 = b0
+        self.b1 = b1
 
         with open(self.path, "rb") as f:
-            data = f.read(4)
-            self.length = int.from_bytes(data, byteorder="little", signed=False)
-            self.original_length = self.length
-            while True:
-                data = f.read(8)
-                if not data:
-                    break
+            self.data = f.read()
 
-                occ = int.from_bytes(data, byteorder="little", signed=False)
+        curr_offset = 0
+        expected_length = int.from_bytes(memoryview(self.data)[curr_offset:curr_offset+4], byteorder="little", signed=False)
+        curr_offset += 4
 
-                inputs = [] 
+        skipped_rows = 0
 
-                bitlist = list("{0:b}".format(occ)[::-1])
-                for _ in range(64 - len(bitlist)):
-                    bitlist.append('0')
+        eval_max = -math.inf
+        eval_min = math.inf
+        eval_avg = 0
 
-                wking_found = False
-                bking_found = False
+        bar = tqdm.tqdm(range(expected_length), unit="pos", desc="Finding dataset offsets")
 
-                ishi = True
-                last_pair = None
-                for sqr, bit in enumerate(bitlist):
-                    if bit == '1':
-                        if ishi:
-                            data = f.read(1)
-                            last_pair = int.from_bytes(data, byteorder='little', signed=False)
-                            piece = (last_pair >> 4) & 0xF
-                        else:
-                            assert last_pair is not None
-                            piece = last_pair & 0xF
+        for _ in bar:
+            next_offset, row = self._read_next(curr_offset)
+            if row is not None:
+                self.offsets.append(curr_offset)
+                eval_max = max(row.eval, eval_max)
+                eval_min = min(row.eval, eval_min)
+                eval_avg += row.eval
+            else:
+                skipped_rows += 1
+            curr_offset = next_offset
 
-                        if (piece & 8) != 0:
-                            piece = piece & 7
-                            color = 'b'
-                        else:
-                            color = 'w'
+        self.length = len(self.offsets)
 
-                        assert piece <= 6
-
-                        if piece == 1:
-                            if color == 'w':
-                                assert not wking_found
-                                wking_found = True
-                            else:
-                                assert not bking_found
-                                bking_found = True
-
-                        inputs.append((color, sqr, piece))
-
-                        ishi = not ishi
-                        if ishi:
-                            last_pair = None
-
-                assert wking_found
-                assert bking_found
-
-                eval = int.from_bytes(f.read(4), byteorder='little', signed=True)
-                result = int.from_bytes(f.read(1), byteorder='little', signed=True)
-                fullmove = int.from_bytes(f.read(1), byteorder='little', signed=False)
-                total_fullmoves = int.from_bytes(f.read(1), byteorder='little', signed=False)
-
-                assert fullmove <= total_fullmoves
-                assert result in [-1, 0, 1]
-
-                if eval >= 1000 or eval <= -1000:
-                    self.length -= 1
-                elif eval * result < 0:
-                    self.length -= 1
-                else:
-                    result_cp = wdl_to_cp(result)
-                    assert isinstance(result_cp, float) or isinstance(result_cp, int)
-                    eval = lerp(eval, result_cp, 0.1)
-                    self.rows.append(NNUEDatasetRow(inputs, eval))
-
-        duplicated_positions = 0
-
-        self.length = len(self.rows)
+        eval_avg /= self.length
 
         print("Dataset ready")
-        print(f"Duplicated positions: {duplicated_positions}")
         print(f"Used rows: {self.length}")
-        print(f"Skipped rows: {self.original_length - self.length}")
+        print(f"Skipped rows: {skipped_rows}")
 
         print()
 
-        evals = np.array([row.eval for row in self.rows])
+        print('min eval   :' + str(eval_min))
+        print('max eval   :' + str(eval_max))
+        print('avg eval   :' + str(eval_avg))
 
-        print('min eval   :' + str(evals.min()))
-        print('max eval   :' + str(evals.max()))
-        print('avg eval   :' + str(evals.mean()))
-        print('stddev eval:' + str(evals.std()))
+    def _read_next(self, offset: int) -> Tuple[int, Optional[NNUEDatasetRow]]:
+        data = memoryview(self.data)
+
+        occ = int.from_bytes(data[offset:offset+8], byteorder="little", signed=False)
+        offset += 8
+
+        inputs = [] 
+
+        bitlist = list("{0:b}".format(occ)[::-1])
+        for _ in range(64 - len(bitlist)):
+            bitlist.append('0')
+
+        wking_found = False
+        bking_found = False
+
+        ishi = True
+        last_pair = None
+        for sqr, bit in enumerate(bitlist):
+            if bit == '1':
+                if ishi:
+                    last_pair = int.from_bytes(data[offset:offset+1], byteorder='little', signed=False)
+                    offset += 1
+                    piece = (last_pair >> 4) & 0xF
+                else:
+                    assert last_pair is not None
+                    piece = last_pair & 0xF
+
+                if (piece & 8) != 0:
+                    piece = piece & 7
+                    color = 'b'
+                else:
+                    color = 'w'
+
+                assert piece <= 6
+
+                if piece == 1:
+                    if color == 'w':
+                        assert not wking_found
+                        wking_found = True
+                    else:
+                        assert not bking_found
+                        bking_found = True
+
+                inputs.append((color, sqr, piece))
+
+                ishi = not ishi
+                if ishi:
+                    last_pair = None
+
+        assert wking_found
+        assert bking_found
+
+        eval = int.from_bytes(data[offset:offset+4], byteorder='little', signed=True)
+        offset += 4
+        result = int.from_bytes(data[offset:offset+1], byteorder='little', signed=True)
+        offset += 1
+        fullmove = int.from_bytes(data[offset:offset+1], byteorder='little', signed=False)
+        offset += 1
+        total_fullmoves = int.from_bytes(data[offset:offset+1], byteorder='little', signed=False)
+        offset += 1
+
+        assert fullmove <= total_fullmoves
+        assert result in [-1, 0, 1]
+
+        if eval >= 1000 or eval <= -1000:
+            return offset, None
+        elif eval * result < 0:
+            return offset, None
+        else:
+            result_cp = wdl_to_cp(result)
+            assert isinstance(result_cp, float) or isinstance(result_cp, int)
+
+            a = lerp(self.a0, self.a1, fullmove/total_fullmoves)
+            b = lerp(self.b0, self.b1, fullmove/total_fullmoves)
+
+            eval = lerp(eval * a, result_cp, b)
+            return offset, NNUEDatasetRow(inputs, eval, fullmove, total_fullmoves)
+
+
 
     def __len__(self) -> int:
         return self.length
 
     def __getitem__(self, index):
-        row = self.rows[index]
+        _, row = self._read_next(self.offsets[index])
+        assert row is not None
         x = [0] * NNUE.IN_SIZE
         for color, sqr, piece in row.inputs:
             idx = NNUE.get_input_idx(color, sqr, piece, 'w')
@@ -191,13 +227,16 @@ def get_startup_args() -> argparse.Namespace:
     parser.add_argument("-c", "--cont", help="Continue previous training (keep scheduler and epochs)", nargs='?', type=bool, default=False)
     parser.add_argument("-e", "--epochs", help="Target epochs count", nargs='?', type=int, default=100)
 
-    parser.add_argument("-r", "--datasetrows", help="Limit dataset rows", nargs='?', type=int, default=1000000)
     parser.add_argument("-b", "--batchsize", help="Batch size", nargs='?', type=int, default=16*1024)
+
+    parser.add_argument("--a0", help="Alpha0", nargs='?', type=float, default=0)
+    parser.add_argument("--a1", help="Alpha1", nargs='?', type=float, default=1)
+    parser.add_argument("--b0", help="Beta0", nargs='?', type=float, default=0.33)
+    parser.add_argument("--b1", help="Beta1", nargs='?', type=float, default=0.33)
 
     parser.add_argument("--l1size", help="Size of first layer", nargs='?', type=int)
     parser.add_argument("--l2size", help="Size of second layer", nargs='?', type=int)
     parser.add_argument("--l3size", help="Size of third layer", nargs='?', type=int)
-    parser.add_argument("--nomaterial", help="Skip material in training", nargs='?', type=bool)
 
     parser.add_argument("--sched", help="Specify scheduler", nargs='?', type=str, default='cosine')
 
@@ -215,7 +254,7 @@ def get_startup_args() -> argparse.Namespace:
     a = parser.parse_args()
 
     if a.cont:
-        if (a.l1size or a.l2size or a.l3size or a.nomaterial):
+        if (a.l1size or a.l2size or a.l3size):
             print('Cannot specify NNUE structure with --cont')
             exit(1)
         if (a.lr or a.endlr or a.weightdecay):
@@ -225,7 +264,6 @@ def get_startup_args() -> argparse.Namespace:
         a.l1size = a.l1size or 1024
         a.l2size = a.l2size or 32
         a.l3size = a.l3size or 32
-        a.nomaterial = False if a.nomaterial is None else a.nomaterial
         a.lr = a.lr or 0.005
         a.endlr = a.endlr or 0.0005
         a.weightdecay = a.weightdecay or 1e-4
@@ -240,8 +278,8 @@ def setup_rand_seed(rand_seed: int) -> None:
     torch.cuda.manual_seed_all(rand_seed)
 
 
-def setup_loaders(max_rows: int, skip_material: bool, batch_size: int, rand_seed: int) -> Tuple[DataLoader, DataLoader]:
-    dataset = NNUEDataset(f'dataset')
+def setup_loaders(a0:float, a1:float, b0:float, b1:float, batch_size: int, rand_seed: int) -> Tuple[DataLoader, DataLoader]:
+    dataset = NNUEDataset(f'dataset', a0,a1,b0,b1)
 
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
@@ -471,7 +509,7 @@ def main():
         device = torch.device("cpu")
         print("using CPU")
 
-    train_loader, test_loader = setup_loaders(args.datasetrows, args.nomaterial, args.batchsize, rand_seed)
+    train_loader, test_loader = setup_loaders(args.a0, args.a1, args.b0, args.b1, args.batchsize, rand_seed)
 
     nnue, stats, optimizer = load_or_create_model(args.name, args)
 
