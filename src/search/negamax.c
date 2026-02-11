@@ -94,6 +94,7 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
       int movescore = 0;
       int fullsearch = 1;
       int new_under_check_cnt = get_under_check_cnt();
+      int promo_avail = is_promotion_available(g_game.who2move);
 
       int pvsallowed = !g_set.disbl_pvs && ni->legalcnt > 1;
       int fpallowed = !g_set.disbl_fp && !ispv && depthleft <= 2 &&
@@ -101,7 +102,7 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
 
       // Extensions
       int ext = 0;
-      if (depthleft == 1 && new_under_check_cnt > 0) {
+      if (new_under_check_cnt > 0 || promo_avail) {
         ext += 1;
       }
 

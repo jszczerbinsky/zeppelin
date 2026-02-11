@@ -54,4 +54,6 @@ static inline int giving_check_cnt(void) {
                                bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
+int is_promotion_available(int player);
+
 #endif

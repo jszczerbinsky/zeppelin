@@ -21,6 +21,28 @@
 #include "game.h"
 #include "precomp.h"
 
+int is_promotion_available(int player) {
+  const BitBrd player_pawns = g_game.pieces[player][PAWN];
+
+  BitBrd dstbbrd;
+  if (player == WHITE) {
+    dstbbrd = (player_pawns << 8) & (~g_game.piecesof[ANY]) & RANK_8;
+    dstbbrd =
+        ((player_pawns & (~FILE_A) & RANK_7) << 7) & g_game.piecesof[!player];
+    dstbbrd =
+        ((player_pawns & (~FILE_H) & RANK_7) << 9) & g_game.piecesof[!player];
+
+  } else {
+    dstbbrd = (player_pawns >> 8) & (~g_game.piecesof[ANY]) & RANK_1;
+    dstbbrd =
+        ((player_pawns & (~FILE_H) & RANK_2) >> 7) & g_game.piecesof[!player];
+    dstbbrd =
+        ((player_pawns & (~FILE_A) & RANK_2) >> 9) & g_game.piecesof[!player];
+  }
+
+  return dstbbrd > UINT64_C(0);
+}
+
 int get_sqr_attackers_cnt(int attacker, int sqr) {
   BitBrd occ, index;
 
