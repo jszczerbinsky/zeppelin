@@ -96,14 +96,19 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
       int new_under_check_cnt = get_under_check_cnt();
       int promo_avail = is_promotion_available(g_game.who2move);
 
+      int maxext = ispv ? 7 : 4;
+
+      int extallowed = s->currline.cnt <= s->iter_depth + maxext;
       int pvsallowed = !g_set.disbl_pvs && ni->legalcnt > 1;
       int fpallowed = !g_set.disbl_fp && !ispv && depthleft <= 2 &&
                       !IS_CAPT(currmove) && new_under_check_cnt == 0;
 
       // Extensions
       int ext = 0;
-      if (new_under_check_cnt > 0 || promo_avail) {
-        ext += 1;
+      if (extallowed) {
+        if (new_under_check_cnt > 0 || promo_avail) {
+          ext += 1;
+        }
       }
 
       // LMR
