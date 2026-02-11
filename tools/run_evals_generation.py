@@ -53,7 +53,7 @@ def play_timeout(engine, board, limit):
     t.start()
 
     try:
-        t.join(5)
+        t.join(10)
     except TimeoutError:
         raise Exception("Engine answer timed out")
     return res['move']
@@ -63,6 +63,9 @@ def play_game():
 
     random_count = random.randint(6, 8)
     for _ in range(random_count):
+        if len(list(board.legal_moves)) == 0:
+            print("No legal moves found in the starting positions, skipping game...")
+            return
         move = random.choice(list(board.legal_moves))
         board.push(move)
 
