@@ -1,5 +1,7 @@
-<h1 align="center">Zeppelin</h1>
 <div align="center">
+<img width="256" height="256" alt="Zeppelin Logo" src="https://github.com/user-attachments/assets/8f0bc9d5-6550-43c8-a60c-4846a2246021" />
+
+<h1>Zeppelin</h1>
   
 ![GitHub Release](https://img.shields.io/github/v/release/jszczerbinsky/zeppelin?style=for-the-badge&label=Latest%20release&color=%232fa3de)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/jszczerbinsky/zeppelin/total?style=for-the-badge)
