@@ -29,63 +29,39 @@ state_dict = torch.load(f'{model_dir}/best.pt', weights_only=True)
 nnue = NNUEModel()
 nnue.load_state_dict(state_dict['nnue'])
 
-weights = nnue.l1.weight.detach().numpy()
+w = nnue.l1.weight.detach().numpy()
 
-sns.heatmap(weights)
-plt.savefig(f'{model_dir}/l1weights.png', dpi=200)
+half1, half2 = factor_near_sqrt(nnue.l1_size)
+w = w.reshape(half1, half2, 2, 8, 8, 3, 2)
+w = w.transpose(6, 2, 0, 3, 5, 1, 4)
+w = w.reshape(2 * 2 * half1 * 8, 3 * half2 *8)
+
+y = 0
+while y < w.shape[0]:
+    w = np.insert(w, y, np.nan, axis=0)
+    y += 9
+x = 0
+while x < w.shape[1]:
+    w = np.insert(w, x, np.nan, axis=1)
+    x += 9
+
+height, width = w.shape
+
+fig, ax = plt.subplots(figsize=(width/40, height/40), dpi=400)
+
+sns.heatmap(w, cmap="RdBu_r", vmin=-1, vmax=1, linewidths=0, ax=ax, cbar_kws={
+    "shrink": 0.80,
+    "aspect": 20
+})
+
+ax.set_aspect("equal")
+ax.invert_yaxis()
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_title(f"NNUE First Layer Weights")
+
+plt.savefig(f'{model_dir}/l1weights.png', dpi=400, bbox_inches='tight', pad_inches=0.2)
 plt.close()
-
-piece_names = {
-    0: 'pawn',
-    1: 'king',
-    2: 'knight',
-    3: 'bishop',
-    4: 'rook',
-    5: 'queen'
-}
-
-for piece in range(6):
-    w = weights[:, piece::6]
-
-    half1, half2 = factor_near_sqrt(nnue.l1_size)
-    w = w.reshape(half1, half2, 2, 8, 8)
-
-    w = w.transpose(2, 0, 3, 1, 4)
-    w = w.reshape(2 * half1 * 8, half2 *8)
-
-    y = 0
-    while y < w.shape[0]:
-        w = np.insert(w, y, np.nan, axis=0)
-        y += 9
-    x = 0
-    while x < w.shape[1]:
-        w = np.insert(w, x, np.nan, axis=1)
-        x += 9
-
-    for i in range(5):
-        w = np.insert(w, int(w.shape[0]/2), np.nan, axis=0)
-
-    height, width = w.shape
-
-    fig, ax = plt.subplots(figsize=(width/40, height/40), dpi=400)
-
-    sns.heatmap(w, cmap="RdBu_r", vmin=-1, vmax=1, linewidths=0, ax=ax, cbar_kws={
-        "shrink": 0.80,
-        "aspect": 70
-    })
-
-    ax.set_aspect("equal")
-    ax.invert_yaxis()
-    ax.set_xticks([])
-    #ax.set_yticks([])
-    ax.set_title(f"L1 {piece_names[piece]} weights")
-
-    ax.set_yticks([height/4, 3*height/4]) 
-    ax.set_yticklabels(['White', 'Black'], rotation=90, va="center")
-    ax.tick_params(axis='y', which='both', length=0)
-
-    plt.savefig(f'{model_dir}/l1weights_{piece_names[piece]}.png', dpi=400)
-    plt.close()
 
 
 with torch.no_grad():
