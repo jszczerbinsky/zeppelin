@@ -68,9 +68,10 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv,
 
   const int pvpriority = INT_MAX;
   const int ttpriority = INT_MAX - 1;
-  const int captpriority = INT_MAX - 10000;
+  const int wincaptpriority = INT_MAX - 10000;
   const int killerpriority = INT_MAX - 20001;
   const int normalpriority = 0;
+  const int losecaptpriority = INT_MIN + 10000;
 
   *see_diff = 0;
 
@@ -103,12 +104,16 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv,
       unmakemove();
       return INT_MIN;
     }
-    return captpriority + *see_diff;
+    if (*see_diff < -300) {
+      return losecaptpriority + *see_diff;
+    } else {
+      return wincaptpriority + *see_diff;
+    }
   }
 
   if (IS_PROM(move)) {
     *see_diff += material[GET_PROM_PIECE(move)];
-    return captpriority + *see_diff;
+    return wincaptpriority + *see_diff;
   }
 
   if (IS_CASTLE(move))
