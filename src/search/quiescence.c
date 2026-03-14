@@ -59,13 +59,18 @@ int quiescence(Search *s, int alpha, int beta) {
   alpha = max(standpat, alpha);
 
   for (int i = 0; i < availmoves.cnt; i++) {
-    if (!order(s, &availmoves, i, NULLMOVE, 0))
+    int see_diff;
+    if (!order(s, &availmoves, i, NULLMOVE, 0, &see_diff))
       break;
 
     Move currmove = availmoves.move[i];
 
     if (!IS_CAPT(currmove)) {
       continue;
+    }
+
+    if (see_diff < 0) {
+      break;
     }
 
     pushmove(&s->currline, currmove);

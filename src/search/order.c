@@ -63,13 +63,16 @@ static int see(int sqr) {
   return val > 0 ? val : 0;
 }
 
-static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
+static int get_priority(const Search *s, Move move, Move ttbest, int ispv,
+                        int *see_diff) {
 
   const int pvpriority = INT_MAX;
   const int ttpriority = INT_MAX - 1;
   const int captpriority = INT_MAX - 10000;
   const int killerpriority = INT_MAX - 20001;
   const int normalpriority = 0;
+
+  *see_diff = 0;
 
   // ordering before making move, thus ply=cnt
   int ply = s->currline.cnt;
@@ -86,15 +89,13 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
     return killerpriority;
   }
 
-  int diff = 0;
   if (IS_CAPT(move)) {
     int sqr = GET_DST_SQR(move);
-    diff = 0;
     makemove(move);
     if (lastmovelegal()) {
-      diff = material[GET_CAPT_PIECE(move)] - see(sqr);
+      *see_diff = material[GET_CAPT_PIECE(move)] - see(sqr);
       if (IS_PROM(move)) {
-        diff += material[GET_PROM_PIECE(move)] - 1;
+        *see_diff += material[GET_PROM_PIECE(move)] - 1;
       }
       unmakemove();
     } else {
@@ -102,12 +103,12 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
       unmakemove();
       return INT_MIN;
     }
-    return captpriority + diff;
+    return captpriority + *see_diff;
   }
 
   if (IS_PROM(move)) {
-    diff += material[GET_PROM_PIECE(move)];
-    return captpriority + diff;
+    *see_diff += material[GET_PROM_PIECE(move)];
+    return captpriority + *see_diff;
   }
 
   if (IS_CASTLE(move))
@@ -117,21 +118,26 @@ static int get_priority(const Search *s, Move move, Move ttbest, int ispv) {
          history[g_game.who2move][GET_SRC_SQR(move)][GET_DST_SQR(move)];
 }
 
-int order(const Search *s, MoveList *movelist, int curr, Move ttbest,
-          int ispv) {
+int order(const Search *s, MoveList *movelist, int curr, Move ttbest, int ispv,
+          int *final_see_diff) {
   int best_i = -1;
   int best_priority = INT_MIN;
+  int best_see_diff = 0;
 
   for (int i = curr; i < movelist->cnt; i++) {
-    int priority = get_priority(s, movelist->move[i], ttbest, ispv);
+    int see_diff;
+    int priority = get_priority(s, movelist->move[i], ttbest, ispv, &see_diff);
     if (priority > best_priority) {
       best_i = i;
       best_priority = priority;
+      best_see_diff = see_diff;
     }
   }
   Move best = movelist->move[best_i];
   movelist->move[best_i] = movelist->move[curr];
   movelist->move[curr] = best;
+
+  *final_see_diff = best_see_diff;
 
   return best_priority != INT_MIN;
 }
