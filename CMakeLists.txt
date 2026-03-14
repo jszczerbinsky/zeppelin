@@ -6,12 +6,13 @@ project(zeppelin)
 find_package(Git)
 if(GIT_EXECUTABLE)
   execute_process(
-    COMMAND ${GIT_EXECUTABLE} describe --tags --dirty
+    COMMAND ${GIT_EXECUTABLE} describe --tags --dirty --match v[0-9]*
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE PROGRAM_VERSION
 	RESULT_VARIABLE ERROR_CODE
     OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+	string(REGEX REPLACE "^v([0-9]+\\.[0-9]+\\.[0-9]+)(-[0-9]+)?(-g[0-9a-f]+)?" "\\1\\2" PROGRAM_VERSION ${PROGRAM_VERSION})
 endif()
 if(PROGRAM_VERSION STREQUAL "")
 	set(PROGRAM_VERSION "v0.0.0-unknown")
