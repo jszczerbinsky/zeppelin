@@ -4,7 +4,6 @@
 <h1>Zeppelin</h1>
   
 ![GitHub Release](https://img.shields.io/github/v/tag/jszczerbinsky/zeppelin?style=for-the-badge&label=Latest%20release&color=28a745)
-![GitHub commits since tagged version](https://img.shields.io/github/commits-since/jszczerbinsky/zeppelin/latest?label=Commits%20since&style=for-the-badge&color=6f42c1)
 ![GitHub License](https://img.shields.io/github/license/jszczerbinsky/zeppelin?style=for-the-badge&color=ff6600)
 <br/>
 
