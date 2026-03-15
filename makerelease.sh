@@ -11,7 +11,9 @@ make_release() {
 	cmake --build .
 }
 
-ver=$(git describe --tags --dirty)
+ver=$(git describe --tags --dirty --match v[0-9]*)
+ver="${ver#v}"
+ver=$(echo "$ver" | sed -E 's/(-g[0-9a-f]+.*)$//')
 
 rm -rf CMakeFiles/
 rm CMakeCache.txt
