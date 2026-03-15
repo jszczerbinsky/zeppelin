@@ -1,15 +1,21 @@
 <div align="center">
-<img width="256" height="256" alt="Zeppelin Logo" src="https://github.com/user-attachments/assets/8f0bc9d5-6550-43c8-a60c-4846a2246021" />
+<img src="logo.png" alt="Zeppelin Logo" width="256" height="256" />
 
 <h1>Zeppelin</h1>
   
-![GitHub Release](https://img.shields.io/github/v/release/jszczerbinsky/zeppelin?style=for-the-badge&label=Latest%20release&color=%232fa3de)
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/jszczerbinsky/zeppelin/total?style=for-the-badge)
-![GitHub License](https://img.shields.io/github/license/jszczerbinsky/zeppelin?style=for-the-badge)
+![GitHub Release](https://img.shields.io/github/v/tag/jszczerbinsky/zeppelin?style=for-the-badge&label=Latest%20release&color=28a745)
+![GitHub commits since tagged version](https://img.shields.io/github/commits-since/jszczerbinsky/zeppelin/latest?label=Commits%20since&style=for-the-badge&color=6f42c1)
+![GitHub License](https://img.shields.io/github/license/jszczerbinsky/zeppelin?style=for-the-badge&color=ff6600)
+<br/>
+
+Available at<br/>
+[![GitHub Release](https://img.shields.io/github/v/release/jszczerbinsky/zeppelin?label=GitHub&style=for-the-badge&color=24292f)](https://github.com/jszczerbinsky/zeppelin/releases)
+[![Codeberg Release](https://img.shields.io/gitea/v/release/jszczerbinsky/zeppelin?gitea_url=https%3A%2F%2Fcodeberg.org%2F&label=Codeberg&style=for-the-badge&color=1e4e8c)](https://codeberg.org/jszczerbinsky/zeppelin/releases)
+[![AUR Version](https://img.shields.io/aur/version/zeppelin-git?style=for-the-badge&color=1793d1)](https://aur.archlinux.org/packages/zeppelin-git)
 
 </div>
 <div align="center">
-Zeppelin is a free, open-source chess engine, compatible with <a href="https://en.wikipedia.org/wiki/Universal_Chess_Interface">UCI</a> protocol, optimized for x86, 64bit CPUs, working under Windows and Linux. Use it to play with, analyze your games, or challenge it against other engines.
+Zeppelin is a free, open-source chess engine, compatible with <a href="https://en.wikipedia.org/wiki/Universal_Chess_Interface">UCI</a> protocol, optimized for x86_64 and aarch64 CPUs, working under Windows and Linux. Use it to play with, analyze your games, or challenge it against other engines.
 </div>
 
 ## Installation
