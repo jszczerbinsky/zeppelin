@@ -89,9 +89,29 @@ def get_diag_antidiag(sqr: int):
     return rank - file + 7, rank + file
 
 
-class MagicType(Enum):
+def pext(bbrd: np.uint64, mask: np.uint64) -> np.uint64:
+    result = np.uint64(0)
+    bit = np.uint64(0)
+
+    while mask != 0:
+        if mask & np.uint64(1):
+            result |= (bbrd & np.uint64(1)) << bit
+            bit += np.uint64(1)
+
+        bbrd >>= np.uint64(1)
+        mask >>= np.uint64(1)
+
+    return result
+
+
+class SlidingType(Enum):
     ROOK = 'rook'
     BISHOP = 'bishop'
+
+
+class PrecompType(Enum):
+    PEXT = 'pext'
+    MAGIC = 'magic'
 
 
 class Precomp:
@@ -113,10 +133,17 @@ class Precomp:
         self.rook_magic_moves = [np.empty(0, dtype=np.uint64) for _ in range(64)]
         self.bishop_magic_moves = [np.empty(0, dtype=np.uint64) for _ in range(64)]
 
+        self.rook_pext_sizes = np.zeros(64, dtype=np.uint16)
+        self.bishop_pext_sizes = np.zeros(64, dtype=np.uint16)
+        self.rook_pext_moves = [np.empty(0, dtype=np.uint64) for _ in range(64)]
+        self.bishop_pext_moves = [np.empty(0, dtype=np.uint64) for _ in range(64)]
+
         self.__gen_kingmask()
         self.__gen_knightmask()
         self.__gen_slidingmasks()
         self.__gen_pawnattackmask()
+
+        self.__gen_pext()
 
         self.__magic_lock = Lock()
 
@@ -127,6 +154,48 @@ class Precomp:
 
         self.__validate_magics()
         self.save_magics()
+
+    def export(self, precomp_type: PrecompType):
+        with open(f"precomp_{precomp_type.value}.bin", "wb") as f:
+            self.knight_mask.tofile(f)
+            self.king_mask.tofile(f)
+            self.bishop_premask.tofile(f)
+            self.bishop_postmask.tofile(f)
+            self.rook_premask.tofile(f)
+            self.rook_postmask.tofile(f)
+            self.queen_premask.tofile(f)
+            self.queen_postmask.tofile(f)
+            self.pawn_attack_mask[W].tofile(f)
+            self.pawn_attack_mask[B].tofile(f)
+
+            if precomp_type == PrecompType.MAGIC:
+                self.rook_magic_shift.astype(np.uint8).tofile(f)
+                self.bishop_magic_shift.astype(np.uint8).tofile(f)
+
+                while f.tell() % 8 != 0:
+                    np.uint8(0).tofile(f)
+
+                self.rook_magic.tofile(f)
+                self.bishop_magic.tofile(f)
+
+                for sqr in range(64):
+                    assert len(self.rook_magic_moves[sqr]) == 2 ** (64 - self.rook_magic_shift[sqr])
+                    self.rook_magic_moves[sqr].tofile(f)
+                for sqr in range(64):
+                    assert len(self.bishop_magic_moves[sqr]) == 2 ** (64 - self.bishop_magic_shift[sqr])
+                    self.bishop_magic_moves[sqr].tofile(f)
+            else:
+                self.rook_pext_sizes.astype(np.uint16).tofile(f)
+                self.bishop_pext_sizes.astype(np.uint16).tofile(f)
+
+                while f.tell() % 8 != 0:
+                    np.uint8(0).tofile(f)
+
+                for sqr in range(64):
+                    self.rook_pext_moves[sqr].tofile(f)
+
+                for sqr in range(64):
+                    self.bishop_pext_moves[sqr].tofile(f)
 
     def __load_magics(self):
         with open('magics.pkl', "rb") as f:
@@ -139,20 +208,20 @@ class Precomp:
 
     def __validate_magics(self):
         for sqr in range(64):
-            moves = self.get_moves_for_magic(self.rook_magic[sqr], self.rook_magic_shift[sqr], sqr, MagicType.ROOK)
+            moves = self.get_moves_for_magic(self.rook_magic[sqr], self.rook_magic_shift[sqr], sqr, SlidingType.ROOK)
             if moves is None:
                 print(f'Rook magic for square {sqr} is invalid: {self.rook_magic[sqr]} >> {self.rook_magic_shift[sqr]}')
                 self.rook_magic[sqr] = 0
                 self.rook_magic_shift[sqr] = 0
-                self.hunt_magic(sqr, MagicType.ROOK)
+                self.hunt_magic(sqr, SlidingType.ROOK)
             else:
                 self.rook_magic_moves[sqr] = moves
-            moves = self.get_moves_for_magic(self.bishop_magic[sqr], self.bishop_magic_shift[sqr], sqr, MagicType.BISHOP)
+            moves = self.get_moves_for_magic(self.bishop_magic[sqr], self.bishop_magic_shift[sqr], sqr, SlidingType.BISHOP)
             if moves is None:
                 print(f'Bishop magic for square {sqr} is invalid: {self.bishop_magic[sqr]} >> {self.bishop_magic_shift[sqr]}')
                 self.bishop_magic[sqr] = 0
                 self.bishop_magic_shift[sqr] = 0
-                self.hunt_magic(sqr, MagicType.BISHOP)
+                self.hunt_magic(sqr, SlidingType.BISHOP)
             else:
                 self.bishop_magic_moves[sqr] = moves
 
@@ -166,10 +235,10 @@ class Precomp:
                 'bishop_magic': self.bishop_magic
             }, f)
 
-    def __gen_magic_moves(self, sqr: int, occupation: np.uint64, magic_type: MagicType):
+    def __gen_sliding_moves(self, sqr: int, occupation: np.uint64, magic_type: SlidingType):
         result = np.uint64(0)
 
-        if magic_type == MagicType.ROOK:
+        if magic_type == SlidingType.ROOK:
             s = sqr
             _, rank = get_file_rank(s)
             while rank < 7:
@@ -255,9 +324,47 @@ class Precomp:
     def __next_subset(self, subset: np.uint64, fullset: np.uint64):
         return np.uint64((np.uint64(subset) - np.uint64(fullset)) & np.uint64(fullset))
 
+    def __gen_pext_for_sqr(self, sqr, pext_type: SlidingType):
+        if pext_type == SlidingType.ROOK:
+            premask = self.rook_premask[sqr]
+        else:
+            premask = self.bishop_premask[sqr]
+
+        array_size = 2 ** bin(premask).count("1")
+        arr = np.zeros(array_size, dtype=np.uint64)
+        used = [False for _ in range(array_size)]
+
+        subset = np.uint64(0)
+        while True:
+            subset = self.__next_subset(subset, premask)
+            index = pext(subset, premask)
+
+            arr[index] = self.__gen_sliding_moves(sqr, subset, pext_type)
+            assert used[index] == False
+
+            used[index] = True
+
+            if subset == np.uint64(0):
+                break
+
+        assert False not in used
+
+        if pext_type == SlidingType.ROOK:
+            self.rook_pext_sizes[sqr] = np.uint16(array_size)
+            self.rook_pext_moves[sqr] = np.array(arr, dtype=np.uint64)
+        else:
+            self.bishop_pext_sizes[sqr] = np.uint16(array_size)
+            self.bishop_pext_moves[sqr] = np.array(arr, dtype=np.uint64)
+
+
+    def __gen_pext(self):
+        for sqr in range(64):
+            self.__gen_pext_for_sqr(sqr, SlidingType.ROOK)
+            self.__gen_pext_for_sqr(sqr, SlidingType.BISHOP)
+
     # Returns None if not magic
-    def get_moves_for_magic(self, num: np.uint64, shift: int, sqr: int, magic_type: MagicType):
-        if magic_type == MagicType.ROOK:
+    def get_moves_for_magic(self, num: np.uint64, shift: int, sqr: int, magic_type: SlidingType):
+        if magic_type == SlidingType.ROOK:
             premask = self.rook_premask[sqr]
         else:
             premask = self.bishop_premask[sqr]
@@ -275,7 +382,7 @@ class Precomp:
             if index >= len(arr):
                 return None
 
-            magic_moves = self.__gen_magic_moves(sqr, subset, magic_type)
+            magic_moves = self.__gen_sliding_moves(sqr, subset, magic_type)
 
             if used[index] and arr[index] != magic_moves:
                 return None
@@ -286,16 +393,16 @@ class Precomp:
             if subset == np.uint64(0):
                 break
 
-        return arr 
+        return np.array(arr, dtype=np.uint64)
 
-    def hunt_magic(self, sqr, magic_type: MagicType, abort_after: int =-1, save_immediately=False):
+    def hunt_magic(self, sqr, magic_type: SlidingType, abort_after: int =-1, save_immediately=False):
         retries = 0
         while True:
             r1 = np.random.randint(0, 2**64, dtype=np.uint64)
             r2 = np.random.randint(0, 2**64, dtype=np.uint64)
             num = np.uint64(r1 & r2)
 
-            if magic_type == MagicType.ROOK:
+            if magic_type == SlidingType.ROOK:
                 curr_shift = int(self.rook_magic_shift[sqr])
                 premask = self.rook_premask[sqr]
             else:
@@ -312,7 +419,7 @@ class Precomp:
                 if moves is not None:
                     with self.__magic_lock:
                         # load curr_shift again in case another thread already found better magic
-                        if magic_type == MagicType.ROOK:
+                        if magic_type == SlidingType.ROOK:
                             curr_shift = int(self.rook_magic_shift[sqr])
                         else:
                             curr_shift = int(self.bishop_magic_shift[sqr])
@@ -320,7 +427,7 @@ class Precomp:
                             break
 
                         print(f" * Found new magic for {magic_type.value} for square {sqr} with index length {64 - shift} (previous was {64 - curr_shift}): {num}")
-                        if magic_type == MagicType.ROOK:
+                        if magic_type == SlidingType.ROOK:
                             self.rook_magic_shift[sqr] = shift
                             self.rook_magic[sqr] = num
                             self.rook_magic_moves[sqr] = moves
@@ -451,7 +558,7 @@ if argv[1] == 'hunt-magic':
     def task():
         while True:
             sqr = random.randint(0, 63)
-            magic_type = random.choice([MagicType.ROOK, MagicType.BISHOP])
+            magic_type = random.choice([SlidingType.ROOK, SlidingType.BISHOP])
             precomp.hunt_magic(sqr, magic_type, 100000, save_immediately=True)
 
     threads = []
@@ -465,9 +572,9 @@ if argv[1] == 'hunt-magic':
 elif argv[1] == 'use-magic':
     magic = np.uint64(int(argv[2], 16))
     found_any = False
-    for magic_type in [MagicType.ROOK, MagicType.BISHOP]:
+    for magic_type in [SlidingType.ROOK, SlidingType.BISHOP]:
         for sqr in range(64):
-            if magic_type == MagicType.ROOK:
+            if magic_type == SlidingType.ROOK:
                 curr_shift = precomp.rook_magic_shift[sqr]
             else:
                 curr_shift = precomp.bishop_magic_shift[sqr]
@@ -477,7 +584,7 @@ elif argv[1] == 'use-magic':
                 if moves is not None:
                     found_any = True
                     print(f'Added new magic number for {magic_type} for square {sqr} (index length {64 - curr_shift} -> {64 - shift})')
-                    if magic_type == MagicType.ROOK:
+                    if magic_type == SlidingType.ROOK:
                         precomp.rook_magic[sqr] = magic
                         precomp.rook_magic_shift[sqr] = shift
                         precomp.rook_magic_moves[sqr] = moves
@@ -520,3 +627,6 @@ elif argv[1] == 'print-magic':
     print(tabulate(rook, headers=rook_headers, tablefmt="simple"))
     print()
     print(tabulate(bishop, headers=bishop_headers, tablefmt="simple"))
+elif argv[1] == 'export':
+    precomp.export(PrecompType.MAGIC)
+    precomp.export(PrecompType.PEXT)

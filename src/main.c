@@ -33,9 +33,6 @@
 #define ARG_NONE -1
 #define ARG_HELP 0
 #define ARG_VER 1
-#define ARG_GEN_PRECOMP 2
-#define ARG_HUNT_MAGIC 3
-#define ARG_USE_MAGIC 4
 
 typedef struct {
   const char *str;
@@ -45,7 +42,7 @@ typedef struct {
   const int argid;
 } ArgDef;
 
-static const char *usagestr = "engine [option1] [option2]";
+static const char *usagestr = "zeppelin [option1] [option2]";
 static const ArgDef definedargs[] = {
     {
         "--help",
@@ -61,28 +58,6 @@ static const ArgDef definedargs[] = {
         0,
         ARG_VER,
     },
-    {
-        "--gen-precomp",
-        "--gen-precomp",
-        "Regenerate precomputed engine values",
-        0,
-        ARG_GEN_PRECOMP,
-    },
-    {
-        "--hunt-magic",
-        "--hunt-magic",
-        "Try to find better magic numbers",
-        0,
-        ARG_HUNT_MAGIC,
-    },
-    {
-        "--use-magic",
-        "--use-magic <magic number HEX>",
-        "Use a specific magic number",
-        1,
-        ARG_USE_MAGIC,
-    },
-
 };
 static const int definedargscnt = sizeof(definedargs) / sizeof(ArgDef);
 
@@ -142,13 +117,12 @@ int main(int argc, char **argv) {
   nnue_load_weights();
   reset_hashtables();
   if (argc == 1) {
-    if (!loadprecomp()) {
+    if (!initprecomp()) {
       fprintf(stderr, "ERROR precomp file not found, aborting...\n");
       return 1;
     }
 
     choose_protocol();
-    freeprecomp();
     return 0;
   }
 
@@ -159,10 +133,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Unknown argument %s\n\n", argv[1]);
     printhelp();
     return 1;
-  case ARG_GEN_PRECOMP:
-    genprecomp();
-    freeprecomp();
-    return 0;
   default:
     break;
   }
@@ -173,7 +143,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (!loadprecomp()) {
+  if (!initprecomp()) {
     fprintf(stderr, "ERROR precomp file not found, aborting...\n");
     return 1;
   }
@@ -185,17 +155,9 @@ int main(int argc, char **argv) {
   case ARG_VER:
     printf("Version: " PROGRAM_VERSION " for " TARGET_PLATFORM "\n");
     break;
-  case ARG_HUNT_MAGIC:
-    huntmagic();
-    break;
-  case ARG_USE_MAGIC:
-    usemagic(argv[2]);
-    break;
   default:
     break;
   }
-
-  freeprecomp();
 
   return 0;
 }

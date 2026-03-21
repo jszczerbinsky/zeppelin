@@ -23,54 +23,34 @@
 #include "bitboard.h"
 
 typedef struct {
-  BitBrd knightmask[64];
-  BitBrd kingmask[64];
-  BitBrd bishoppremask[64];
-  BitBrd bishoppostmask[64];
-  BitBrd rookpremask[64];
-  BitBrd rookpostmask[64];
-  BitBrd queenpremask[64];
-  BitBrd queenpostmask[64];
-  BitBrd pawnattackmask[2][64];
+  const BitBrd *knightmask;
+  const BitBrd *kingmask;
+  const BitBrd *bishoppremask;
+  const BitBrd *bishoppostmask;
+  const BitBrd *rookpremask;
+  const BitBrd *rookpostmask;
+  const BitBrd *queenpremask;
+  const BitBrd *queenpostmask;
+  const BitBrd *pawnattackmask[2];
 
-  int rookmagicshift[64];
-  int bishopmagicshift[64];
-  BitBrd rookmagic[64];
-  BitBrd bishopmagic[64];
-
-  // Serialized dynamically - n is not constant
-  // BitBrd rookmagicmoves[64][n];
-  // BitBrd bishopmagicmoves[64][n];
-
-} PrecompTableSerialized;
-
-typedef struct {
-  BitBrd knightmask[64];
-  BitBrd kingmask[64];
-  BitBrd bishoppremask[64];
-  BitBrd bishoppostmask[64];
-  BitBrd rookpremask[64];
-  BitBrd rookpostmask[64];
-  BitBrd queenpremask[64];
-  BitBrd queenpostmask[64];
-  BitBrd pawnattackmask[2][64];
-
-  int rookmagicshift[64];
-  int bishopmagicshift[64];
-  BitBrd rookmagic[64];
-  BitBrd bishopmagic[64];
-
-  BitBrd *rookmagicmoves[64];
-  BitBrd *bishopmagicmoves[64];
-
+#ifdef BIT_NONE
+  const uint8_t *rookmagicshift;
+  const uint8_t *bishopmagicshift;
+  const BitBrd *rookmagic;
+  const BitBrd *bishopmagic;
+  const BitBrd *rookmagicmoves[64];
+  const BitBrd *bishopmagicmoves[64];
+#endif
+#ifdef BIT_BMI2
+  const uint16_t *rookpextsize;
+  const uint16_t *bishoppextsize;
+  const BitBrd *rookpextmoves[64];
+  const BitBrd *bishoppextmoves[64];
+#endif
 } PrecompTable;
 
 extern PrecompTable g_precomp;
 
-void genprecomp(void);
-void huntmagic(void);
-void usemagic(const char *numstr);
-int loadprecomp(void);
-void freeprecomp(void);
+int initprecomp(void);
 
 #endif

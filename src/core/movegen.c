@@ -21,6 +21,10 @@
 #include "game.h"
 #include "precomp.h"
 
+#ifdef BIT_BMI2
+#include <immintrin.h>
+#endif
+
 int is_promotion_available(int player) {
   const BitBrd player_pawns = g_game.pieces[player][PAWN];
 
@@ -53,19 +57,35 @@ int get_sqr_attackers_cnt(int attacker, int sqr) {
   attackers |= g_game.pieces[attacker][KNIGHT] & g_precomp.knightmask[sqr];
   attackers |= g_game.pieces[attacker][KING] & g_precomp.kingmask[sqr];
 
+#ifdef BIT_NONE
   occ = g_game.piecesof[ANY] & g_precomp.bishoppremask[sqr];
-  index = (occ * g_precomp.bishopmagic[sqr]) >> g_precomp.bishopmagicshift[sqr];
+  index = (occ * g_precomp.bishopmagic[sqr]) >>
+          (int)g_precomp.bishopmagicshift[sqr];
 
   attackers |=
       (g_game.pieces[attacker][BISHOP] | g_game.pieces[attacker][QUEEN]) &
       g_precomp.bishopmagicmoves[sqr][index];
 
   occ = g_game.piecesof[ANY] & g_precomp.rookpremask[sqr];
-  index = (occ * g_precomp.rookmagic[sqr]) >> g_precomp.rookmagicshift[sqr];
+  index =
+      (occ * g_precomp.rookmagic[sqr]) >> (int)g_precomp.rookmagicshift[sqr];
 
   attackers |=
       (g_game.pieces[attacker][ROOK] | g_game.pieces[attacker][QUEEN]) &
       g_precomp.rookmagicmoves[sqr][index];
+#endif
+#ifdef BIT_BMI2
+  index = _pext_u64(g_game.piecesof[ANY], g_precomp.bishoppremask[sqr]);
+  attackers |=
+      (g_game.pieces[attacker][BISHOP] | g_game.pieces[attacker][QUEEN]) &
+      g_precomp.bishoppextmoves[sqr][index];
+
+  index = _pext_u64(g_game.piecesof[ANY], g_precomp.rookpremask[sqr]);
+  attackers |=
+      (g_game.pieces[attacker][ROOK] | g_game.pieces[attacker][QUEEN]) &
+      g_precomp.rookpextmoves[sqr][index];
+
+#endif
 
   return popcnt(attackers);
 }
@@ -78,18 +98,33 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type,
     int piecesqr = bbrd2sqr(piecesbbrd);
     BitBrd poss_dstbbrd = 0ULL;
 
+#ifdef BIT_NONE
     if (piece == ROOK || piece == QUEEN) {
       BitBrd occ = g_game.piecesof[ANY] & g_precomp.rookpremask[piecesqr];
       BitBrd index = (occ * g_precomp.rookmagic[piecesqr]) >>
-                     g_precomp.rookmagicshift[piecesqr];
+                     (int)g_precomp.rookmagicshift[piecesqr];
       poss_dstbbrd |= g_precomp.rookmagicmoves[piecesqr][index];
     }
     if (piece == BISHOP || piece == QUEEN) {
       BitBrd occ = g_game.piecesof[ANY] & g_precomp.bishoppremask[piecesqr];
       BitBrd index = (occ * g_precomp.bishopmagic[piecesqr]) >>
-                     g_precomp.bishopmagicshift[piecesqr];
+                     (int)g_precomp.bishopmagicshift[piecesqr];
       poss_dstbbrd |= g_precomp.bishopmagicmoves[piecesqr][index];
     }
+#endif
+#ifdef BIT_BMI2
+    if (piece == ROOK || piece == QUEEN) {
+      BitBrd index =
+          _pext_u64(g_game.piecesof[ANY], g_precomp.rookpremask[piecesqr]);
+      poss_dstbbrd |= g_precomp.rookpextmoves[piecesqr][index];
+    }
+    if (piece == BISHOP || piece == QUEEN) {
+      BitBrd index =
+          _pext_u64(g_game.piecesof[ANY], g_precomp.bishoppremask[piecesqr]);
+      poss_dstbbrd |= g_precomp.bishoppextmoves[piecesqr][index];
+    }
+
+#endif
 
     *attackbbrd |= poss_dstbbrd;
 
