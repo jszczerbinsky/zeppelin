@@ -236,7 +236,7 @@ elseif(VECTORIZATION_METHOD STREQUAL "VECT_NEON")
 	# no flags required
 endif()
 if(BIT_MANIPULATION STREQUAL "BIT_BMI2")
-	set(COMMON_FLAGS "${COMMON_FLAGS} -mbmi2")
+	set(COMMON_FLAGS "${COMMON_FLAGS} -mbmi -mbmi2")
 endif()
 if(POPCNT STREQUAL "POPCNT")
 	set(COMMON_FLAGS "${COMMON_FLAGS} -mpopcnt")
