@@ -101,10 +101,30 @@ expected_warray_size += nnue.l3_size * 1
 assert len(warray) == expected_warray_size
 assert len(barray) == nnue.l1_size + nnue.l2_size + nnue.l3_size + 1
 
-with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_weights.bin', 'wb') as f:
-    warray.tofile(f)
-with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_bias.bin', 'wb') as f:
-    barray.tofile(f)
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l1w.bin', 'wb') as f:
+    w1.tofile(f)
+    assert f.tell() % 32 == 0
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l2w.bin', 'wb') as f:
+    w2.tofile(f)
+    assert f.tell() % 32 == 0
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l3w.bin', 'wb') as f:
+    w3.tofile(f)
+    assert f.tell() % 32 == 0
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l4w.bin', 'wb') as f:
+    w4.tofile(f)
+    # no vectorization for L4
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l1b.bin', 'wb') as f:
+    b1.tofile(f)
+    assert f.tell() % 32 == 0
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l2b.bin', 'wb') as f:
+    b2.tofile(f)
+    assert f.tell() % 32 == 0
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l3b.bin', 'wb') as f:
+    b3.tofile(f)
+    assert f.tell() % 32 == 0
+with open(f'{MODELS_DIRECTORY}/{model_name}/nnue_l4b.bin', 'wb') as f:
+    b4.tofile(f)
+    # no vectorization for L4
 
 lines = []
 lines.append("#ifndef NNUE_SHAPE_H\n")

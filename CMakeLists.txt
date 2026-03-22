@@ -47,10 +47,10 @@ endif()
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type: Debug / Release" FORCE)
+	set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type: Debug / Release / RelWithDebInfo" FORCE)
 endif()
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
-set(ALLOWED_CMAKE_BUILD_TYPE "Debug" "Release")
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo")
+set(ALLOWED_CMAKE_BUILD_TYPE "Debug" "Release" "RelWithDebInfo")
 if(NOT CMAKE_BUILD_TYPE IN_LIST ALLOWED_CMAKE_BUILD_TYPE)
 	message(FATAL_ERROR "Unsupported build type '${CMAKE_BUILD_TYPE}'")
 endif()
@@ -202,25 +202,75 @@ add_custom_command(
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
-# NNUE weights
-set(EMBEDDED_WEIGHTS_FILE nnue_weights.bin)
-set(EMBEDDED_WEIGHTS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_weights.o)
+# NNUE
+set(EMBEDDED_L1W_FILE nnue_l1w.bin)
+set(EMBEDDED_L1W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l1w.o)
 add_custom_command(
-	OUTPUT ${EMBEDDED_WEIGHTS_OBJ}
-	COMMAND ${LD} -r -b binary ${EMBEDDED_WEIGHTS_FILE} -o ${EMBEDDED_WEIGHTS_OBJ}
+	OUTPUT ${EMBEDDED_L1W_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L1W_FILE} -o ${EMBEDDED_L1W_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L2W_FILE nnue_l2w.bin)
+set(EMBEDDED_L2W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l2w.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L2W_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L2W_FILE} -o ${EMBEDDED_L2W_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L3W_FILE nnue_l3w.bin)
+set(EMBEDDED_L3W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l3w.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L3W_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L3W_FILE} -o ${EMBEDDED_L3W_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L4W_FILE nnue_l4w.bin)
+set(EMBEDDED_L4W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l4w.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L4W_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L4W_FILE} -o ${EMBEDDED_L4W_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L1B_FILE nnue_l1b.bin)
+set(EMBEDDED_L1B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l1b.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L1B_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L1B_FILE} -o ${EMBEDDED_L1B_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L2B_FILE nnue_l2b.bin)
+set(EMBEDDED_L2B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l2b.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L2B_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L2B_FILE} -o ${EMBEDDED_L2B_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L3B_FILE nnue_l3b.bin)
+set(EMBEDDED_L3B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l3b.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L3B_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L3B_FILE} -o ${EMBEDDED_L3B_OBJ}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+)
+set(EMBEDDED_L4B_FILE nnue_l4b.bin)
+set(EMBEDDED_L4B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l4b.o)
+add_custom_command(
+	OUTPUT ${EMBEDDED_L4B_OBJ}
+	COMMAND ${LD} -r -b binary ${EMBEDDED_L4B_FILE} -o ${EMBEDDED_L4B_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
-# NNUE biases
-set(EMBEDDED_BIAS_FILE nnue_bias.bin)
-set(EMBEDDED_BIAS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_bias.o)
-add_custom_command(
-	OUTPUT ${EMBEDDED_BIAS_OBJ}
-	COMMAND ${LD} -r -b binary ${EMBEDDED_BIAS_FILE} -o ${EMBEDDED_BIAS_OBJ}
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
+set(EMBEDDED_FILES 
+	${EMBEDDED_PRECOMPUTED_OBJ} 
+	${EMBEDDED_L1W_OBJ}
+	${EMBEDDED_L2W_OBJ}
+	${EMBEDDED_L3W_OBJ}
+	${EMBEDDED_L4W_OBJ}
+	${EMBEDDED_L1B_OBJ}
+	${EMBEDDED_L2B_OBJ}
+	${EMBEDDED_L3B_OBJ}
+	${EMBEDDED_L4B_OBJ}
 )
-
-set(EMBEDDED_FILES ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ} ${EMBEDDED_BIAS_OBJ})
 
 # -------------------------------------------------------------
 #                    Compilation flags
@@ -252,6 +302,7 @@ endif()
 # Combine flags
 set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
 set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${COMMON_FLAGS} -O3 -pg -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
 
 # -------------------------------------------------------------
 #                    Create executable

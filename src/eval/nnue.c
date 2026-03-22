@@ -30,42 +30,32 @@
 #include "../core/game.h"
 #include "nnue.h"
 
-extern const unsigned char _binary_nnue_weights_bin_start[];
-extern const unsigned char _binary_nnue_bias_bin_start[]
-    __attribute__((aligned(4)));
+extern const unsigned char _binary_nnue_l1w_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l2w_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l3w_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l4w_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l1b_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l2b_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l3b_bin_start[]
+    __attribute__((aligned(32)));
+extern const unsigned char _binary_nnue_l4b_bin_start[]
+    __attribute__((aligned(32)));
 
-#define NNUE_L1W_START 0
-#define NNUE_L2W_START (NNUE_L1W_START + NNUE_L1_SIZE)
-#define NNUE_L3W_START (NNUE_L2W_START + NNUE_L2_SIZE)
-#define NNUE_L4W_START (NNUE_L3W_START + NNUE_L3_SIZE)
+const int8_t *l1weight = (const int8_t *)(_binary_nnue_l1w_bin_start);
+const int8_t *l2weight = (const int8_t *)(_binary_nnue_l2w_bin_start);
+const int8_t *l3weight = (const int8_t *)(_binary_nnue_l3w_bin_start);
+const int8_t *l4weight = (const int8_t *)(_binary_nnue_l4w_bin_start);
 
-#define NNUE_L1B_START 0
-#define NNUE_L2B_START (NNUE_L1B_START + NNUE_ACC1_SIZE * 4)
-#define NNUE_L3B_START (NNUE_L2B_START + NNUE_ACC2_SIZE * 4)
-#define NNUE_L4B_START (NNUE_L3B_START + NNUE_ACC3_SIZE * 4)
-
-typedef int8_t L1WeightRow[NNUE_ACC0_SIZE];
-typedef int8_t L2WeightRow[NNUE_ACC1_SIZE];
-typedef int8_t L3WeightRow[NNUE_ACC2_SIZE];
-typedef int8_t L4WeightRow[NNUE_ACC3_SIZE];
-
-const int8_t *l1weight =
-    (const int8_t *)(_binary_nnue_weights_bin_start + NNUE_L1W_START);
-const int8_t *l2weight =
-    (const int8_t *)(_binary_nnue_weights_bin_start + NNUE_L2W_START);
-const int8_t *l3weight =
-    (const int8_t *)(_binary_nnue_weights_bin_start + NNUE_L3W_START);
-const int8_t *l4weight =
-    (const int8_t *)(_binary_nnue_weights_bin_start + NNUE_L4W_START);
-
-const int32_t *l1bias =
-    (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L1B_START);
-const int32_t *l2bias =
-    (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L2B_START);
-const int32_t *l3bias =
-    (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L3B_START);
-const int32_t *l4bias =
-    (const int32_t *)(_binary_nnue_bias_bin_start + NNUE_L4B_START);
+const int32_t *l1bias = (const int32_t *)(_binary_nnue_l1b_bin_start);
+const int32_t *l2bias = (const int32_t *)(_binary_nnue_l2b_bin_start);
+const int32_t *l3bias = (const int32_t *)(_binary_nnue_l3b_bin_start);
+const int32_t *l4bias = (const int32_t *)(_binary_nnue_l4b_bin_start);
 
 alignas(32) static int32_t l1weight32[NNUE_ACC0_SIZE][NNUE_ACC1_SIZE];
 
@@ -87,7 +77,7 @@ static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
     for (int i = 0; i < chunk; i++) {
       __m256i prev_acc = _mm256_load_si256(((const __m256i *)prev_acc_arr) + i);
 
-      __m256i w = _mm256_loadu_si256(
+      __m256i w = _mm256_load_si256(
           (const __m256i *)(weights + i2 * prev_acc_size + i * 32));
 
       __m256i w16_lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(w));
@@ -203,13 +193,17 @@ void nnue_calc_deep_acc(NNUE *nnue) {
   activate(acc1_act, nnue->acc1, NNUE_ACC1_SIZE);
 
   alignas(32) int32_t acc2[NNUE_ACC2_SIZE];
-  memcpy(acc2, l2bias, NNUE_ACC2_SIZE * sizeof(int32_t));
+  memcpy(__builtin_assume_aligned(acc2, 32),
+         __builtin_assume_aligned(l2bias, 32),
+         NNUE_ACC2_SIZE * sizeof(int32_t));
   add_weights(acc2, NNUE_ACC2_SIZE, acc1_act, NNUE_ACC1_SIZE, l2weight);
   alignas(32) int8_t acc2_act[NNUE_ACC2_SIZE];
   activate(acc2_act, acc2, NNUE_ACC2_SIZE);
 
   alignas(32) int32_t acc3[NNUE_ACC3_SIZE];
-  memcpy(acc3, l3bias, NNUE_ACC3_SIZE * sizeof(int32_t));
+  memcpy(__builtin_assume_aligned(acc3, 32),
+         __builtin_assume_aligned(l3bias, 32),
+         NNUE_ACC3_SIZE * sizeof(int32_t));
   add_weights(acc3, NNUE_ACC3_SIZE, acc2_act, NNUE_ACC2_SIZE, l3weight);
   alignas(32) int8_t acc3_act[NNUE_ACC3_SIZE];
   activate(acc3_act, acc3, NNUE_ACC3_SIZE);
@@ -232,11 +226,11 @@ void nnue_acc1_add_now(NNUE *nnue, int i0) {
 #ifdef VECT_AVX2
   int chunk = NNUE_ACC1_SIZE / 8;
   for (int i = 0; i < chunk; i++) {
-    __m256i w = _mm256_loadu_si256((__m256i *)(l1weight32[i0] + i * 8));
-    __m256i a = _mm256_loadu_si256((__m256i *)(nnue->acc1 + i * 8));
+    __m256i w = _mm256_load_si256((__m256i *)(l1weight32[i0] + i * 8));
+    __m256i a = _mm256_load_si256((__m256i *)(nnue->acc1 + i * 8));
 
     a = _mm256_add_epi32(a, w);
-    _mm256_storeu_si256((__m256i *)(nnue->acc1 + i * 8), a);
+    _mm256_store_si256((__m256i *)(nnue->acc1 + i * 8), a);
   }
 #endif
 }
@@ -250,11 +244,11 @@ static void nnue_acc1_sub_now(NNUE *nnue, int i0) {
 #ifdef VECT_AVX2
   int chunk = NNUE_ACC1_SIZE / 8;
   for (int i = 0; i < chunk; i++) {
-    __m256i w = _mm256_loadu_si256((__m256i *)(l1weight32[i0] + i * 8));
-    __m256i a = _mm256_loadu_si256((__m256i *)(nnue->acc1 + i * 8));
+    __m256i w = _mm256_load_si256((__m256i *)(l1weight32[i0] + i * 8));
+    __m256i a = _mm256_load_si256((__m256i *)(nnue->acc1 + i * 8));
 
     a = _mm256_sub_epi32(a, w);
-    _mm256_storeu_si256((__m256i *)(nnue->acc1 + i * 8), a);
+    _mm256_store_si256((__m256i *)(nnue->acc1 + i * 8), a);
   }
 #endif
 }
