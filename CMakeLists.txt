@@ -125,6 +125,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 set(CMAKE_EXPORT_COMPILE_COMMANDS YES)
 
 set(LD ld)
+set(OBJCOPY objcopy)
 
 # Detecting cross compilation
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL TARGET_PLATFORM AND CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL TARGET_ARCH)
@@ -140,11 +141,13 @@ if(TARGET_PLATFORM STREQUAL "Linux")
 		set(CMAKE_C_COMPILER x86_64-linux-gnu-gcc)
 		if(IS_CROSS_COMPILATION)
 			set(LD x86_64-linux-gnu-ld)
+			set(OBJCOPY x86_64-linux-gnu-objcopy)
 		endif()
 	else()
 		set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
 		if(IS_CROSS_COMPILATION)
 			set(LD aarch64-linux-gnu-ld)
+			set(OBJCOPY aarch64-linux-gnu-objcopy)
 		endif()
 	endif()
 else()
@@ -153,6 +156,7 @@ else()
 		set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
 		if(IS_CROSS_COMPILATION)
 			set(LD x86_64-w64-mingw32-ld)
+			set(OBJCOPY x86_64-w64-mingw32-objcopy)
 		endif()
 	else()
 		message(FATAL_ERROR "Windows on ARM CPUs is not supported yet")
@@ -208,6 +212,7 @@ set(EMBEDDED_L1W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l1w.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L1W_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L1W_FILE} -o ${EMBEDDED_L1W_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L1W_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L2W_FILE nnue_l2w.bin)
@@ -215,6 +220,7 @@ set(EMBEDDED_L2W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l2w.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L2W_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L2W_FILE} -o ${EMBEDDED_L2W_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L2W_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L3W_FILE nnue_l3w.bin)
@@ -222,6 +228,7 @@ set(EMBEDDED_L3W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l3w.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L3W_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L3W_FILE} -o ${EMBEDDED_L3W_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L3W_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L4W_FILE nnue_l4w.bin)
@@ -229,6 +236,7 @@ set(EMBEDDED_L4W_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l4w.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L4W_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L4W_FILE} -o ${EMBEDDED_L4W_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L4W_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L1B_FILE nnue_l1b.bin)
@@ -236,6 +244,7 @@ set(EMBEDDED_L1B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l1b.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L1B_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L1B_FILE} -o ${EMBEDDED_L1B_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L1B_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L2B_FILE nnue_l2b.bin)
@@ -243,6 +252,7 @@ set(EMBEDDED_L2B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l2b.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L2B_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L2B_FILE} -o ${EMBEDDED_L2B_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L2B_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L3B_FILE nnue_l3b.bin)
@@ -250,6 +260,7 @@ set(EMBEDDED_L3B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l3b.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L3B_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L3B_FILE} -o ${EMBEDDED_L3B_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L3B_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 set(EMBEDDED_L4B_FILE nnue_l4b.bin)
@@ -257,6 +268,7 @@ set(EMBEDDED_L4B_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_l4b.o)
 add_custom_command(
 	OUTPUT ${EMBEDDED_L4B_OBJ}
 	COMMAND ${LD} -r -b binary ${EMBEDDED_L4B_FILE} -o ${EMBEDDED_L4B_OBJ}
+	COMMAND ${OBJCOPY} --set-section-alignment .data=32 ${EMBEDDED_L4B_OBJ}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
@@ -302,7 +314,7 @@ endif()
 # Combine flags
 set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
 set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
-set(CMAKE_C_FLAGS_RELWITHDEBINFO "${COMMON_FLAGS} -O3 -pg -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${COMMON_FLAGS} -O0 -pg -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
 
 # -------------------------------------------------------------
 #                    Create executable
