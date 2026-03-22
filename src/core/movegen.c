@@ -48,8 +48,6 @@ int is_promotion_available(int player) {
 }
 
 int get_sqr_attackers_cnt(int attacker, int sqr) {
-  BitBrd occ, index;
-
   BitBrd attackers = 0ULL;
 
   attackers |=
@@ -58,6 +56,7 @@ int get_sqr_attackers_cnt(int attacker, int sqr) {
   attackers |= g_game.pieces[attacker][KING] & g_precomp.kingmask[sqr];
 
 #ifdef BIT_NONE
+  BitBrd occ, index;
   occ = g_game.piecesof[ANY] & g_precomp.bishoppremask[sqr];
   index = (occ * g_precomp.bishopmagic[sqr]) >>
           (int)g_precomp.bishopmagicshift[sqr];
@@ -75,6 +74,7 @@ int get_sqr_attackers_cnt(int attacker, int sqr) {
       g_precomp.rookmagicmoves[sqr][index];
 #endif
 #ifdef BIT_BMI2
+  BitBrd index;
   index = _pext_u64(g_game.piecesof[ANY], g_precomp.bishoppremask[sqr]);
   attackers |=
       (g_game.pieces[attacker][BISHOP] | g_game.pieces[attacker][QUEEN]) &

@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.15)
 
 project(zeppelin)
 
-# Determine program version
+# -------------------------------------------------------------
+#                 Determine Zeppelin version
+# -------------------------------------------------------------
 find_package(Git)
 if(GIT_EXECUTABLE)
   execute_process(
@@ -20,10 +22,14 @@ if(PROGRAM_VERSION STREQUAL "")
 endif()
 message(STATUS "Determined version: ${PROGRAM_VERSION}")
 
-# Setting executable name
+# -------------------------------------------------------------
+#                    Build Settings
+# -------------------------------------------------------------
+
+# Executable name
 set(EXE_NAME "zeppelin" CACHE STRING "Executable name:")
 
-# Setting target platform
+# Target platform
 set(TARGET_PLATFORM "Linux" CACHE STRING "Target platform: Linux / Windows")
 set_property(CACHE TARGET_PLATFORM PROPERTY STRINGS "Linux" "Windows")
 set(ALLOWED_TARGET_PLATFORMS "Linux" "Windows")
@@ -31,7 +37,7 @@ if(NOT TARGET_PLATFORM IN_LIST ALLOWED_TARGET_PLATFORMS)
 	message(FATAL_ERROR "Unsupported target platform '${TARGET_PLATFORM}'")
 endif()
 
-# Setting target architecture 
+# Target architecture 
 set(TARGET_ARCH "x86_64" CACHE STRING "Target arch: x86 / ARM")
 set_property(CACHE TARGET_ARCH PROPERTY STRINGS "x86_64" "aarch64")
 set(ALLOWED_TARGET_ARCH "x86_64" "aarch64")
@@ -39,7 +45,7 @@ if(NOT TARGET_ARCH IN_LIST ALLOWED_TARGET_ARCH)
 	message(FATAL_ERROR "Unsupported target arch '${TARGET_ARCH}'")
 endif()
 
-# Setting build type
+# Build type
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type: Debug / Release" FORCE)
 endif()
@@ -49,7 +55,7 @@ if(NOT CMAKE_BUILD_TYPE IN_LIST ALLOWED_CMAKE_BUILD_TYPE)
 	message(FATAL_ERROR "Unsupported build type '${CMAKE_BUILD_TYPE}'")
 endif()
 
-# Setting evaluation type
+# Evaluation type
 if(NOT EVAL_TYPE)
 	set(EVAL_TYPE "EVAL_NNUE" CACHE STRING "Eval type: NNUE / EVAL_MATERIAL_ONLY" FORCE)
 endif()
@@ -59,7 +65,7 @@ if(NOT EVAL_TYPE IN_LIST ALLOWED_EVAL_TYPE)
 	message(FATAL_ERROR "Unsupported eval type '${EVAL_TYPE}'")
 endif()
 
-# Setting vectorization support
+# Vectorization support
 if(NOT VECTORIZATION_METHOD)
 	set(VECTORIZATION_METHOD "VECT_AVX2" CACHE STRING "Vectorization type: VECT_NONE / VECT_AVX2 / VECT_NEON" FORCE)
 endif()
@@ -69,7 +75,7 @@ if(NOT VECTORIZATION_METHOD IN_LIST ALLOWED_VECTORIZATION_METHOD)
 	message(FATAL_ERROR "Unsupported vectorization method '${VECTORIZATION_METHOD}'")
 endif()
 
-# Setting vectorization support
+# Bit manipiulation support
 if(NOT BIT_MANIPULATION)
 	set(BIT_MANIPULATION "BIT_NONE" CACHE STRING "Bit manipulation type: BIT_NONE / BIT_BMI2" FORCE)
 endif()
@@ -78,6 +84,20 @@ set(ALLOWED_BIT_MANIPULATION "BIT_NONE" "BIT_BMI2")
 if(NOT BIT_MANIPULATION IN_LIST ALLOWED_BIT_MANIPULATION)
 	message(FATAL_ERROR "Unsupported bit manipulation method '${BIT_MANIPULATION}'")
 endif()
+
+# Popcount support
+if(NOT POPCNT)
+	set(POPCNT "NO_POPCNT" CACHE STRING "Popcnt support: NO_POPCNT / POPCNT" FORCE)
+endif()
+set_property(CACHE POPCNT PROPERTY STRINGS "NO_POPCNT" "POPCNT")
+set(ALLOWED_POPCNT "NO_POPCNT" "POPCNT")
+if(NOT POPCNT IN_LIST ALLOWED_POPCNT)
+	message(FATAL_ERROR "Unsupported value for popcnt support '${POPCNT}'")
+endif()
+
+# -------------------------------------------------------------
+#                   Setup building enviroment
+# -------------------------------------------------------------
 
 set(SOURCE_FILES
 	src/core/game.c
@@ -139,6 +159,14 @@ else()
 	endif()
 endif()
 
+# Defining strings
+add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
+add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
+
+# -------------------------------------------------------------
+#                    Settings validation
+# -------------------------------------------------------------
+
 # Ensuring correct vertorization
 if(VECTORIZATION_METHOD STREQUAL "VECT_AVX2" AND NOT TARGET_ARCH STREQUAL "x86_64")
 	message(FATAL_ERROR "Trying to use AVX2 on non-x86 CPU")
@@ -151,7 +179,17 @@ if(BIT_MANIPULATION STREQUAL "BIT_BMI2" AND NOT TARGET_ARCH STREQUAL "x86_64")
 	message(FATAL_ERROR "Trying to use BMI2 on non-x86 CPU")
 endif()
 
-# Embedding binary files
+# Ensuring correct popcnt support
+if(POPCNT STREQUAL "POPCNT" AND NOT TARGET_ARCH STREQUAL "x86_64")
+	message(FATAL_ERROR "Trying to use popcount support on non-x86 CPU")
+endif()
+
+
+# -------------------------------------------------------------
+#                    Embedding files
+# -------------------------------------------------------------
+
+# Precomp - pext for bmi2 / magics for others
 if(BIT_MANIPULATION STREQUAL "BIT_BMI2")
 	set(EMBEDDED_PRECOMPUTED_FILE precomp_pext.bin)
 else()
@@ -164,6 +202,7 @@ add_custom_command(
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
+# NNUE weights
 set(EMBEDDED_WEIGHTS_FILE nnue_weights.bin)
 set(EMBEDDED_WEIGHTS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_weights.o)
 add_custom_command(
@@ -172,6 +211,7 @@ add_custom_command(
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/res
 )
 
+# NNUE biases
 set(EMBEDDED_BIAS_FILE nnue_bias.bin)
 set(EMBEDDED_BIAS_OBJ ${CMAKE_CURRENT_BINARY_DIR}/nnue_bias.o)
 add_custom_command(
@@ -182,29 +222,41 @@ add_custom_command(
 
 set(EMBEDDED_FILES ${EMBEDDED_PRECOMPUTED_OBJ} ${EMBEDDED_WEIGHTS_OBJ} ${EMBEDDED_BIAS_OBJ})
 
-# Defining strings
-add_compile_definitions(TARGET_PLATFORM="${TARGET_PLATFORM}")
-add_compile_definitions(PROGRAM_VERSION="${PROGRAM_VERSION}")
+# -------------------------------------------------------------
+#                    Compilation flags
+# -------------------------------------------------------------
 
-# Choosing compiler flags
+# Compilation warnings
 set(COMMON_FLAGS "-Wall -Wextra -Wconversion -Wtype-limits -Woverflow -Wsign-conversion -Wsign-compare -Wfloat-conversion -Wsizeof-pointer-div -Wlogical-op -Wcast-qual -Wshadow -pedantic")
+
+# CPU extensions
 if(VECTORIZATION_METHOD STREQUAL "VECT_AVX2")
 	set(COMMON_FLAGS "${COMMON_FLAGS} -mavx2")
 elseif(VECTORIZATION_METHOD STREQUAL "VECT_NEON")
-
+	# no flags required
 endif()
 if(BIT_MANIPULATION STREQUAL "BIT_BMI2")
 	set(COMMON_FLAGS "${COMMON_FLAGS} -mbmi2")
 endif()
+if(POPCNT STREQUAL "POPCNT")
+	set(COMMON_FLAGS "${COMMON_FLAGS} -mpopcnt")
+endif()
+
+# Platform specific
 if(TARGET_PLATFORM STREQUAL "Linux")
 	set(COMMON_FLAGS "${COMMON_FLAGS} -Wformat")
 else()
 	set(COMMON_FLAGS "${COMMON_FLAGS} -Wno-format")
 endif()
+
+# Combine flags
 set(CMAKE_C_FLAGS_DEBUG "${COMMON_FLAGS} -ggdb2 -pg -DDEBUG_INTERFACE -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
 set(CMAKE_C_FLAGS_RELEASE "${COMMON_FLAGS} -O3 -D${EVAL_TYPE} -D${VECTORIZATION_METHOD} -D${BIT_MANIPULATION}")
 
-# Building executable
+# -------------------------------------------------------------
+#                    Create executable
+# -------------------------------------------------------------
+
 add_executable(zeppelin ${SOURCE_FILES} ${EMBEDDED_FILES})
 set_target_properties(zeppelin PROPERTIES 
 	OUTPUT_NAME ${EXE_NAME}
@@ -213,12 +265,4 @@ set_target_properties(zeppelin PROPERTIES
 )
 target_link_libraries(zeppelin m)
 
-# Unit tests
-#find_package(Python3 REQUIRED)
 
-#enable_testing()
-
-#add_test(
-#	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/run_tests.py
-#	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tools/
-#)
