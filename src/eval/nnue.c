@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <tmmintrin.h>
 #ifdef VECT_AVX2
 #include <immintrin.h>
 #endif
@@ -72,34 +73,28 @@ static void add_weights(int32_t *acc_arr, int acc_size, int8_t *prev_acc_arr,
 
 #ifdef VECT_AVX2
   int chunk = prev_acc_size / 32;
+  __m256i ones = _mm256_set1_epi16(1);
 
   for (int i2 = 0; i2 < acc_size; i2++) {
+    __m256i sum = _mm256_setzero_si256();
+
     for (int i = 0; i < chunk; i++) {
       __m256i prev_acc = _mm256_load_si256(((const __m256i *)prev_acc_arr) + i);
 
       __m256i w = _mm256_load_si256(
           (const __m256i *)(weights + i2 * prev_acc_size + i * 32));
 
-      __m256i w16_lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(w));
-      __m256i a16_lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(prev_acc));
-      __m256i w16_hi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1));
-      __m256i a16_hi =
-          _mm256_cvtepi8_epi16(_mm256_extracti128_si256(prev_acc, 1));
+      __m256i res = _mm256_maddubs_epi16(prev_acc, w);
+      res = _mm256_madd_epi16(ones, res);
 
-      __m256i res_lo = _mm256_madd_epi16(w16_lo, a16_lo);
-      __m256i res_hi = _mm256_madd_epi16(w16_hi, a16_hi);
-
-      __m256i res = _mm256_add_epi32(res_lo, res_hi);
-
-      __m128i res128 = _mm_add_epi32(_mm256_extracti128_si256(res, 1),
-                                     _mm256_castsi256_si128(res));
-      res128 = _mm_add_epi32(
-          res128, _mm_shuffle_epi32(res128, _MM_SHUFFLE(0, 1, 2, 3)));
-      res128 = _mm_add_epi32(
-          res128, _mm_shuffle_epi32(res128, _MM_SHUFFLE(0, 0, 0, 1)));
-
-      acc_arr[i2] += _mm_cvtsi128_si32(res128);
+      sum = _mm256_add_epi32(sum, res);
     }
+    __m128i sum128 = _mm_add_epi32(_mm256_extracti128_si256(sum, 1),
+                                   _mm256_castsi256_si128(sum));
+    sum128 = _mm_hadd_epi32(sum128, sum128);
+    sum128 = _mm_hadd_epi32(sum128, sum128);
+
+    acc_arr[i2] += _mm_cvtsi128_si32(sum128);
   }
 #endif
 
