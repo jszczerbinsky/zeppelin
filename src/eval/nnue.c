@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <tmmintrin.h>
 #ifdef VECT_AVX2
 #include <immintrin.h>
 #endif
@@ -142,19 +141,14 @@ static void activate(int8_t *dest, int32_t *acc, int acc_size) {
 #endif
 
 #ifdef VECT_AVX2
-  __m256i zeroes = _mm256_set1_epi32(0);
-  __m256i max = _mm256_set1_epi32(127);
-
   int chunk2 = acc_size / 8;
   for (int i = 0; i < chunk2; i++) {
     __m256i a = _mm256_load_si256((const __m256i *)(acc + i * 8));
     a = _mm256_srai_epi32(a, 6);
-    a = _mm256_max_epi32(a, zeroes);
-    a = _mm256_min_epi32(a, max);
 
     __m128i a_lo = _mm256_castsi256_si128(a);
     __m128i a_hi = _mm256_extracti128_si256(a, 1);
-    __m128i a16 = _mm_packs_epi32(a_lo, a_hi);
+    __m128i a16 = _mm_packus_epi32(a_lo, a_hi);
     __m128i a8 = _mm_packs_epi16(a16, a16);
 
     _mm_storel_epi64((__m128i *)(dest + i * 8), a8);
