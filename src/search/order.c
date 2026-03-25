@@ -29,31 +29,11 @@
 #include "search.h"
 
 static int see(int sqr) {
-  MoveList capts;
-  BitBrd attackbbrd;
-  gen_moves(g_game.who2move, &capts, &attackbbrd, GEN_CAPT, 0);
-
-  Move lva = NULLMOVE;
-  for (int i = 0; i < capts.cnt; i++) {
-    const Move currmove = capts.move[i];
-
-    if (GET_DST_SQR(currmove) == sqr) {
-      if (lva == NULLMOVE ||
-          material[GET_MOV_PIECE(currmove)] < material[GET_MOV_PIECE(lva)]) {
-        makemove(currmove);
-        if (lastmovelegal()) {
-          lva = currmove;
-        }
-        unmakemove();
-      }
-    }
-  }
-
+  Move lva = make_lva(g_game.who2move, sqr);
   if (lva == NULLMOVE) {
     return 0;
   }
 
-  makemove(lva);
   int val = material[GET_CAPT_PIECE(lva)] - see(sqr);
   if (IS_PROM(lva)) {
     val += material[GET_PROM_PIECE(lva)] - 1;

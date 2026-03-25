@@ -357,8 +357,7 @@ static void runperft(char *token) {
   int depth = atoi(token);
 
   MoveList movelist;
-  BitBrd attacksbbrd;
-  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
+  gen_moves(g_game.who2move, &movelist, 0);
 
   int nodes = 0;
 

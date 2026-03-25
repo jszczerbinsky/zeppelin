@@ -101,7 +101,7 @@ typedef uint64_t BitBrd;
 #define CASTLE_BQ_KINGSQR 58
 #define CASTLE_BQ_ROOKSQR 59
 
-#define bbrd2sqr(bbrd) (__builtin_ffsll((long long)bbrd) - 1)
+#define bbrd2sqr(bbrd) (__builtin_ctzll(bbrd))
 
 #define sqr2bbrd(sqr) (1ULL << (BitBrd)(sqr))
 

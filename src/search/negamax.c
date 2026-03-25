@@ -68,9 +68,7 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
     }
   }
 
-  BitBrd attackbbrd;
-  gen_moves(g_game.who2move, &ni->availmoves, &attackbbrd, GEN_ALL,
-            under_check_cnt);
+  gen_moves(g_game.who2move, &ni->availmoves, under_check_cnt);
 
   for (int i = 0; i < ni->availmoves.cnt; i++) {
     int see_diff;
@@ -285,8 +283,7 @@ int negamax(Search *s, int alpha, int beta, int depthleft, MoveList *pvdest,
       return quiescence(s, alpha, beta);
     } else {
       MoveList availmoves;
-      BitBrd attackbbrd;
-      gen_moves(g_game.who2move, &availmoves, &attackbbrd, GEN_ALL, 0);
+      gen_moves(g_game.who2move, &availmoves, 0);
 
       if (availmoves.cnt == 0) {
         return evaluate_terminalpos(s->currline.cnt);

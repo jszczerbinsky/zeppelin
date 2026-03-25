@@ -19,6 +19,8 @@
 
 #include "movegen.h"
 #include "game.h"
+#include "move.h"
+#include "piece.h"
 #include "precomp.h"
 
 #ifdef BIT_BMI2
@@ -90,8 +92,185 @@ int get_sqr_attackers_cnt(int attacker, int sqr) {
   return popcnt(attackers);
 }
 
-static void gen_sliding(int player, MoveList *movelist, int piece, int type,
-                        BitBrd *attackbbrd) {
+Move make_lva(int attacker, int sqr) {
+  BitBrd bbrd = sqr2bbrd(sqr);
+
+  int captpiece = getpieceat(!attacker, bbrd);
+
+  BitBrd pawns = 0ULL;
+  BitBrd knights = 0ULL;
+  BitBrd bishops = 0ULL;
+  BitBrd rooks = 0ULL;
+  BitBrd queens = 0ULL;
+  BitBrd kings = 0ULL;
+
+  pawns |=
+      g_game.pieces[attacker][PAWN] & g_precomp.pawnattackmask[!attacker][sqr];
+  while (pawns) {
+    int srcsqr = bbrd2sqr(pawns);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(PAWN);
+
+    if (bbrd & (RANK_8 | RANK_1)) {
+      move |= MOVE_TYPE_PROMCAPT | CAPT_PIECE(captpiece) | PROM_PIECE(QUEEN);
+      makemove(move);
+      if (lastmovelegal())
+        return move;
+      unmakemove();
+    } else {
+      move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+      makemove(move);
+      if (lastmovelegal())
+        return move;
+      unmakemove();
+    }
+
+    pawns &= ~srcbbrd;
+  }
+
+  knights |= g_game.pieces[attacker][KNIGHT] & g_precomp.knightmask[sqr];
+  while (knights) {
+    int srcsqr = bbrd2sqr(knights);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(KNIGHT) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    knights &= ~srcbbrd;
+  }
+
+#ifdef BIT_NONE
+  BitBrd occ;
+  occ = g_game.piecesof[ANY] & g_precomp.bishoppremask[sqr];
+  BitBrd bindex = (occ * g_precomp.bishopmagic[sqr]) >>
+                  (int)g_precomp.bishopmagicshift[sqr];
+  bishops |=
+      g_game.pieces[attacker][BISHOP] & g_precomp.bishopmagicmoves[sqr][bindex];
+  while (bishops) {
+    int srcsqr = bbrd2sqr(bishops);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(BISHOP) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    bishops &= ~srcbbrd;
+  }
+
+  occ = g_game.piecesof[ANY] & g_precomp.rookpremask[sqr];
+  BitBrd rindex =
+      (occ * g_precomp.rookmagic[sqr]) >> (int)g_precomp.rookmagicshift[sqr];
+  rooks |=
+      g_game.pieces[attacker][ROOK] & g_precomp.rookmagicmoves[sqr][rindex];
+  while (rooks) {
+    int srcsqr = bbrd2sqr(rooks);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(ROOK) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    rooks &= ~srcbbrd;
+  }
+
+  queens |=
+      g_game.pieces[attacker][QUEEN] & g_precomp.bishopmagicmoves[sqr][bindex];
+  queens |=
+      g_game.pieces[attacker][QUEEN] & g_precomp.rookmagicmoves[sqr][rindex];
+  while (queens) {
+    int srcsqr = bbrd2sqr(queens);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(QUEEN) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    queens &= ~srcbbrd;
+  }
+#endif
+#ifdef BIT_BMI2
+  BitBrd bindex = _pext_u64(g_game.piecesof[ANY], g_precomp.bishoppremask[sqr]);
+  bishops |=
+      g_game.pieces[attacker][BISHOP] & g_precomp.bishoppextmoves[sqr][bindex];
+  while (bishops) {
+    int srcsqr = bbrd2sqr(bishops);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(BISHOP) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    bishops &= ~srcbbrd;
+  }
+
+  BitBrd rindex = _pext_u64(g_game.piecesof[ANY], g_precomp.rookpremask[sqr]);
+  rooks |= g_game.pieces[attacker][ROOK] & g_precomp.rookpextmoves[sqr][rindex];
+  while (rooks) {
+    int srcsqr = bbrd2sqr(rooks);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(ROOK) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    rooks &= ~srcbbrd;
+  }
+
+  queens |=
+      g_game.pieces[attacker][QUEEN] & g_precomp.rookpextmoves[sqr][rindex];
+  queens |=
+      g_game.pieces[attacker][QUEEN] & g_precomp.bishoppextmoves[sqr][bindex];
+  while (queens) {
+    int srcsqr = bbrd2sqr(queens);
+    BitBrd srcbbrd = sqr2bbrd(srcsqr);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(QUEEN) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+
+    queens &= ~srcbbrd;
+  }
+
+#endif
+  kings |= g_game.pieces[attacker][KING] & g_precomp.kingmask[sqr];
+  if (kings) {
+    int srcsqr = bbrd2sqr(kings);
+
+    Move move = SRC_SQR(srcsqr) | DST_SQR(sqr) | MOV_PIECE(KING) |
+                MOVE_TYPE_NORMALCAPT | CAPT_PIECE(captpiece);
+    makemove(move);
+    if (lastmovelegal())
+      return move;
+    unmakemove();
+  }
+
+  return NULLMOVE;
+}
+
+static void gen_sliding(int player, MoveList *movelist, int piece) {
   BitBrd piecesbbrd = g_game.pieces[player][piece];
 
   while (piecesbbrd) {
@@ -126,8 +305,6 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type,
 
 #endif
 
-    *attackbbrd |= poss_dstbbrd;
-
     poss_dstbbrd &= ~g_game.piecesof[player];
 
     while (poss_dstbbrd) {
@@ -137,12 +314,9 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type,
       Move move = SRC_SQR(piecesqr) | DST_SQR(dstsqr) | MOV_PIECE(piece);
 
       if (dstbbrd & g_game.piecesof[!player]) {
-        if (type != GEN_QUIET) {
-          move |=
-              MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
-          pushmove(movelist, move);
-        }
-      } else if (type != GEN_CAPT) {
+        move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+        pushmove(movelist, move);
+      } else {
         move |= MOVE_TYPE_NORMAL;
         pushmove(movelist, move);
       }
@@ -154,8 +328,7 @@ static void gen_sliding(int player, MoveList *movelist, int piece, int type,
   }
 }
 
-static void gen_knight(int player, MoveList *movelist, int type,
-                       BitBrd *attackbbrd) {
+static void gen_knight(int player, MoveList *movelist) {
   BitBrd knightsbbrd = g_game.pieces[player][KNIGHT];
 
   while (knightsbbrd) {
@@ -164,8 +337,6 @@ static void gen_knight(int player, MoveList *movelist, int type,
     BitBrd poss_dstbbrd =
         g_precomp.knightmask[knightsqr] & (~g_game.piecesof[player]);
 
-    *attackbbrd |= poss_dstbbrd;
-
     while (poss_dstbbrd) {
       int dstsqr = bbrd2sqr(poss_dstbbrd);
       BitBrd dstbbrd = sqr2bbrd(dstsqr);
@@ -173,12 +344,9 @@ static void gen_knight(int player, MoveList *movelist, int type,
       Move move = SRC_SQR(knightsqr) | DST_SQR(dstsqr) | MOV_PIECE(KNIGHT);
 
       if (dstbbrd & g_game.piecesof[!player]) {
-        if (type != GEN_QUIET) {
-          move |=
-              MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
-          pushmove(movelist, move);
-        }
-      } else if (type != GEN_CAPT) {
+        move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+        pushmove(movelist, move);
+      } else {
         move |= MOVE_TYPE_NORMAL;
         pushmove(movelist, move);
       }
@@ -190,14 +358,11 @@ static void gen_knight(int player, MoveList *movelist, int type,
   }
 }
 
-static void gen_king(int player, MoveList *movelist, int type,
-                     BitBrd *attackbbrd) {
+static void gen_king(int player, MoveList *movelist) {
   int kingsqr = bbrd2sqr(g_game.pieces[player][KING]);
 
   BitBrd poss_dstbbrd =
       g_precomp.kingmask[kingsqr] & (~g_game.piecesof[player]);
-
-  *attackbbrd |= poss_dstbbrd;
 
   while (poss_dstbbrd) {
     int dstsqr = bbrd2sqr(poss_dstbbrd);
@@ -206,15 +371,11 @@ static void gen_king(int player, MoveList *movelist, int type,
     Move move = SRC_SQR(kingsqr) | DST_SQR(dstsqr) | MOV_PIECE(KING);
 
     if (dstbbrd & g_game.piecesof[!player]) {
-      if (type != GEN_QUIET) {
-        move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
-        pushmove(movelist, move);
-      }
+      move |= MOVE_TYPE_NORMALCAPT | CAPT_PIECE(getpieceat(!player, dstbbrd));
+      pushmove(movelist, move);
     } else {
-      if (type != GEN_CAPT) {
-        move |= MOVE_TYPE_NORMAL;
-        pushmove(movelist, move);
-      }
+      move |= MOVE_TYPE_NORMAL;
+      pushmove(movelist, move);
     }
 
     poss_dstbbrd &= ~dstbbrd;
@@ -245,7 +406,7 @@ static void gen_castle(int player, MoveList *movelist) {
   }
 }
 
-static void gen_pawncapt(int player, MoveList *movelist, BitBrd *attackbbrd) {
+static void gen_pawncapt(int player, MoveList *movelist) {
   const BitBrd player_pawns = g_game.pieces[player][PAWN];
 
   BitBrd poss_l_dstbbrd, poss_r_dstbbrd;
@@ -261,8 +422,6 @@ static void gen_pawncapt(int player, MoveList *movelist, BitBrd *attackbbrd) {
     poss_r_dstbbrd = ((player_pawns & (~FILE_A)) >> 9) &
                      (g_game.piecesof[!player] | g_gamestate->epbbrd);
   }
-
-  *attackbbrd |= poss_l_dstbbrd | poss_r_dstbbrd;
 
   while (poss_l_dstbbrd) {
     int dstsqr = bbrd2sqr(poss_l_dstbbrd);
@@ -406,25 +565,19 @@ static void gen_pawnsilent(int player, MoveList *movelist) {
   }
 }
 
-void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int movetype,
-               int checks_cnt) {
+void gen_moves(int player, MoveList *movelist, int checks_cnt) {
   movelist->cnt = 0;
-  *attackbbrd = 0;
 
-  gen_king(player, movelist, movetype, attackbbrd);
+  gen_king(player, movelist);
 
   if (checks_cnt < 2) {
-    if (movetype != GEN_QUIET) {
-      gen_pawncapt(player, movelist, attackbbrd);
-    }
-    if (movetype != GEN_CAPT) {
-      gen_pawnsilent(player, movelist);
-      gen_pushprom(player, movelist);
-      gen_castle(player, movelist);
-    }
-    gen_knight(player, movelist, movetype, attackbbrd);
-    gen_sliding(player, movelist, ROOK, movetype, attackbbrd);
-    gen_sliding(player, movelist, BISHOP, movetype, attackbbrd);
-    gen_sliding(player, movelist, QUEEN, movetype, attackbbrd);
+    gen_pawncapt(player, movelist);
+    gen_pawnsilent(player, movelist);
+    gen_pushprom(player, movelist);
+    gen_castle(player, movelist);
+    gen_knight(player, movelist);
+    gen_sliding(player, movelist, ROOK);
+    gen_sliding(player, movelist, BISHOP);
+    gen_sliding(player, movelist, QUEEN);
   }
 }

@@ -24,13 +24,10 @@
 #include "game.h"
 #include "movelist.h"
 
-#define GEN_ALL 0
-#define GEN_QUIET 1
-#define GEN_CAPT 2
-
 // checks_cnt is optional, can use 0, but correct value will reduce time
-void gen_moves(int player, MoveList *movelist, BitBrd *attackbbrd, int movetype,
-               int checks_cnt);
+void gen_moves(int player, MoveList *movelist, int checks_cnt);
+
+Move make_lva(int attacker, int sqr);
 
 int get_sqr_attackers_cnt(int attacker, int sqr);
 
