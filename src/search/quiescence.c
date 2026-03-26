@@ -30,7 +30,7 @@ int quiescence(Search *s, int alpha, int beta) {
   }
 
   MoveList availmoves;
-  gen_moves(g_game.who2move, &availmoves, 0);
+  gen_moves(g_game.who2move, &availmoves);
 
   int standpat;
   if (availmoves.cnt == 0) {

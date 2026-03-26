@@ -219,8 +219,8 @@ static void on_finish(const Search *si) {
     // BitBrd attackbbrd;
 
     if (IS_SILENT(si->prev_iter_pv.move[0])) {
-      int checks = get_under_check_cnt();
-      if (checks == 0) {
+      int under_check = is_under_check();
+      if (!under_check) {
         // gen_moves(g_game.who2move, &moves, &attackbbrd, GEN_CAPT, 0);
         // if (moves.cnt == 0) {
         int score = si->prev_iter_score;
@@ -357,7 +357,7 @@ static void runperft(char *token) {
   int depth = atoi(token);
 
   MoveList movelist;
-  gen_moves(g_game.who2move, &movelist, 0);
+  gen_moves(g_game.who2move, &movelist);
 
   int nodes = 0;
 

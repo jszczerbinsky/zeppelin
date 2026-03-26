@@ -65,7 +65,7 @@ int evaluate(void) {
 }
 
 int evaluate_terminalpos(int pliescnt) {
-  if (get_under_check_cnt() > 0) {
+  if (is_under_check()) {
     return SCORE_CHECKMATED + pliescnt;
   } else {
     return 0;

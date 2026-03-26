@@ -25,30 +25,29 @@
 #include "movelist.h"
 
 // checks_cnt is optional, can use 0, but correct value will reduce time
-void gen_moves(int player, MoveList *movelist, int checks_cnt);
+void gen_moves(int player, MoveList *movelist);
 
 Move make_lva(int attacker, int sqr);
 
-int get_sqr_attackers_cnt(int attacker, int sqr);
+int is_sqr_attacked(int attacker, int sqr);
 
 static inline int lastmovelegal(void) {
   if (GET_CAPT_PIECE(g_game.movelist.move[g_game.movelist.cnt - 1]) == KING) {
     return 0;
   }
 
-  return get_sqr_attackers_cnt(
-             g_game.who2move,
-             bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
+  return is_sqr_attacked(g_game.who2move,
+                         bbrd2sqr(g_game.pieces[!g_game.who2move][KING])) == 0;
 }
 
-static inline int get_under_check_cnt(void) {
-  return get_sqr_attackers_cnt(!g_game.who2move,
-                               bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
+static inline int is_under_check(void) {
+  return is_sqr_attacked(!g_game.who2move,
+                         bbrd2sqr(g_game.pieces[g_game.who2move][KING]));
 }
 
-static inline int giving_check_cnt(void) {
-  return get_sqr_attackers_cnt(g_game.who2move,
-                               bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
+static inline int is_giving_check(void) {
+  return is_sqr_attacked(g_game.who2move,
+                         bbrd2sqr(g_game.pieces[!g_game.who2move][KING]));
 }
 
 int is_promotion_available(int player);

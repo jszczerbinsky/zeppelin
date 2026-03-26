@@ -47,13 +47,13 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
   int score = SCORE_ILLEGAL;
 
   int stat_eval = evaluate();
-  int under_check_cnt = get_under_check_cnt();
+  int under_check = is_under_check();
   Move last_move = s->currline.move[s->currline.cnt - 1];
 
   MoveList nocutoff_silent = {0};
 
   if (!g_set.disbl_nmp && g_gamestate->phase != PHASE_ENDGAME &&
-      !possible_zugzwang() && under_check_cnt == 0 && s->currline.cnt != 0 &&
+      !possible_zugzwang() && !under_check && s->currline.cnt != 0 &&
       depthleft > 3 && last_move != NULLMOVE && stat_eval >= beta) {
     makemove(NULLMOVE);
     pushmove(&s->currline, NULLMOVE);
@@ -68,7 +68,7 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
     }
   }
 
-  gen_moves(g_game.who2move, &ni->availmoves, under_check_cnt);
+  gen_moves(g_game.who2move, &ni->availmoves);
 
   for (int i = 0; i < ni->availmoves.cnt; i++) {
     int see_diff;
@@ -92,7 +92,7 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
 
       int movescore = 0;
       int fullsearch = 1;
-      int new_under_check_cnt = get_under_check_cnt();
+      int new_under_check = is_under_check();
       int promo_avail = is_promotion_available(g_game.who2move);
 
       int maxext = ispv ? 7 : 4;
@@ -100,12 +100,12 @@ static void negamax_inner(Search *s, NodeInfo *ni, int depthleft, int *alpha,
       int extallowed = s->currline.cnt <= s->iter_depth + maxext;
       int pvsallowed = !g_set.disbl_pvs && ni->legalcnt > 1;
       int fpallowed = !g_set.disbl_fp && !ispv && depthleft <= 2 &&
-                      !IS_CAPT(currmove) && new_under_check_cnt == 0;
+                      !IS_CAPT(currmove) && !new_under_check;
 
       // Extensions
       int ext = 0;
       if (extallowed) {
-        if (new_under_check_cnt > 0 || promo_avail) {
+        if (new_under_check || promo_avail) {
           ext += 1;
         }
       }
@@ -283,7 +283,7 @@ int negamax(Search *s, int alpha, int beta, int depthleft, MoveList *pvdest,
       return quiescence(s, alpha, beta);
     } else {
       MoveList availmoves;
-      gen_moves(g_game.who2move, &availmoves, 0);
+      gen_moves(g_game.who2move, &availmoves);
 
       if (availmoves.cnt == 0) {
         return evaluate_terminalpos(s->currline.cnt);

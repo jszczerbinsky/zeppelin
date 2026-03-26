@@ -28,7 +28,7 @@ void perft(int depth, int *nodes, int *leafnodes) {
   }
 
   MoveList movelist;
-  gen_moves(g_game.who2move, &movelist, 0);
+  gen_moves(g_game.who2move, &movelist);
 
   if (movelist.cnt == 0) {
     (*nodes)++;
