@@ -24,7 +24,6 @@
 #include "game.h"
 #include "movelist.h"
 
-// checks_cnt is optional, can use 0, but correct value will reduce time
 void gen_moves(int player, MoveList *movelist);
 
 Move make_lva(int attacker, int sqr);

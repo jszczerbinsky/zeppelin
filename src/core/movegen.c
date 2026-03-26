@@ -34,16 +34,16 @@ int is_promotion_available(int player) {
   BitBrd dstbbrd;
   if (player == WHITE) {
     dstbbrd = (player_pawns << 8) & (~g_game.piecesof[ANY]) & RANK_8;
-    dstbbrd =
+    dstbbrd |=
         ((player_pawns & (~FILE_A) & RANK_7) << 7) & g_game.piecesof[!player];
-    dstbbrd =
+    dstbbrd |=
         ((player_pawns & (~FILE_H) & RANK_7) << 9) & g_game.piecesof[!player];
 
   } else {
     dstbbrd = (player_pawns >> 8) & (~g_game.piecesof[ANY]) & RANK_1;
-    dstbbrd =
+    dstbbrd |=
         ((player_pawns & (~FILE_H) & RANK_2) >> 7) & g_game.piecesof[!player];
-    dstbbrd =
+    dstbbrd |=
         ((player_pawns & (~FILE_A) & RANK_2) >> 9) & g_game.piecesof[!player];
   }
 
