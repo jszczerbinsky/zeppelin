@@ -77,18 +77,10 @@ static void sendboard(void) {
   printf("}\n");
 }
 
-static void respond2getmoves(char *arg) {
+static void respond2getmoves() {
   MoveList movelist;
-  BitBrd attacksbbrd;
 
-  int movetype = GEN_ALL;
-  if (equals(arg, "captures")) {
-    movetype = GEN_CAPT;
-  } else if (equals(arg, "quiet")) {
-    movetype = GEN_QUIET;
-  }
-
-  gen_moves(g_game.who2move, &movelist, &attacksbbrd, movetype, 0);
+  gen_moves(g_game.who2move, &movelist);
 
   printf("[\n");
 
@@ -133,8 +125,7 @@ static void respond2getrepetitions(void) {
 
 static void respond2eval(void) {
   MoveList movelist;
-  BitBrd attacksbbrd;
-  gen_moves(g_game.who2move, &movelist, &attacksbbrd, GEN_ALL, 0);
+  gen_moves(g_game.who2move, &movelist);
 
   int score;
   if (movelist.cnt == 0) {
@@ -226,7 +217,7 @@ static int next_cmd(char *buff) {
   else if (equals(token, "getboard"))
     respond2getboard();
   else if (equals(token, "getmoves"))
-    respond2getmoves(nexttok());
+    respond2getmoves();
   else if (equals(token, "getrepetitions"))
     respond2getrepetitions();
   else if (equals(token, "perft"))

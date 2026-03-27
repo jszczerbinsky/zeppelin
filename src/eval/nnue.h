@@ -40,7 +40,7 @@
 
 typedef struct {
   // Always from white perspective
-  // int8_t acc0[NNUE_ACC0_SIZE];
+  int8_t acc0[NNUE_ACC0_SIZE];
   alignas(32) int32_t acc1[NNUE_ACC1_SIZE];
   // int32_t acc2[NNUE_ACC2_SIZE];
   // int32_t acc3[NNUE_ACC3_SIZE];

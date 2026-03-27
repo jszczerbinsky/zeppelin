@@ -116,7 +116,7 @@ class UnmakeMoveTest(AbstractEngineTest):
     @override
     def perform_test(self) -> bool:
         self.engine.loadfen(self.fen)
-        moves = self.engine.getmoves('all')
+        moves = self.engine.getmoves()
 
         for move in moves:
             before = self.engine.getboard()
@@ -221,29 +221,21 @@ class GenMovesTest(AbstractEngineTest):
         self.fen = fen
         self.ready()
 
-    def _check_same(self, moves: list, board_moves: list, name: str):
+    def _check_same(self, moves: list, board_moves: list):
         if(sorted(moves) != sorted(board_moves)):
-            self.set_failinfo(name, sorted(board_moves), sorted(moves))
+            self.set_failinfo("moves", sorted(board_moves), sorted(moves))
             return False
         return True
 
     def perform_test(self) -> bool:
         self.engine.loadfen(self.fen)
-        all = self.engine.getmoves('all')
-        capts = self.engine.getmoves('captures')
-        quiet = self.engine.getmoves('quiet')
+        moves = self.engine.getmoves()
 
         board = chess.Board(self.fen)
 
-        board_all = [str(m) for m in list(board.generate_legal_moves())]
-        board_capts = [str(m) for m in list(board.generate_legal_captures())]
-        board_quiet = [m for m in board_all if m not in board_capts]
+        board_moves = [str(m) for m in list(board.generate_legal_moves())]
 
-        if not self._check_same(all, board_all, "all"):
-            return False
-        if not self._check_same(capts, board_capts, "captures"):
-            return False
-        if not self._check_same(quiet, board_quiet, "quiet"):
+        if not self._check_same(moves, board_moves):
             return False
 
         return True

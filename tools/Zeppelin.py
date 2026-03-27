@@ -93,8 +93,8 @@ class ZeppelinWithDebug:
             raise UnexpectedResponseException(res)
         return res['nodes']
 
-    def getmoves(self, type: str) -> list[str]:
-        res = self._send('getmoves ' + type)
+    def getmoves(self) -> list[str]:
+        res = self._send('getmoves')
         if not isinstance(res, list):
             raise UnexpectedResponseException(res)
         return res
